@@ -633,7 +633,7 @@ const ACCOUNTS = {
 
 let currentUser = null; // ログイン中のユーザー情報
 
-function doLogin() {
+window.doLogin = function() {
   const name = document.getElementById('login-name').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
   const err = document.getElementById('login-error');
@@ -656,7 +656,7 @@ function doLogin() {
   goScr('list');
 }
 
-function doLogout() {
+window.doLogout = function() {
   localStorage.removeItem('ecole_login');
   currentUser = null;
   currentStaff = '';
@@ -667,7 +667,7 @@ function doLogout() {
   document.getElementById('login-error').textContent = '';
 }
 
-function checkLogin() {
+window.checkLogin = function() {
   const saved = localStorage.getItem('ecole_login');
   if (saved) {
     try {
@@ -2234,10 +2234,7 @@ document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
 </script>
   </div><!-- /app-root -->
-  <script type="module">
-    // ログインチェックを実行
-    window.addEventListener('DOMContentLoaded', () => setTimeout(checkLogin, 100));
-  </script>
+
 
   <!-- パスワード変更ダイアログ -->
   <div id="pw-change-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:24px">
