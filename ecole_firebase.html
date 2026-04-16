@@ -604,34 +604,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 
-// ── アカウントマスター ──
-// role: 1=一般職員, 2=上司, 3=管理者
-const ACCOUNTS = {
-  '栗原':   { password: '栗原0000',   role: 1, han: '雑貨',      regular: false },
-  '戸澤':   { password: '戸澤0000',   role: 1, han: '雑貨',      regular: false },
-  '福澤':   { password: '福澤0000',   role: 3, han: '雑貨',      regular: true  },
-  '牛山':   { password: '牛山0000',   role: 3, han: '事務',      regular: true  },
-  '青山':   { password: '青山0000',   role: 2, han: 'パン缶',    regular: true  },
-  '鈴木早': { password: '鈴木早0000', role: 3, han: '事務',      regular: true  },
-  '竹内':   { password: '竹内0000',   role: 1, han: '雑貨',      regular: false },
-  '西野':   { password: '西野0000',   role: 1, han: '雑貨',      regular: false },
-  '篠原':   { password: '篠原0000',   role: 1, han: '雑貨',      regular: false },
-  '杉浦':   { password: '杉浦0000',   role: 2, han: '雑貨',      regular: true  },
-  '清水':   { password: '清水0000',   role: 2, han: 'レストラン', regular: true  },
-  '朝河':   { password: '朝河0000',   role: 2, han: 'レストラン', regular: true  },
-  '鈴木清': { password: '鈴木清0000', role: 2, han: 'パン',      regular: true  },
-  '加藤あ': { password: '加藤あ0000', role: 1, han: 'レストラン', regular: false },
-  '芦田':   { password: '芦田0000',   role: 1, han: 'レストラン', regular: false },
-  '松原':   { password: '松原0000',   role: 1, han: '雑貨',      regular: false },
-  '柴田':   { password: '柴田0000',   role: 1, han: '送迎',      regular: false },
-  '関根':   { password: '関根0000',   role: 1, han: 'パン缶',    regular: false },
-  '橋本':   { password: '橋本0000',   role: 1, han: 'パン缶',    regular: false },
-  '梶尾':   { password: '梶尾0000',   role: 1, han: 'パン缶',    regular: true  },
-  '上原':   { password: '上原0000',   role: 1, han: 'パン',      regular: false },
-  '桒原':   { password: '桒原0000',   role: 1, han: '雑貨',      regular: true  },
-};
-
-let currentUser = null; // ログイン中のユーザー情報
 
 function doLogin() {
   const name = document.getElementById('login-name').value.trim();
@@ -690,431 +662,7 @@ function checkLogin() {
 }
 
 
-window.showPasswordChange = function() {
-  document.getElementById('pw-current').value = '';
-  document.getElementById('pw-new1').value = '';
-  document.getElementById('pw-new2').value = '';
-  document.getElementById('pw-error').textContent = '';
-  document.getElementById('pw-change-dialog').style.display = 'flex';
-}
 
-window.doChangePassword = function() {
-  const current = document.getElementById('pw-current').value;
-  const new1 = document.getElementById('pw-new1').value;
-  const new2 = document.getElementById('pw-new2').value;
-  const err = document.getElementById('pw-error');
-
-  if (!currentUser) { err.textContent = 'ログインしていません'; return; }
-  if (ACCOUNTS[currentUser.name].password !== current) { err.textContent = '現在のパスワードが違います'; return; }
-  if (new1.length < 4) { err.textContent = 'パスワードは4文字以上にしてください'; return; }
-  if (new1 !== new2) { err.textContent = 'パスワードが一致しません'; return; }
-
-  // localStorageに保存
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  pwStore[currentUser.name] = new1;
-  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
-  ACCOUNTS[currentUser.name].password = new1;
-  currentUser.password = new1;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-
-  document.getElementById('pw-change-dialog').style.display = 'none';
-  showToast('パスワードを変更しました');
-}
-
-window.showUserMenu = function() {
-  const menu = document.createElement('div');
-  menu.id = 'user-menu-popup';
-  menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;overflow:hidden;min-width:160px';
-  menu.innerHTML = `
-    <div style="padding:12px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">${currentUser?currentUser.name:''}</div>
-    <div onclick="document.getElementById('user-menu-popup').remove();showPasswordChange()" style="padding:12px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px"><span>🔑</span>パスワード変更</div>
-    <div onclick="document.getElementById('user-menu-popup').remove();doLogout()" style="padding:12px 16px;font-size:13px;cursor:pointer;color:#e53e3e;display:flex;align-items:center;gap:8px;border-top:1px solid #eee"><span>🚪</span>ログアウト</div>
-  `;
-  document.body.appendChild(menu);
-  setTimeout(() => document.addEventListener('click', function rm(e) {
-    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', rm); }
-  }), 100);
-}
-
-
-// ── アカウントマスター ──
-const ACCOUNTS = {
-  '栗原':   { password: '栗原0000',   role: 1, han: '雑貨' },
-  '戸澤':   { password: '戸澤0000',   role: 1, han: '雑貨' },
-  '福澤':   { password: '福澤0000',   role: 3, han: '雑貨' },
-  '牛山':   { password: '牛山0000',   role: 3, han: '事務' },
-  '青山':   { password: '青山0000',   role: 2, han: 'パン缶' },
-  '鈴木早': { password: '鈴木早0000', role: 3, han: '事務' },
-  '竹内':   { password: '竹内0000',   role: 1, han: '雑貨' },
-  '西野':   { password: '西野0000',   role: 1, han: '雑貨' },
-  '篠原':   { password: '篠原0000',   role: 1, han: '雑貨' },
-  '杉浦':   { password: '杉浦0000',   role: 2, han: '雑貨' },
-  '清水':   { password: '清水0000',   role: 2, han: 'レストラン' },
-  '朝河':   { password: '朝河0000',   role: 2, han: 'レストラン' },
-  '鈴木清': { password: '鈴木清0000', role: 2, han: 'パン' },
-  '加藤あ': { password: '加藤あ0000', role: 1, han: 'レストラン' },
-  '芦田':   { password: '芦田0000',   role: 1, han: 'レストラン' },
-  '松原':   { password: '松原0000',   role: 1, han: '雑貨' },
-  '柴田':   { password: '柴田0000',   role: 1, han: '送迎' },
-  '関根':   { password: '関根0000',   role: 1, han: 'パン缶' },
-  '橋本':   { password: '橋本0000',   role: 1, han: 'パン缶' },
-  '梶尾':   { password: '梶尾0000',   role: 1, han: 'パン缶' },
-  '上原':   { password: '上原0000',   role: 1, han: 'パン' },
-  '桒原':   { password: '桒原0000',   role: 1, han: '雑貨' },
-};
-let currentUser = null;
-
-window.doLogin = function() {
-  const name = document.getElementById('login-name').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  const err = document.getElementById('login-error');
-  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  const validPw = pwStore[name] || ACCOUNTS[name].password;
-  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
-  currentUser = { name, role: ACCOUNTS[name].role, password: validPw };
-  currentStaff = name;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-  document.getElementById('login-screen').style.display = 'none';
-  updateUserBtn();
-  goScr('list');
-}
-
-window.doLogout = function() {
-  localStorage.removeItem('ecole_login');
-  currentUser = null; currentStaff = '';
-  document.getElementById('login-screen').style.display = 'flex';
-}
-
-window.showUserMenu = function() {
-  const existing = document.getElementById('user-menu-popup');
-  if (existing) { existing.remove(); return; }
-  const menu = document.createElement('div');
-  menu.id = 'user-menu-popup';
-  menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;min-width:160px';
-  menu.innerHTML = `<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">${currentStaff}</div>
-    <div onclick="this.closest('#user-menu-popup').remove();showPwChange()" style="padding:10px 16px;font-size:13px;cursor:pointer">🔑 パスワード変更</div>
-    <div onclick="doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee">🚪 ログアウト</div>`;
-  document.body.appendChild(menu);
-  setTimeout(() => document.addEventListener('click', function rm(e) { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click',rm); } }, {once:false}), 100);
-}
-
-window.showPwChange = function() {
-  document.getElementById('pw-dialog').style.display = 'flex';
-}
-
-window.doChangePw = function() {
-  const cur = document.getElementById('pw-cur').value;
-  const n1 = document.getElementById('pw-new1').value;
-  const n2 = document.getElementById('pw-new2').value;
-  const err = document.getElementById('pw-err');
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  const validPw = pwStore[currentStaff] || ACCOUNTS[currentStaff].password;
-  if (validPw !== cur) { err.textContent = '現在のパスワードが違います'; return; }
-  if (n1.length < 4) { err.textContent = '4文字以上にしてください'; return; }
-  if (n1 !== n2) { err.textContent = 'パスワードが一致しません'; return; }
-  pwStore[currentStaff] = n1;
-  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
-  currentUser.password = n1;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-  document.getElementById('pw-dialog').style.display = 'none';
-  showToast('パスワードを変更しました');
-}
-
-// ── マスターデータ ──
-const MASTER = {
-  routes: {
-    '東脇':   { color: '#3C3489', users: ['西谷充弘','山本利典','野田裕介','渕名健太','渕名裕太','渡辺一正','古林孝康','松井大訓'], pmOnly: ['下門朋也','佐々木由佳','稲垣雅子'] },
-    '賀茂':   { color: '#1D9E75', users: ['小島彰','森英充','原田順子','熊谷美那','石黒真矢','近田織義','及部富志夫'] },
-    'マイクロ': { color: '#D85A30', users: ['土屋佳世','国澤磨世','福浦葉聖','尾崎元哉','隅田潤','彦坂珠枝','彦坂純奈','遠山梓','坂井かれん','荒津美智子','伊藤憲考','吉村しおり','菅沼陽','権田和紀','大木晴充','小久保俊治','奥平日出夫','市古麻美','松井大訓','川野洋文'] },
-    '草間':   { color: '#BA7517', users: ['彦坂友咲','原田順子','田中千景','牧野裕助','加藤雅也','大塚佑介','松崎裕斗','大山知美'] },
-    '曙':     { color: '#993556', users: ['田中仁','田中力','本藤明奈','飯田康暉','久米恵子'] },
-    '二川':   { color: '#185FA5', users: ['渡辺真実鼓','森奈美恵','山本一夫','野津塁','高木由香','朝倉祥子'] },
-    'すたぁと': { color: '#6B4FA0', users: [] },
-  },
-  // 東脇便 曜日別デフォルトパターン
-  // dow: 0=日,1=月,2=火,3=水,4=木,5=金,6=土
-  // am/pm: '利用する'|'利用しない'、placeも指定可
-  // ログがない場合にこのデフォルトを使用
-  defaultSchedule: {
-    '東脇': {
-      am: {
-        '西谷充弘':  [0,0,1,0,0,0,0],
-        '山本利典':  [0,0,1,0,0,0,0],
-        '野田裕介':  [0,0,1,1,1,1,0],
-        '渕名健太':  [0,0,1,1,1,1,1],
-        '渕名裕太':  [0,0,1,1,1,1,1],
-        '渡辺一正':  [0,0,1,1,1,1,1],
-        '古林孝康':  [0,0,1,1,1,1,1],
-        '松井大訓':  [0,0,1,1,1,1,1],
-      },
-      pm: {
-        '西谷充弘':  [0,0,0,0,0,0,1],
-        '山本利典':  [0,0,0,0,0,0,1],
-        '野田裕介':  [0,0,1,1,1,1,0],
-        '渕名健太':  [0,0,1,1,1,1,1],
-        '渕名裕太':  [0,0,1,1,1,1,1],
-        '渡辺一正':  [0,0,1,1,1,1,1],
-        '古林孝康':  [0,0,0,0,0,0,0],
-        '松井大訓':  [0,0,0,0,0,0,0],
-        '下門朋也':  [0,0,1,1,1,1,1],
-        '佐々木由佳':[0,0,1,1,1,1,1],
-        '稲垣雅子':  [0,0,0,0,0,0,0],
-      },
-      amPlace: {
-        '西谷充弘': '童里夢', '山本利典': '童里夢',
-        '野田裕介': '童里夢', '渕名健太': '童里夢', '渕名裕太': '童里夢',
-        '渡辺一正': '童里夢', '古林孝康': '童里夢', '松井大訓': '童里夢',
-      },
-      pmPlace: {
-        '西谷充弘': '童里夢', '山本利典': 'エコール',
-        '野田裕介': 'エコール', '渕名健太': 'エコール', '渕名裕太': '童里夢',
-        '渡辺一正': '童里夢', '下門朋也': '奏楽', '佐々木由佳': '奏楽',
-      },
-    },
-    '賀茂': {
-      am: {
-        '小島彰':    [0,0,1,1,1,1,1],
-        '森英充':    [0,0,1,1,1,1,1],
-        '原田順子':  [0,0,0,0,0,0,0],
-        '熊谷美那':  [0,0,1,1,1,1,1],
-        '石黒真矢':  [0,0,1,1,1,1,1],
-        '近田織義':  [0,0,1,1,1,1,1],
-        '及部富志夫':[0,0,1,1,1,1,1],
-      },
-      pm: {
-        '小島彰':    [0,0,1,1,1,1,1],
-        '森英充':    [0,0,1,1,1,1,1],
-        '原田順子':  [0,0,0,0,0,0,0],
-        '熊谷美那':  [0,0,1,1,1,1,1],
-        '石黒真矢':  [0,0,1,1,1,1,1],
-        '近田織義':  [0,0,1,1,1,1,1],
-        '及部富志夫':[0,0,1,1,1,1,1],
-      },
-      amPlace: {
-        '小島彰': 'エコール', '森英充': 'エコール',
-        '熊谷美那': '童里夢', '石黒真矢': '奏楽',
-        '近田織義': '奏楽', '及部富志夫': '童里夢',
-      },
-      pmPlace: {
-        '小島彰': 'エコール', '森英充': 'エコール',
-        '熊谷美那': '童里夢', '石黒真矢': '奏楽',
-        '近田織義': '奏楽', '及部富志夫': '童里夢',
-      },
-    },
-    'マイクロ': {
-      am: {
-        '土屋佳世':   [0,0,1,1,1,1,1],
-        '国澤磨世':   [0,0,1,0,0,0,0],
-        '福浦葉聖':   [0,0,0,0,0,1,1],
-        '尾崎元哉':   [0,0,0,0,1,1,0],
-        '隅田潤':     [0,0,1,0,0,0,0],
-        '彦坂珠枝':   [0,0,1,1,1,1,1],
-        '彦坂純奈':   [0,0,1,1,1,1,1],
-        '遠山梓':     [0,0,1,1,1,1,1],
-        '坂井かれん': [0,0,0,0,1,1,0],
-        '荒津美智子': [0,0,1,1,1,1,1],
-        '伊藤憲考':   [0,0,1,1,1,1,1],
-        '吉村しおり': [0,0,1,1,1,1,1],
-        '菅沼陽':     [0,0,1,1,1,1,1],
-        '権田和紀':   [0,0,1,1,1,1,1],
-        '大木晴充':   [0,0,1,1,1,1,1],
-        '小久保俊治': [0,0,1,1,1,1,1],
-        '奥平日出夫': [0,0,0,0,0,0,0],
-        '市古麻美':   [0,0,0,0,1,1,1],
-        '松井大訓':   [0,0,0,0,0,0,0],
-        '川野洋文':   [0,0,0,0,0,0,0],
-      },
-      pm: {
-        '土屋佳世':   [0,0,1,1,1,1,1],
-        '国澤磨世':   [0,0,0,0,0,0,1],
-        '福浦葉聖':   [0,0,0,0,0,1,1],
-        '尾崎元哉':   [0,0,0,0,1,1,0],
-        '隅田潤':     [0,0,0,0,0,0,1],
-        '彦坂珠枝':   [0,0,1,1,1,1,1],
-        '彦坂純奈':   [0,0,1,1,1,1,1],
-        '遠山梓':     [0,0,1,1,1,1,1],
-        '坂井かれん': [0,0,0,0,1,1,0],
-        '荒津美智子': [0,0,1,1,1,1,1],
-        '伊藤憲考':   [0,0,1,1,1,1,1],
-        '吉村しおり': [0,0,1,1,1,1,1],
-        '菅沼陽':     [0,0,1,1,1,1,1],
-        '権田和紀':   [0,0,1,1,1,1,1],
-        '大木晴充':   [0,0,1,1,1,1,1],
-        '小久保俊治': [0,0,1,1,1,1,1],
-        '奥平日出夫': [0,0,1,1,1,1,1],
-        '市古麻美':   [0,0,0,0,1,1,1],
-        '松井大訓':   [0,0,1,1,1,1,1],
-        '古林孝康':   [0,0,1,1,1,1,1],
-        '川野洋文':   [0,0,1,1,1,1,1],
-      },
-      amPlace: {
-        '土屋佳世': 'エコール', '国澤磨世': '童里夢', '尾崎元哉': '奏楽',
-        '隅田潤': '奏楽', '彦坂珠枝': '童里夢', '彦坂純奈': '童里夢',
-        '遠山梓': '童里夢', '坂井かれん': '童里夢', '荒津美智子': '童里夢',
-        '伊藤憲考': '奏楽', '吉村しおり': '奏楽', '菅沼陽': '童里夢',
-        '権田和紀': '奏楽', '大木晴充': '奏楽', '小久保俊治': '奏楽',
-        '市古麻美': '奏楽', '福浦葉聖': 'エコール',
-      },
-      pmPlace: {
-        '土屋佳世': 'エコール', '国澤磨世': '童里夢', '尾崎元哉': '奏楽',
-        '隅田潤': '奏楽', '彦坂珠枝': '童里夢', '彦坂純奈': '童里夢',
-        '遠山梓': '童里夢', '坂井かれん': '童里夢', '荒津美智子': '童里夢',
-        '伊藤憲考': '奏楽', '吉村しおり': '奏楽', '菅沼陽': '童里夢',
-        '権田和紀': '奏楽', '大木晴充': '奏楽', '小久保俊治': '奏楽',
-        '奥平日出夫': '奏楽', '松井大訓': 'エコール', '古林孝康': 'エコール',
-        '川野洋文': '奏楽', '市古麻美': '奏楽', '福浦葉聖': 'エコール',
-      },
-    },
-    '草間': {
-      am: {
-        '彦坂友咲':   [0,0,1,1,0,0,0],
-        '原田順子':   [0,0,1,1,1,1,1],
-        '田中千景':   [0,0,1,1,1,1,1],
-        '牧野裕助':   [0,0,1,1,1,1,1],
-        '加藤雅也':   [0,0,1,1,1,1,1],
-        '大塚佑介':   [0,0,1,0,0,0,1],
-        '松崎裕斗':   [0,0,0,0,1,1,0],
-        '大山知美':   [0,0,0,0,0,0,0],
-      },
-      pm: {
-        '彦坂友咲':   [0,0,1,1,0,0,0],
-        '原田順子':   [0,0,1,1,1,1,1],
-        '田中千景':   [0,0,1,1,1,1,1],
-        '牧野裕助':   [0,0,1,1,1,1,1],
-        '加藤雅也':   [0,0,1,1,1,1,1],
-        '大塚佑介':   [0,0,1,0,0,0,1],
-        '松崎裕斗':   [0,0,0,0,1,1,0],
-        '大山知美':   [0,0,0,0,0,0,0],
-      },
-      amPlace: {
-        '彦坂友咲': '奏楽', '原田順子': '奏楽', '田中千景': '奏楽',
-        '牧野裕助': 'エコール', '加藤雅也': '童里夢', '大塚佑介': '奏楽',
-        '松崎裕斗': '奏楽',
-      },
-      pmPlace: {
-        '彦坂友咲': '奏楽', '原田順子': '童里夢', '田中千景': '童里夢',
-        '加藤雅也': '童里夢', '大塚佑介': '奏楽', '松崎裕斗': '奏楽',
-        '牧野裕助': 'エコール',
-      },
-    },
-    '曙': {
-      am: {
-        '田中仁':   [0,0,1,1,1,1,1],
-        '田中力':   [0,0,1,1,1,1,1],
-        '本藤明奈': [0,0,1,1,1,1,1],
-        '飯田康暉': [0,0,1,1,1,1,1],
-        '久米恵子': [0,0,1,1,1,1,1],
-      },
-      pm: {
-        '田中仁':   [0,0,1,1,1,1,1],
-        '田中力':   [0,0,1,1,1,1,1],
-        '本藤明奈': [0,0,1,1,1,1,1],
-        '飯田康暉': [0,0,1,1,1,1,1],
-        '久米恵子': [0,0,1,1,1,1,1],
-      },
-      amPlace: {
-        '田中仁': '奏楽', '田中力': '奏楽', '久米恵子': '奏楽',
-        '本藤明奈': '童里夢', '飯田康暉': '童里夢',
-      },
-      pmPlace: {
-        '田中仁': '奏楽', '田中力': '奏楽', '久米恵子': '奏楽',
-        '本藤明奈': '童里夢', '飯田康暉': 'エコール',
-      },
-    },
-    '二川': {
-      am: {
-        '渡辺真実鼓': [0,0,1,1,0,1,1],
-        '森奈美恵':   [0,0,1,1,1,1,1],
-        '山本一夫':   [0,0,1,1,1,1,1],
-        '野津塁':     [0,0,1,1,1,1,1],
-        '高木由香':   [0,0,0,0,0,0,0],
-        '朝倉祥子':   [0,0,0,0,0,0,0],
-        '坂井かれん': [0,0,0,0,0,0,0],
-      },
-      pm: {
-        '渡辺真実鼓': [0,0,1,1,0,1,1],
-        '森奈美恵':   [0,0,1,1,1,1,1],
-        '山本一夫':   [0,0,1,1,1,1,1],
-        '野津塁':     [0,0,1,1,1,1,1],
-        '木下真利':   [0,0,0,0,0,0,0],
-        '高木由香':   [0,0,0,0,0,0,0],
-        '朝倉祥子':   [0,0,0,0,0,0,0],
-      },
-      amPlace: {
-        '渡辺真実鼓': '奏楽', '森奈美恵': '童里夢',
-        '山本一夫': '奏楽', '野津塁': '奏楽',
-      },
-      pmPlace: {
-        '渡辺真実鼓': '奏楽', '野津塁': '奏楽',
-        '森奈美恵': 'エコール', '山本一夫': '奏楽',
-      },
-    },
-  },
-  avColors: [
-    ['#EEEDFE','#3C3489'],['#E1F5EE','#085041'],['#FAECE7','#712B13'],
-    ['#FBEAF0','#72243E'],['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],
-    ['#FAEEDA','#633806'],['#F1EFE8','#444441']
-  ]
-};
-
-// ── 状態 ──
-let logs = [];
-let selectedDate = today();
-let currentScr = 'list';
-let fState = { abs:'出席', am:'利用する', pm:'利用する', kyushoku:'あり' };
-let sheetCtx = {};
-let readNotif = JSON.parse(localStorage.getItem('ecole_read')||'[]');
-
-// ── Firestore リアルタイム監視 ──
-const q = query(collection(db, 'logs'), orderBy('createdAt', 'desc'));
-onSnapshot(q, (snapshot) => {
-  logs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-  document.getElementById('sync-dot').style.display = 'inline-block';
-  setTimeout(() => document.getElementById('sync-dot').style.display = 'none', 1000);
-  if (currentScr === 'list') renderList();
-  if (currentScr === 'notif') renderNotif();
-  if (currentScr === 'hist') renderHist(document.getElementById('hist-search').value||'');
-  updateDot();
-});
-
-// ── ユーティリティ ──
-function today() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function tsNow() {
-  const d = new Date();
-  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-function fmtDate(ds) {
-  const days = ['日','月','火','水','木','金','土'];
-  const d = new Date(ds + 'T00:00:00');
-  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
-}
-
-function avColor(name) {
-  let h = 0; for (const c of name) h = (h*31 + c.charCodeAt(0)) & 0xffff;
-  return MASTER.avColors[h % MASTER.avColors.length];
-}
-
-function latestFor(date, bin, user) {
-  const hits = logs.filter(l => l.date===date && l.bin===bin && l.user===user);
-  return hits.length ? hits[0] : null;
-}
-
-function tagHtml(am, pm, abs) {
-  if (abs) return '<span class="stag tabs">欠席</span>';
-  const a = am==='利用する' ? '<span class="stag tok">朝 乗車</span>' : '<span class="stag tno">朝 不要</span>';
-  const p = pm==='利用する' ? '<span class="stag tok">夕 乗車</span>' : '<span class="stag tno">夕 不要</span>';
-  return a + ' ' + p;
-}
-
-// ── 画面切り替え ──
-const scrTitles = { list:'送迎一覧', form:'欠席・変更入力', notif:'通知', hist:'変更履歴', kyushoku:'給食管理', absence:'欠席一覧', distance:'距離記録', case:'ケース記録', purchase:'購入申請' };
-const scrSubs   = { form:'内容を入力して送信', notif:'スタッフへの通知', hist:'過去の変更ログ', kyushoku:'童里夢 給食数', absence:'欠席・遅刻・早退', distance:'走行距離の記録', case:'日々の記録入力', purchase:'2段階購入申請' };
 
 window.goScr = function(s) {
   currentScr = s;
@@ -1481,6 +1029,89 @@ window.editFromSheet = function() {
 
 
 // ── 職員マスタ ──
+// ── アカウントマスター ──
+const ACCOUNTS = {
+  '栗原':   { password: '栗原0000',   role: 1, han: '雑貨' },
+  '戸澤':   { password: '戸澤0000',   role: 1, han: '雑貨' },
+  '福澤':   { password: '福澤0000',   role: 3, han: '雑貨' },
+  '牛山':   { password: '牛山0000',   role: 3, han: '事務' },
+  '青山':   { password: '青山0000',   role: 2, han: 'パン缶' },
+  '鈴木早': { password: '鈴木早0000', role: 3, han: '事務' },
+  '竹内':   { password: '竹内0000',   role: 1, han: '雑貨' },
+  '西野':   { password: '西野0000',   role: 1, han: '雑貨' },
+  '篠原':   { password: '篠原0000',   role: 1, han: '雑貨' },
+  '杉浦':   { password: '杉浦0000',   role: 2, han: '雑貨' },
+  '清水':   { password: '清水0000',   role: 2, han: 'レストラン' },
+  '朝河':   { password: '朝河0000',   role: 2, han: 'レストラン' },
+  '鈴木清': { password: '鈴木清0000', role: 2, han: 'パン' },
+  '加藤あ': { password: '加藤あ0000', role: 1, han: 'レストラン' },
+  '芦田':   { password: '芦田0000',   role: 1, han: 'レストラン' },
+  '松原':   { password: '松原0000',   role: 1, han: '雑貨' },
+  '柴田':   { password: '柴田0000',   role: 1, han: '送迎' },
+  '関根':   { password: '関根0000',   role: 1, han: 'パン缶' },
+  '橋本':   { password: '橋本0000',   role: 1, han: 'パン缶' },
+  '梶尾':   { password: '梶尾0000',   role: 1, han: 'パン缶' },
+  '上原':   { password: '上原0000',   role: 1, han: 'パン' },
+  '桒原':   { password: '桒原0000',   role: 1, han: '雑貨' },
+};
+let currentUser = null;
+
+window.doLogin = function() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('login-error');
+  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  const validPw = pwStore[name] || ACCOUNTS[name].password;
+  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
+  currentUser = { name, role: ACCOUNTS[name].role, password: validPw };
+  currentStaff = name;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+  document.getElementById('login-screen').style.display = 'none';
+  updateUserBtn();
+  goScr('list');
+};
+
+window.doLogout = function() {
+  localStorage.removeItem('ecole_login');
+  currentUser = null; currentStaff = '';
+  document.getElementById('login-screen').style.display = 'flex';
+};
+
+window.showUserMenu = function() {
+  const existing = document.getElementById('user-menu-popup');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'user-menu-popup';
+  menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;min-width:160px';
+  menu.innerHTML = '<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">'+currentStaff+'</div>'+
+    '<div onclick="document.getElementById(\'user-menu-popup\').remove();document.getElementById(\'pw-dialog\').style.display=\'flex\'" style="padding:10px 16px;font-size:13px;cursor:pointer">🔑 パスワード変更</div>'+
+    '<div onclick="window.doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee">🚪 ログアウト</div>';
+  document.body.appendChild(menu);
+  setTimeout(() => {
+    function rm(e) { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', rm); } }
+    document.addEventListener('click', rm);
+  }, 100);
+};
+
+window.doChangePw = function() {
+  const cur = document.getElementById('pw-cur').value;
+  const n1 = document.getElementById('pw-new1').value;
+  const n2 = document.getElementById('pw-new2').value;
+  const err = document.getElementById('pw-err');
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  const validPw = pwStore[currentStaff] || ACCOUNTS[currentStaff].password;
+  if (validPw !== cur) { err.textContent = '現在のパスワードが違います'; return; }
+  if (n1.length < 4) { err.textContent = '4文字以上にしてください'; return; }
+  if (n1 !== n2) { err.textContent = 'パスワードが一致しません'; return; }
+  pwStore[currentStaff] = n1;
+  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
+  currentUser.password = n1;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+  document.getElementById('pw-dialog').style.display = 'none';
+  showToast('パスワードを変更しました');
+};
+
 const STAFF = [
   { name: '栗原', han: '雑貨' },
   { name: '戸澤', han: '雑貨' },
@@ -2181,13 +1812,15 @@ function initLogin() {
   if (saved) {
     try {
       const u = JSON.parse(saved);
-      const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-      const validPw = pwStore[u.name] || (ACCOUNTS[u.name] && ACCOUNTS[u.name].password);
-      if (ACCOUNTS[u.name] && validPw === u.password) {
-        currentUser = u; currentStaff = u.name;
-        document.getElementById('login-screen').style.display = 'none';
-        updateUserBtn();
-        return;
+      if (ACCOUNTS[u.name]) {
+        const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+        const validPw = pwStore[u.name] || ACCOUNTS[u.name].password;
+        if (validPw === u.password) {
+          currentUser = u; currentStaff = u.name;
+          document.getElementById('login-screen').style.display = 'none';
+          updateUserBtn();
+          return;
+        }
       }
     } catch(e) {}
   }
@@ -2354,5 +1987,19 @@ initLogin();
     </div>
   </div>
 
+  <!-- パスワード変更ダイアログ -->
+  <div id="pw-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:24px">
+    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:16px">パスワード変更</div>
+      <input id="pw-cur" type="password" placeholder="現在のパスワード" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box;margin-bottom:10px"/>
+      <input id="pw-new1" type="password" placeholder="新しいパスワード（4文字以上）" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box;margin-bottom:10px"/>
+      <input id="pw-new2" type="password" placeholder="新しいパスワード（確認）" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box;margin-bottom:10px"/>
+      <div id="pw-err" style="color:#e53e3e;font-size:12px;margin-bottom:8px;min-height:16px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('pw-dialog').style.display='none'" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer">キャンセル</button>
+        <button onclick="doChangePw()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#3C3489;color:#fff;cursor:pointer;font-weight:700">変更</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
