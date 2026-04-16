@@ -633,7 +633,7 @@ const ACCOUNTS = {
 
 let currentUser = null; // ログイン中のユーザー情報
 
-window.doLogin = function() {
+function doLogin() {
   const name = document.getElementById('login-name').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
   const err = document.getElementById('login-error');
@@ -656,7 +656,7 @@ window.doLogin = function() {
   goScr('list');
 }
 
-window.doLogout = function() {
+function doLogout() {
   localStorage.removeItem('ecole_login');
   currentUser = null;
   currentStaff = '';
@@ -667,7 +667,7 @@ window.doLogout = function() {
   document.getElementById('login-error').textContent = '';
 }
 
-window.checkLogin = function() {
+function checkLogin() {
   const saved = localStorage.getItem('ecole_login');
   if (saved) {
     try {
@@ -734,6 +734,91 @@ window.showUserMenu = function() {
   setTimeout(() => document.addEventListener('click', function rm(e) {
     if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', rm); }
   }), 100);
+}
+
+
+// ── アカウントマスター ──
+const ACCOUNTS = {
+  '栗原':   { password: '栗原0000',   role: 1, han: '雑貨' },
+  '戸澤':   { password: '戸澤0000',   role: 1, han: '雑貨' },
+  '福澤':   { password: '福澤0000',   role: 3, han: '雑貨' },
+  '牛山':   { password: '牛山0000',   role: 3, han: '事務' },
+  '青山':   { password: '青山0000',   role: 2, han: 'パン缶' },
+  '鈴木早': { password: '鈴木早0000', role: 3, han: '事務' },
+  '竹内':   { password: '竹内0000',   role: 1, han: '雑貨' },
+  '西野':   { password: '西野0000',   role: 1, han: '雑貨' },
+  '篠原':   { password: '篠原0000',   role: 1, han: '雑貨' },
+  '杉浦':   { password: '杉浦0000',   role: 2, han: '雑貨' },
+  '清水':   { password: '清水0000',   role: 2, han: 'レストラン' },
+  '朝河':   { password: '朝河0000',   role: 2, han: 'レストラン' },
+  '鈴木清': { password: '鈴木清0000', role: 2, han: 'パン' },
+  '加藤あ': { password: '加藤あ0000', role: 1, han: 'レストラン' },
+  '芦田':   { password: '芦田0000',   role: 1, han: 'レストラン' },
+  '松原':   { password: '松原0000',   role: 1, han: '雑貨' },
+  '柴田':   { password: '柴田0000',   role: 1, han: '送迎' },
+  '関根':   { password: '関根0000',   role: 1, han: 'パン缶' },
+  '橋本':   { password: '橋本0000',   role: 1, han: 'パン缶' },
+  '梶尾':   { password: '梶尾0000',   role: 1, han: 'パン缶' },
+  '上原':   { password: '上原0000',   role: 1, han: 'パン' },
+  '桒原':   { password: '桒原0000',   role: 1, han: '雑貨' },
+};
+let currentUser = null;
+
+window.doLogin = function() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('login-error');
+  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  const validPw = pwStore[name] || ACCOUNTS[name].password;
+  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
+  currentUser = { name, role: ACCOUNTS[name].role, password: validPw };
+  currentStaff = name;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+  document.getElementById('login-screen').style.display = 'none';
+  updateUserBtn();
+  goScr('list');
+}
+
+window.doLogout = function() {
+  localStorage.removeItem('ecole_login');
+  currentUser = null; currentStaff = '';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+window.showUserMenu = function() {
+  const existing = document.getElementById('user-menu-popup');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'user-menu-popup';
+  menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;min-width:160px';
+  menu.innerHTML = `<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">${currentStaff}</div>
+    <div onclick="this.closest('#user-menu-popup').remove();showPwChange()" style="padding:10px 16px;font-size:13px;cursor:pointer">🔑 パスワード変更</div>
+    <div onclick="doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee">🚪 ログアウト</div>`;
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', function rm(e) { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click',rm); } }, {once:false}), 100);
+}
+
+window.showPwChange = function() {
+  document.getElementById('pw-dialog').style.display = 'flex';
+}
+
+window.doChangePw = function() {
+  const cur = document.getElementById('pw-cur').value;
+  const n1 = document.getElementById('pw-new1').value;
+  const n2 = document.getElementById('pw-new2').value;
+  const err = document.getElementById('pw-err');
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  const validPw = pwStore[currentStaff] || ACCOUNTS[currentStaff].password;
+  if (validPw !== cur) { err.textContent = '現在のパスワードが違います'; return; }
+  if (n1.length < 4) { err.textContent = '4文字以上にしてください'; return; }
+  if (n1 !== n2) { err.textContent = 'パスワードが一致しません'; return; }
+  pwStore[currentStaff] = n1;
+  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
+  currentUser.password = n1;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+  document.getElementById('pw-dialog').style.display = 'none';
+  showToast('パスワードを変更しました');
 }
 
 // ── マスターデータ ──
@@ -2091,16 +2176,22 @@ window.selectKyushokuDay = function(ds) {
 let currentStaff = '';
 
 function initLogin() {
-  const list = document.getElementById('staff-list');
-  list.innerHTML = STAFF.map(s => `
-    <div class="staff-item" onclick="selectStaff('${s.name}')">
-      <span class="staff-name">${s.name}</span>
-      <span class="staff-han">${s.han}</span>
-    </div>`).join('');
-  if (currentStaff) {
-    document.getElementById('login-screen').style.display = 'none';
-    updateUserBtn();
+  // アカウント制ログインチェック
+  const saved = localStorage.getItem('ecole_login');
+  if (saved) {
+    try {
+      const u = JSON.parse(saved);
+      const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+      const validPw = pwStore[u.name] || (ACCOUNTS[u.name] && ACCOUNTS[u.name].password);
+      if (ACCOUNTS[u.name] && validPw === u.password) {
+        currentUser = u; currentStaff = u.name;
+        document.getElementById('login-screen').style.display = 'none';
+        updateUserBtn();
+        return;
+      }
+    } catch(e) {}
   }
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
 window.selectStaff = function(name) {
@@ -2234,7 +2325,10 @@ document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
 </script>
   </div><!-- /app-root -->
-
+  <script type="module">
+    // ログインチェックを実行
+    window.addEventListener('DOMContentLoaded', () => setTimeout(checkLogin, 100));
+  </script>
 
   <!-- パスワード変更ダイアログ -->
   <div id="pw-change-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:24px">
