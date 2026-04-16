@@ -1068,6 +1068,7 @@ window.doLogin = function() {
   currentStaff = name;
   localStorage.setItem('ecole_login', JSON.stringify(currentUser));
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
   updateUserBtn();
   goScr('list');
 };
@@ -1075,16 +1076,21 @@ window.doLogin = function() {
 window.doLogout = function() {
   localStorage.removeItem('ecole_login');
   currentUser = null; currentStaff = '';
+  document.getElementById('app-root').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
 };
 
 window.showUserMenu = function() {
   const existing = document.getElementById('user-menu-popup');
   if (existing) { existing.remove(); return; }
+  const roleLabel = currentUser ? (currentUser.role === 3 ? '管理者' : currentUser.role === 2 ? '上司' : '一般') : '';
   const menu = document.createElement('div');
   menu.id = 'user-menu-popup';
   menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;min-width:160px';
-  menu.innerHTML = '<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">'+currentStaff+'</div>'+
+  menu.innerHTML = '<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">'+currentStaff+'<span style="font-size:11px;font-weight:400;color:#888;margin-left:8px">'+roleLabel+'</span></div>'+
     '<div onclick="document.getElementById(\'user-menu-popup\').remove();document.getElementById(\'pw-dialog\').style.display=\'flex\'" style="padding:10px 16px;font-size:13px;cursor:pointer">🔑 パスワード変更</div>'+
     '<div onclick="window.doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee">🚪 ログアウト</div>';
   document.body.appendChild(menu);
@@ -1373,7 +1379,7 @@ window.renderPurchaseList = function() {
     if (list.length===0) { body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">申請はありません</div>'; return; }
     body.innerHTML = list.map(p => {
       const statusColor = p.status==='承認済' ? 'var(--green-dark)' : p.status==='却下' ? 'var(--red-dark)' : 'var(--amber-dark)';
-      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant;
+      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant && currentUser && currentUser.role >= 2;
       const canStep2 = p.step===1 && p.status==='承認済' && p.applicant===currentStaff;
       return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -1818,6 +1824,7 @@ function initLogin() {
         if (validPw === u.password) {
           currentUser = u; currentStaff = u.name;
           document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app-root').style.display = 'block';
           updateUserBtn();
           return;
         }
@@ -1825,6 +1832,7 @@ function initLogin() {
     } catch(e) {}
   }
   document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-root').style.display = 'none';
 }
 
 window.selectStaff = function(name) {
@@ -1839,8 +1847,13 @@ window.showLogin = function() {
 }
 
 function updateUserBtn() {
-  const btn = document.getElementById('current-user-btn');
+  const btn = document.getElementById('hd-staff');
   if (btn) btn.textContent = currentStaff ? `${currentStaff} ▾` : '未設定';
+  const roleEl = document.getElementById('hd-role');
+  if (roleEl && currentUser) {
+    const roleLabel = currentUser.role === 3 ? '管理者' : currentUser.role === 2 ? '上司' : '一般';
+    roleEl.textContent = roleLabel;
+  }
 }
 
 // ── 給食マスタ（童里夢）──
