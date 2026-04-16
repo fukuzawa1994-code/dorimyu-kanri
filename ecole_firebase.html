@@ -186,20 +186,35 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="login-screen" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--purple);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
-    <div style="color:#fff;font-size:22px;font-weight:700;margin-bottom:8px;">École 送迎管理</div>
-    <div style="color:rgba(255,255,255,.7);font-size:13px;margin-bottom:32px;">あなたの名前を選んでください</div>
-    <div style="background:#fff;border-radius:14px;width:100%;max-width:340px;overflow-y:auto;max-height:70vh;">
-      <div id="staff-list"></div>
+  <!-- ログイン画面 -->
+  <div id="login-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--purple);z-index:99999;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="color:#fff;font-size:22px;font-weight:800;margin-bottom:4px">École 送迎管理</div>
+    <div style="color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:32px">ログインしてください</div>
+    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px">
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">名前（ID）</div>
+        <input id="login-name" type="text" placeholder="例：福澤" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">パスワード</div>
+        <input id="login-pass" type="password" placeholder="パスワードを入力" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div id="login-error" style="color:#e53e3e;font-size:12px;margin-bottom:8px;min-height:16px"></div>
+      <button onclick="doLogin()" style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer">ログイン</button>
     </div>
   </div>
+
+  <!-- アプリ本体 -->
+  <div id="app-root" style="display:none">
+<div id="app">
+<!-- 旧ログイン画面削除済み -->
 
   <div class="header">
     <div class="header-inner">
       <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:10px;color:rgba(255,255,255,0.7)" id="hd-role"></div>
         <h1 id="hd-title">送迎一覧 <span class="sync-dot" id="sync-dot" style="display:none"></span></h1>
-        <span class="current-user" id="current-user-btn" onclick="showLogin()"></span>
+        <span class="current-user" id="hd-staff" onclick="showUserMenu()" title="メニュー"></span>
       </div>
       <p id="hd-sub"></p>
     </div>
@@ -587,6 +602,139 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+
+// ── アカウントマスター ──
+// role: 1=一般職員, 2=上司, 3=管理者
+const ACCOUNTS = {
+  '栗原':   { password: '栗原0000',   role: 1, han: '雑貨',      regular: false },
+  '戸澤':   { password: '戸澤0000',   role: 1, han: '雑貨',      regular: false },
+  '福澤':   { password: '福澤0000',   role: 3, han: '雑貨',      regular: true  },
+  '牛山':   { password: '牛山0000',   role: 3, han: '事務',      regular: true  },
+  '青山':   { password: '青山0000',   role: 2, han: 'パン缶',    regular: true  },
+  '鈴木早': { password: '鈴木早0000', role: 3, han: '事務',      regular: true  },
+  '竹内':   { password: '竹内0000',   role: 1, han: '雑貨',      regular: false },
+  '西野':   { password: '西野0000',   role: 1, han: '雑貨',      regular: false },
+  '篠原':   { password: '篠原0000',   role: 1, han: '雑貨',      regular: false },
+  '杉浦':   { password: '杉浦0000',   role: 2, han: '雑貨',      regular: true  },
+  '清水':   { password: '清水0000',   role: 2, han: 'レストラン', regular: true  },
+  '朝河':   { password: '朝河0000',   role: 2, han: 'レストラン', regular: true  },
+  '鈴木清': { password: '鈴木清0000', role: 2, han: 'パン',      regular: true  },
+  '加藤あ': { password: '加藤あ0000', role: 1, han: 'レストラン', regular: false },
+  '芦田':   { password: '芦田0000',   role: 1, han: 'レストラン', regular: false },
+  '松原':   { password: '松原0000',   role: 1, han: '雑貨',      regular: false },
+  '柴田':   { password: '柴田0000',   role: 1, han: '送迎',      regular: false },
+  '関根':   { password: '関根0000',   role: 1, han: 'パン缶',    regular: false },
+  '橋本':   { password: '橋本0000',   role: 1, han: 'パン缶',    regular: false },
+  '梶尾':   { password: '梶尾0000',   role: 1, han: 'パン缶',    regular: true  },
+  '上原':   { password: '上原0000',   role: 1, han: 'パン',      regular: false },
+  '桒原':   { password: '桒原0000',   role: 1, han: '雑貨',      regular: true  },
+};
+
+let currentUser = null; // ログイン中のユーザー情報
+
+function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('login-error');
+  
+  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
+  // localStorageのパスワードを優先
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  const validPw = pwStore[name] || ACCOUNTS[name].password;
+  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
+  
+  currentUser = { name, ...ACCOUNTS[name] };
+  currentStaff = name;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+  
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
+  document.getElementById('hd-staff').textContent = name;
+  document.getElementById('hd-role').textContent = ['', '一般', '上司', '管理者'][currentUser.role];
+  
+  goScr('list');
+}
+
+function doLogout() {
+  localStorage.removeItem('ecole_login');
+  currentUser = null;
+  currentStaff = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-root').style.display = 'none';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+function checkLogin() {
+  const saved = localStorage.getItem('ecole_login');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      const pwStore2 = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+      const validPw2 = pwStore2[currentUser.name] || ACCOUNTS[currentUser.name].password;
+      if (ACCOUNTS[currentUser.name] && validPw2 === currentUser.password) {
+        currentStaff = currentUser.name;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-root').style.display = 'block';
+        document.getElementById('hd-staff').textContent = currentUser.name;
+        document.getElementById('hd-role').textContent = ['', '一般', '上司', '管理者'][currentUser.role];
+        goScr('list');
+        return;
+      }
+    } catch(e) {}
+  }
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-root').style.display = 'none';
+}
+
+
+window.showPasswordChange = function() {
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new1').value = '';
+  document.getElementById('pw-new2').value = '';
+  document.getElementById('pw-error').textContent = '';
+  document.getElementById('pw-change-dialog').style.display = 'flex';
+}
+
+window.doChangePassword = function() {
+  const current = document.getElementById('pw-current').value;
+  const new1 = document.getElementById('pw-new1').value;
+  const new2 = document.getElementById('pw-new2').value;
+  const err = document.getElementById('pw-error');
+
+  if (!currentUser) { err.textContent = 'ログインしていません'; return; }
+  if (ACCOUNTS[currentUser.name].password !== current) { err.textContent = '現在のパスワードが違います'; return; }
+  if (new1.length < 4) { err.textContent = 'パスワードは4文字以上にしてください'; return; }
+  if (new1 !== new2) { err.textContent = 'パスワードが一致しません'; return; }
+
+  // localStorageに保存
+  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+  pwStore[currentUser.name] = new1;
+  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
+  ACCOUNTS[currentUser.name].password = new1;
+  currentUser.password = new1;
+  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
+
+  document.getElementById('pw-change-dialog').style.display = 'none';
+  showToast('パスワードを変更しました');
+}
+
+window.showUserMenu = function() {
+  const menu = document.createElement('div');
+  menu.id = 'user-menu-popup';
+  menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;overflow:hidden;min-width:160px';
+  menu.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">${currentUser?currentUser.name:''}</div>
+    <div onclick="document.getElementById('user-menu-popup').remove();showPasswordChange()" style="padding:12px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px"><span>🔑</span>パスワード変更</div>
+    <div onclick="document.getElementById('user-menu-popup').remove();doLogout()" style="padding:12px 16px;font-size:13px;cursor:pointer;color:#e53e3e;display:flex;align-items:center;gap:8px;border-top:1px solid #eee"><span>🚪</span>ログアウト</div>
+  `;
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', function rm(e) {
+    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', rm); }
+  }), 100);
+}
 
 // ── マスターデータ ──
 const MASTER = {
@@ -1940,7 +2088,7 @@ window.selectKyushokuDay = function(ds) {
 
 
 // ── ログイン ──
-let currentStaff = localStorage.getItem('ecole_staff') || '';
+let currentStaff = '';
 
 function initLogin() {
   const list = document.getElementById('staff-list');
@@ -2085,5 +2233,35 @@ renderDateStrip();
 document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
 </script>
+  </div><!-- /app-root -->
+  <script type="module">
+    // ログインチェックを実行
+    window.addEventListener('DOMContentLoaded', () => setTimeout(checkLogin, 100));
+  </script>
+
+  <!-- パスワード変更ダイアログ -->
+  <div id="pw-change-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:24px">
+    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:16px">パスワード変更</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">現在のパスワード</div>
+        <input id="pw-current" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">新しいパスワード</div>
+        <input id="pw-new1" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">新しいパスワード（確認）</div>
+        <input id="pw-new2" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
+      </div>
+      <div id="pw-error" style="color:#e53e3e;font-size:12px;margin-bottom:8px;min-height:16px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('pw-change-dialog').style.display='none'" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px">キャンセル</button>
+        <button onclick="doChangePassword()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--purple);color:#fff;cursor:pointer;font-size:14px;font-weight:700">変更する</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
