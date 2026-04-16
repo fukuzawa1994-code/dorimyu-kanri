@@ -448,6 +448,63 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       <div class="search-wrap"><input type="text" placeholder="名前・便で検索..." oninput="filterHist(this.value)" id="hist-search"/></div>
       <div id="hist-body"></div>
     </div>
+    <div class="scr" id="scr-purchase">
+      <!-- 申請一覧タブ -->
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div class="ptab on" id="ptab-list" onclick="setPurchaseTab('list')">申請一覧</div>
+        <div class="ptab" id="ptab-new" onclick="setPurchaseTab('new')">新規申請</div>
+      </div>
+
+      <!-- 申請一覧 -->
+      <div id="purchase-list-area">
+        <div id="purchase-list-body"></div>
+      </div>
+
+      <!-- 新規申請フォーム -->
+      <div id="purchase-new-area" style="display:none">
+        <div id="purchase-form-step1" style="display:block">
+          <div class="ksec-hd">打診申請（1回目）</div>
+
+          <div class="frow"><span class="flbl">申請者</span><span id="p-applicant" style="font-size:13px;color:var(--text)"></span></div>
+          <div class="frow"><span class="flbl">購入予定日</span><input type="date" id="p-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>
+
+          <div class="ksec-hd" style="margin-top:12px">福祉事業活動・就労生産活動</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="p-category-wrap">
+            <div class="tog" onclick="togglePCat(this)" data-v="福祉事業活動">福祉事業活動</div>
+            <div class="tog" onclick="togglePCat(this)" data-v="就労生産活動">就労生産活動</div>
+            <div class="tog" onclick="togglePCat(this)" data-v="雑貨班">雑貨班</div>
+            <div class="tog" onclick="togglePCat(this)" data-v="レストラン">レストラン</div>
+            <div class="tog" onclick="togglePCat(this)" data-v="ぱん班">ぱん班</div>
+            <div class="tog" onclick="togglePCat(this)" data-v="たんぽぽ">たんぽぽ</div>
+          </div>
+
+          <div class="ksec-hd">品目（最大3品）</div>
+          <div id="p-items-wrap">
+            <div class="p-item-row" style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
+              <div class="frow"><span class="flbl">品名・数量・単価</span><input type="text" class="p-item-name" placeholder="例：コピー用紙 2束×500円" style="font-size:12px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:160px"/></div>
+              <div class="frow"><span class="flbl">税込み金額</span><input type="number" class="p-item-price" placeholder="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark)">円</span></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                <span style="font-size:11px;color:var(--gray-dark)">税・使途：</span>
+                <div class="tog" onclick="togglePTax(this)" data-v="8%">8%</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="10%">10%</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="事業費">事業費</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="事務費">事務費</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="製造">製造</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="販売">販売</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="仕入">仕入</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="消耗">消耗</div>
+                <div class="tog" onclick="togglePTax(this)" data-v="器具">器具</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="frow"><span class="flbl">目的・用途</span></div>
+          <textarea id="p-purpose" placeholder="購入目的を入力..." style="width:100%;min-height:80px;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box;margin-bottom:12px"></textarea>
+
+          <button class="sbtn" style="width:100%;margin-top:4px" onclick="submitPurchase1()">打診申請を提出</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <button class="fab" id="fab" onclick="goForm()">＋</button>
@@ -485,6 +542,10 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
     <div class="ni" id="ni-hist" onclick="goScr('hist')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       <span>履歴</span>
+    </div>
+    <div class="ni" id="ni-purchase" onclick="goScr('purchase')">
+      <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+      <span>申請</span>
     </div>
   </div>
 
@@ -819,12 +880,12 @@ function tagHtml(am, pm, abs) {
 }
 
 // ── 画面切り替え ──
-const scrTitles = { list:'送迎一覧', form:'欠席・変更入力', notif:'通知', hist:'変更履歴', kyushoku:'給食管理', absence:'欠席一覧', distance:'距離記録', case:'ケース記録' };
-const scrSubs   = { form:'内容を入力して送信', notif:'スタッフへの通知', hist:'過去の変更ログ', kyushoku:'童里夢 給食数', absence:'欠席・遅刻・早退', distance:'走行距離の記録', case:'日々の記録入力' };
+const scrTitles = { list:'送迎一覧', form:'欠席・変更入力', notif:'通知', hist:'変更履歴', kyushoku:'給食管理', absence:'欠席一覧', distance:'距離記録', case:'ケース記録', purchase:'購入申請' };
+const scrSubs   = { form:'内容を入力して送信', notif:'スタッフへの通知', hist:'過去の変更ログ', kyushoku:'童里夢 給食数', absence:'欠席・遅刻・早退', distance:'走行距離の記録', case:'日々の記録入力', purchase:'2段階購入申請' };
 
 window.goScr = function(s) {
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','absence','distance','case'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','absence','distance','case','purchase'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -840,6 +901,7 @@ window.goScr = function(s) {
   if (s==='absence') { renderAbsenceCal(); renderAbsence(); }
   if (s==='distance') { initDistanceForm(); renderDistanceLog(); }
   if (s==='case') { initCaseForm(); }
+  if (s==='purchase') { setPurchaseTab('list'); }
   updateDot();
 }
 
@@ -1380,6 +1442,182 @@ window.doCaseSubmit = async function() {
   }
 }
 
+
+// ── 購入申請 ──
+function setPurchaseTab(tab) {
+  document.getElementById('ptab-list').classList.toggle('on', tab==='list');
+  document.getElementById('ptab-new').classList.toggle('on', tab==='new');
+  document.getElementById('purchase-list-area').style.display = tab==='list' ? 'block' : 'none';
+  document.getElementById('purchase-new-area').style.display = tab==='new' ? 'block' : 'none';
+  if (tab==='list') renderPurchaseList();
+  if (tab==='new') {
+    document.getElementById('p-applicant').textContent = currentStaff || '未設定';
+    document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function togglePCat(el) { el.classList.toggle('son'); }
+function togglePTax(el) {
+  const wrap = el.closest('.p-item-row');
+  wrap.querySelectorAll('.tog[data-v]').forEach(t => {
+    if (['8%','10%','事業費','事務費','製造','販売','仕入','消耗','器具'].includes(t.dataset.v)) t.classList.remove('son');
+  });
+  el.classList.add('son');
+}
+
+async function submitPurchase1() {
+  const date = document.getElementById('p-date').value;
+  const purpose = document.getElementById('p-purpose').value.trim();
+  const cats = [...document.querySelectorAll('#p-category-wrap .tog.son')].map(t => t.dataset.v);
+  const items = [...document.querySelectorAll('.p-item-row')].map(row => ({
+    name: row.querySelector('.p-item-name').value.trim(),
+    price: row.querySelector('.p-item-price').value,
+    tax: row.querySelector('.tog.son') ? row.querySelector('.tog.son').dataset.v : ''
+  })).filter(i => i.name);
+
+  if (!date || !purpose || items.length===0 || cats.length===0) {
+    showToast('日付・目的・カテゴリ・品目を入力してください'); return;
+  }
+
+  const totalPrice = items.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+  const rec = {
+    type: 'purchase',
+    step: 1,
+    status: '打診中',
+    applicant: currentStaff,
+    date,
+    categories: cats,
+    items,
+    totalPrice,
+    purpose,
+    createdAt: Date.now(),
+    approval1: null,
+    approval2: null
+  };
+
+  const ref = db.ref('purchases').push();
+  await ref.set(rec);
+  showToast('打診申請を提出しました');
+  setPurchaseTab('list');
+}
+
+function renderPurchaseList() {
+  const body = document.getElementById('purchase-list-body');
+  body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">読み込み中...</div>';
+  db.ref('purchases').orderByChild('createdAt').once('value', snap => {
+    const list = [];
+    snap.forEach(c => list.unshift({id: c.key, ...c.val()}));
+    if (list.length===0) { body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">申請はありません</div>'; return; }
+    body.innerHTML = list.map(p => {
+      const statusColor = p.status==='承認済' ? 'var(--green-dark)' : p.status==='却下' ? 'var(--red-dark)' : 'var(--amber-dark)';
+      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant;
+      const canStep2 = p.step===1 && p.status==='承認済' && p.applicant===currentStaff;
+      return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}</span>
+          <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px">${p.status}（${p.step===1?'打診':'本申請'}）</span>
+        </div>
+        <div style="font-size:12px;color:var(--gray-dark);margin-bottom:4px">${(p.categories||[]).join('・')}</div>
+        <div style="font-size:13px;margin-bottom:4px">${(p.items||[]).map(i=>`${i.name} ${i.price?parseInt(i.price).toLocaleString()+'円':''}`).join('<br>')}</div>
+        <div style="font-size:12px;color:var(--gray-dark)">合計 <strong>${(p.totalPrice||0).toLocaleString()}円</strong></div>
+        <div style="font-size:11px;color:var(--gray-dark);margin-top:4px">${p.purpose}</div>
+        ${p.approval1 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:4px">✓ 打診承認: ${p.approval1.by} ${new Date(p.approval1.at).toLocaleDateString()}</div>` : ''}
+        ${p.approval2 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:2px">✓ 本申請承認: ${p.approval2.by} ${new Date(p.approval2.at).toLocaleDateString()}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          ${canApprove ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承認 🔏</button>
+          <button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">却下</button>` : ''}
+          ${canStep2 ? `<button class="sbtn" style="flex:1" onclick="startStep2('${p.id}')">本申請へ進む →</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+
+async function approvePurchase(id, step) {
+  await db.ref('purchases/'+id).update({
+    status: '承認済',
+    ['approval'+step]: { by: currentStaff, at: Date.now() }
+  });
+  showToast('承認しました 🔏');
+  renderPurchaseList();
+}
+
+async function rejectPurchase(id) {
+  await db.ref('purchases/'+id).update({ status: '却下' });
+  showToast('却下しました');
+  renderPurchaseList();
+}
+
+function startStep2(id) {
+  db.ref('purchases/'+id).once('value', snap => {
+    const p = snap.val();
+    // 本申請フォームを表示
+    document.getElementById('purchase-list-area').style.display = 'none';
+    document.getElementById('purchase-new-area').style.display = 'block';
+    document.getElementById('ptab-list').classList.remove('on');
+    document.getElementById('ptab-new').classList.add('on');
+    
+    const step2html = `<div class="ksec-hd">本申請（2回目）- ${p.applicant} / ${p.date}</div>
+      <div style="background:var(--green-light);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px">
+        <div>打診承認済: ${p.approval1 ? p.approval1.by : ''}</div>
+        <div style="margin-top:4px">${(p.items||[]).map(i=>i.name).join('、')}</div>
+      </div>
+      <div class="ksec-hd">実際の金額（修正可）</div>
+      ${(p.items||[]).map((item,i) => `
+      <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
+        <div class="frow"><span class="flbl">${item.name}</span></div>
+        <div class="frow"><span class="flbl">実際の金額</span><input type="number" id="step2-price-${i}" value="${item.price}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
+      </div>`).join('')}
+      <div class="ksec-hd" style="margin-top:12px">レシート写真</div>
+      <div style="margin-bottom:12px">
+        <input type="file" id="step2-receipt" accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
+        <button class="sbtn" onclick="document.getElementById('step2-receipt').click()">📷 カメラで撮影</button>
+        <img id="receipt-preview" style="display:none;width:100%;border-radius:10px;margin-top:8px"/>
+      </div>
+      <button class="sbtn" style="width:100%" onclick="submitPurchase2('${id}',${JSON.stringify(p.items).replace(/'/g,"\'")})"  >本申請を提出</button>`;
+    
+    document.getElementById('purchase-new-area').innerHTML = step2html;
+  });
+}
+
+function previewReceipt(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('receipt-preview');
+      img.src = e.target.result;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function submitPurchase2(id, origItems) {
+  const items = origItems.map((item, i) => ({
+    ...item,
+    actualPrice: parseInt(document.getElementById('step2-price-'+i).value)||0
+  }));
+  const totalActual = items.reduce((s,i) => s+(i.actualPrice||0), 0);
+  
+  // レシート画像をBase64で保存
+  let receiptData = null;
+  const fileInput = document.getElementById('step2-receipt');
+  if (fileInput && fileInput.files[0]) {
+    receiptData = document.getElementById('receipt-preview').src;
+  }
+
+  await db.ref('purchases/'+id).update({
+    step: 2,
+    status: '本申請中',
+    items2: items,
+    totalActual,
+    receipt: receiptData,
+    step2At: Date.now()
+  });
+  showToast('本申請を提出しました');
+  setPurchaseTab('list');
+}
+
 // ── ケースまとめ ──
 function initCaseSummary() {
   const today = new Date();
@@ -1446,27 +1684,9 @@ window.aiSummarizeCase = async function() {
   try {
     let apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      // APIキー入力ダイアログを表示
-      const dialog = document.createElement('div');
-      dialog.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-      dialog.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.2)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:8px">Gemini APIキーを入力</div>
-        <div style="font-size:12px;color:#666;margin-bottom:12px">Google AI StudioのAPIキーを入力してください。次回から自動的に使用されます。</div>
-        <input id="gemini-key-input" type="text" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:8px;font-size:12px;box-sizing:border-box;margin-bottom:12px" placeholder="AQ.Ab8R...">
-        <div style="display:flex;gap:8px">
-          <button id="gemini-key-cancel" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer">キャンセル</button>
-          <button id="gemini-key-ok" style="flex:1;padding:8px;border:none;border-radius:8px;background:#3C3489;color:#fff;cursor:pointer">OK</button>
-        </div>
-      </div>`;
-      document.body.appendChild(dialog);
-      btn.textContent = 'AIでまとめる（常体変換）';
-      btn.disabled = false;
-      document.getElementById('gemini-key-cancel').onclick = () => document.body.removeChild(dialog);
-      document.getElementById('gemini-key-ok').onclick = () => {
-        const key = document.getElementById('gemini-key-input').value.trim();
-        if (key) { localStorage.setItem('gemini_api_key', key); document.body.removeChild(dialog); }
-      };
-      return;
+      apiKey = prompt('Gemini APIキーを入力してください：');
+      if (!apiKey) { showToast('APIキーが入力されませんでした'); btn.textContent = 'AIでまとめる（常体変換）'; btn.disabled = false; return; }
+      localStorage.setItem('gemini_api_key', apiKey);
     }
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
