@@ -603,63 +603,54 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// ── グローバル変数 ──
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+let selectedDate = today();
+let logs = [];
+let currentScr = 'list';
+let readNotif = JSON.parse(localStorage.getItem('ecole_read') || '[]');
+let sheetCtx = {};
+let fState = { abs: '出席', kyushoku: 'あり', am: '利用する', pm: '利用する' };
 
+const scrTitles = {
+  list: '送迎一覧', form: '連絡入力', notif: '通知', hist: '履歴',
+  kyushoku: '給食管理', absence: '欠席一覧', distance: '走行距離',
+  case: 'ケース記録', purchase: '購入申請'
+};
+const scrSubs = {
+  form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
+  kyushoku: '給食数確認', absence: '欠席・遅刻・早退',
+  distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理'
+};
 
-function doLogin() {
-  const name = document.getElementById('login-name').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  const err = document.getElementById('login-error');
-  
-  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
-  // localStorageのパスワードを優先
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  const validPw = pwStore[name] || ACCOUNTS[name].password;
-  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
-  
-  currentUser = { name, ...ACCOUNTS[name] };
-  currentStaff = name;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-  
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-root').style.display = 'block';
-  document.getElementById('hd-staff').textContent = name;
-  document.getElementById('hd-role').textContent = ['', '一般', '上司', '管理者'][currentUser.role];
-  
-  goScr('list');
+// ── ユーティリティ ──
+function fmtDate(ds) {
+  if (!ds) return '';
+  const d = new Date(ds + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}月${d.getDate()}日（${dows[d.getDay()]}）`;
 }
 
-function doLogout() {
-  localStorage.removeItem('ecole_login');
-  currentUser = null;
-  currentStaff = '';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app-root').style.display = 'none';
-  document.getElementById('login-name').value = '';
-  document.getElementById('login-pass').value = '';
-  document.getElementById('login-error').textContent = '';
+function tsNow() {
+  const d = new Date();
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-function checkLogin() {
-  const saved = localStorage.getItem('ecole_login');
-  if (saved) {
-    try {
-      currentUser = JSON.parse(saved);
-      const pwStore2 = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-      const validPw2 = pwStore2[currentUser.name] || ACCOUNTS[currentUser.name].password;
-      if (ACCOUNTS[currentUser.name] && validPw2 === currentUser.password) {
-        currentStaff = currentUser.name;
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app-root').style.display = 'block';
-        document.getElementById('hd-staff').textContent = currentUser.name;
-        document.getElementById('hd-role').textContent = ['', '一般', '上司', '管理者'][currentUser.role];
-        goScr('list');
-        return;
-      }
-    } catch(e) {}
-  }
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app-root').style.display = 'none';
+function latestFor(date, bin, user) {
+  const matches = logs.filter(l => l.date===date && l.bin===bin && l.user===user);
+  return matches.length ? matches[matches.length-1] : null;
 }
+
+function tagHtml(am, pm, abs) {
+  if (abs) return '<span class="stag tno">終日欠席</span>';
+  const a = am==='利用する' ? '<span class="stag tok">朝：乗車</span>' : '<span class="stag tno">朝：なし</span>';
+  const p = pm==='利用する' ? '<span class="stag tok">夕：乗車</span>' : '<span class="stag tno">夕：なし</span>';
+  return a + ' ' + p;
+}
+
 
 
 
@@ -1826,6 +1817,7 @@ function initLogin() {
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('app-root').style.display = 'block';
           updateUserBtn();
+          goScr('list');
           return;
         }
       }
@@ -1969,6 +1961,20 @@ function showToast(msg) {
 renderDateStrip();
 document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
+
+// Firebaseリアルタイム購読
+onSnapshot(query(collection(db, 'logs'), orderBy('createdAt', 'desc')), snap => {
+  logs = [];
+  snap.forEach(d => logs.push({ id: d.id, ...d.data() }));
+  const dot = document.getElementById('sync-dot');
+  if (dot) { dot.style.display = 'inline-block'; setTimeout(() => dot.style.display = 'none', 1000); }
+  if (currentScr === 'list') renderList();
+  if (currentScr === 'notif') renderNotif();
+  if (currentScr === 'hist') renderHist('');
+  if (currentScr === 'kyushoku') renderKyushoku();
+  if (currentScr === 'absence') renderAbsence();
+  updateDot();
+});
 </script>
   </div><!-- /app-root -->
 
