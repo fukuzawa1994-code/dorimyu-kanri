@@ -1958,34 +1958,8 @@ document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
 </script>
   </div><!-- /app-root -->
-  <script type="module">
-    // ログインチェックを実行
-    window.addEventListener('DOMContentLoaded', () => setTimeout(checkLogin, 100));
-  </script>
 
-  <!-- パスワード変更ダイアログ -->
-  <div id="pw-change-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:24px">
-    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:16px">パスワード変更</div>
-      <div style="margin-bottom:10px">
-        <div style="font-size:12px;color:#666;margin-bottom:4px">現在のパスワード</div>
-        <input id="pw-current" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
-      </div>
-      <div style="margin-bottom:10px">
-        <div style="font-size:12px;color:#666;margin-bottom:4px">新しいパスワード</div>
-        <input id="pw-new1" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
-      </div>
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;color:#666;margin-bottom:4px">新しいパスワード（確認）</div>
-        <input id="pw-new2" type="password" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
-      </div>
-      <div id="pw-error" style="color:#e53e3e;font-size:12px;margin-bottom:8px;min-height:16px"></div>
-      <div style="display:flex;gap:8px">
-        <button onclick="document.getElementById('pw-change-dialog').style.display='none'" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px">キャンセル</button>
-        <button onclick="doChangePassword()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--purple);color:#fff;cursor:pointer;font-size:14px;font-weight:700">変更する</button>
-      </div>
-    </div>
-  </div>
+
 
   <!-- パスワード変更ダイアログ -->
   <div id="pw-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:24px">
