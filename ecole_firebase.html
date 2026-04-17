@@ -1281,9 +1281,9 @@ function checkSession() {
 
 
 const GH_MASTER = {
-  '紬男': { capacity: 6, users: ['木下真利','隅田潤','西谷充弘','大塚佑介','山本利典','上村恭弘'] },
-  '紬女': { capacity: 4, users: ['朝倉祥子','白井かおり','国澤磨世','大山知美'] },
-  'ひまわりハウス': { capacity: 4, users: ['松野友紀','稲垣雅子','高木由香','臼井想'] }
+  '紬女': { capacity: 4, users: ['朝倉祥子','白井','国澤磨世','大山知美'] },
+  '紬男': { capacity: 6, users: ['木下','隅田潤','西谷充弘','大塚佑介','山本利典','上村'] },
+  'ひまわりハウス': { capacity: 4, users: ['松野','稲垣雅子','高木由香','臼井'] }
 };
 const GH_DINNER_DAYS = [2,3,4,5];
 const GH_PATTERNS = {
@@ -1304,76 +1304,103 @@ const TRANSPORT_STAFF = {
 
 // ── アカウントマスター ──
 const ACCOUNTS = {
-  // ══ 管理者（班なし）8名 ══
-  '福澤嵐':     { password: '', role: 3, han: '', jigyosho: ['童里夢','すたぁと'] },
-  '牛山智浩':   { password: '', role: 3, han: '', jigyosho: ['童里夢'] },
-  '鈴木早苗':   { password: '', role: 3, han: '', jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '小笠原朱美': { password: '', role: 3, han: '', jigyosho: ['奏楽'] },
-  '橋元賢治':   { password: '', role: 3, han: '', jigyosho: ['奏楽'] },
-  '中島博之':   { password: '', role: 3, han: '', jigyosho: ['奏楽'] },
-  '堀江修司':   { password: '', role: 3, han: '', jigyosho: ['奏楽'] },
-  '福井正之':   { password: '', role: 3, han: '', jigyosho: ['ぱぁとなぁ'] },
-  // ══ 童里夢 上司（班長・主任）──
-  '鈴木清益':   { password: '', role: 2, han: 'パン班長',     jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
-  '朝河碧':     { password: '', role: 2, han: 'レストラン班長', jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '青山祐介':   { password: '', role: 2, han: 'パン缶主任',   jigyosho: ['童里夢'] },
-  '杉浦翔子':   { password: '', role: 2, han: '雑貨',         jigyosho: ['童里夢'] },
-  '清水歩':     { password: '', role: 2, han: 'レストラン',   jigyosho: ['童里夢'] },
-  // ══ 奏楽 上司 ══
-  '稲石聖子':   { password: '', role: 2, han: '奏楽',         jigyosho: ['奏楽','すたぁと'] },
-  '田中友香里': { password: '', role: 2, han: '奏楽',         jigyosho: ['奏楽'] },
-  '林竜希':     { password: '', role: 2, han: '奏楽',         jigyosho: ['奏楽'] },
-  // ══ すたぁと 上司 ══
-  '石川陸子':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  // ══ 童里夢 一般（16名）══
-  '栗原伸吉':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢'] },
-  '戸澤リエ':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢'] },
-  '竹内瑞江':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢'] },
-  '西野淳司':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢','すたぁと','ぱぁとなぁ'] },
-  '篠原栄一':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '松原一樹':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
-  '桒原幸太':   { password: '', role: 1, han: '雑貨',         jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
-  '加藤あきな': { password: '', role: 1, han: 'レストラン',   jigyosho: ['童里夢'] },
-  '芦田美幸':   { password: '', role: 1, han: 'レストラン',   jigyosho: ['童里夢'] },
-  '上原しのぶ': { password: '', role: 1, han: 'パン',         jigyosho: ['童里夢'] },
-  '関根清美':   { password: '', role: 1, han: 'パン缶・雑貨', jigyosho: ['童里夢','すたぁと'] },
-  '橋本真弓':   { password: '', role: 1, han: 'パン缶',       jigyosho: ['童里夢'] },
-  '梶尾義頼':   { password: '', role: 1, han: 'パン缶',       jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '柴田昌彦':   { password: '', role: 1, han: '送迎のみ',     jigyosho: ['童里夢'] },
-  '國友豊':     { password: '', role: 1, han: '送迎のみ',     jigyosho: ['童里夢'] },
-  '牧原修一':   { password: '', role: 1, han: '送迎のみ',     jigyosho: ['童里夢'] },
-  // ══ 奏楽 一般（11名）══
-  '岩城道代':   { password: '', role: 1, han: '奏楽事務',     jigyosho: ['奏楽'] },
-  '岩瀬ユカ':   { password: '', role: 1, han: '楽々',         jigyosho: ['奏楽'] },
-  '加藤健吾':   { password: '', role: 1, han: '送迎のみ',     jigyosho: ['奏楽'] },
-  '熊谷由美':   { password: '', role: 1, han: 'といろ',       jigyosho: ['奏楽'] },
-  '後藤知子':   { password: '', role: 1, han: 'といろ',       jigyosho: ['奏楽'] },
-  '高木とも子': { password: '', role: 1, han: '楽々',         jigyosho: ['奏楽'] },
-  '内藤雅文':   { password: '', role: 1, han: '楽々',         jigyosho: ['奏楽'] },
-  '眞木祐奈':   { password: '', role: 1, han: 'かなで',       jigyosho: ['奏楽'] },
-  '松下真弓':   { password: '', role: 1, han: '楽々',         jigyosho: ['奏楽'] },
-  '加藤賢吾':   { password: '', role: 1, han: '相談',         jigyosho: ['奏楽'] },
-  '近田哲子':   { password: '', role: 1, han: '相談',         jigyosho: ['奏楽'] },
-  // ══ ぱぁとなぁ 一般（8名）══
-  '岩下理香':   { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  '大江由紀子': { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  '大河まり子': { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  '河合佳子':   { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ','すたぁと'] },
-  '菅野照代':   { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  '木林恭子':   { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  '久瀬充洋':   { password: '', role: 1, han: '夜間専任',     jigyosho: ['ぱぁとなぁ'] },
-  '坂柳千歳':   { password: '', role: 1, han: 'ぱぁとなぁ',   jigyosho: ['ぱぁとなぁ'] },
-  // ══ すたぁと 一般（10名）══
-  '市古尚子':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '大田一美':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと','ぱぁとなぁ'] },
-  '小柳津恵子': { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '加藤美代子': { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '小林万知子': { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '米谷佐知子': { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '鈴木洋美':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '鈴木俊介':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '安田米子':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] },
-  '山田明美':   { password: '', role: 1, han: 'すたぁと',     jigyosho: ['すたぁと'] }
+  // ── 童里夢 管理者 ──
+  '福澤嵐':     { password: '', role: 3, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
+  '牛山智浩':   { password: '', role: 3, han: '事務',       jigyosho: ['童里夢'] },
+  '鈴木早苗':   { password: '', role: 3, han: '事務',       jigyosho: ['童里夢','ぱぁとなぁ'] },
+  // ── 童里夢 上司 ──
+  '青山祐介':   { password: '', role: 2, han: 'パン缶',     jigyosho: ['童里夢'] },
+  '杉浦翔子':   { password: '', role: 2, han: '雑貨',       jigyosho: ['童里夢'] },
+  '清水歩':     { password: '', role: 2, han: 'レストラン', jigyosho: ['童里夢'] },
+  '朝河碧':     { password: '', role: 2, han: 'レストラン', jigyosho: ['童里夢','ぱぁとなぁ'] },
+  '鈴木清益':   { password: '', role: 2, han: 'パン',       jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
+  // ── 童里夢 一般 ──
+  '栗原伸吉':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
+  '戸澤リエ':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
+  '竹内瑞江':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
+  '西野淳司':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
+  '篠原栄一':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','ぱぁとなぁ'] },
+  '松原一樹':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
+  '桒原幸太':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
+  '加藤あきな': { password: '', role: 1, han: 'レストラン', jigyosho: ['童里夢'] },
+  '芦田美幸':   { password: '', role: 1, han: 'レストラン', jigyosho: ['童里夢'] },
+  '上原しのぶ': { password: '', role: 1, han: 'パン',       jigyosho: ['童里夢'] },
+  '関根清美':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢','すたぁと'] },
+  '橋本真弓':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢'] },
+  '梶尾義頼':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢','ぱぁとなぁ'] },
+  '柴田昌彦':   { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
+  '國友豊':     { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
+  '牧原修一':   { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
+  // ── 奏楽 就労B ──
+  '稲石聖子':   { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
+  '岩城道代':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  '岩瀬ユカ':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','ぱぁとなぁ'] },
+  '加藤健吾':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  '熊谷由美':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
+  '後藤知子':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
+  '高木とも子': { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  '田中友香里': { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽','ぱぁとなぁ'] },
+  '内藤雅文':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  '中島博之':   { password: '', role: 3, han: '奏楽',       jigyosho: ['奏楽'] },
+  '林竜希':     { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽'] },
+  '堀江修司':   { password: '', role: 3, han: '奏楽',       jigyosho: ['奏楽'] },
+  '眞木祐奈':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  '松下真弓':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
+  // ── 奏楽 相談 ──
+  '小笠原朱美': { password: '', role: 3, han: '相談',       jigyosho: ['奏楽相談'] },
+  '加藤賢吾':   { password: '', role: 1, han: '相談',       jigyosho: ['奏楽相談'] },
+  '近田哲子':   { password: '', role: 1, han: '相談',       jigyosho: ['奏楽相談'] },
+  '橋元賢治':   { password: '', role: 3, han: '相談',       jigyosho: ['奏楽','奏楽相談'] },
+  // ── ぱぁとなぁ ──
+  '岩下理香':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '大江由紀子': { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '大河まり子': { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '河合佳子':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ','すたぁと'] },
+  '菅野照代':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '木林恭子':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '久瀬充洋':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  '坂柳千歳':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
+  // ── すたぁと ──
+  '石川陸子':   { password: '', role: 2, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '市古尚子':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '大田一美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '小柳津恵子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '加藤美代子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '小林万知子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '米谷佐知子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '鈴木洋美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '鈴木俊介':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '安田米子':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '山田明美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
+  '福井正之':   { password: '', role: 3, han: 'GH', jigyosho: ['GH'] }
+}
+    
+    currentUser = sessionData;
+    currentStaff = name;
+    sessionStorage.setItem('ecole_session', JSON.stringify(sessionData));
+    // localStorageからパスワード情報を削除
+    localStorage.removeItem('ecole_login');
+    
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-root').style.display = 'block';
+    updateUserBtn();
+    err.textContent = '';
+    goScr('list');
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'ログインに失敗しました';
+  }
+};
+
+window.doLogout = function() {
+  sessionStorage.removeItem('ecole_session');
+  localStorage.removeItem('ecole_login');
+  currentUser = null; currentStaff = '';
+  document.getElementById('app-root').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
 };
 
 window.showUserMenu = function() {
