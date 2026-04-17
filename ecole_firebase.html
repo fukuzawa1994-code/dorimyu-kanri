@@ -1092,6 +1092,158 @@ window.renderAdminPanel = function() {
   body.innerHTML = html;
 };
 
+// ═══ 印刷・PDF出力系関数 ═══
+
+// ③ 送迎一覧を印刷（当日の朝夕）
+window.printList = function() {
+  const date = selectedDate;
+  const title = 'École 送迎一覧　' + fmtDate(date);
+  let body = '';
+  ['朝','夕'].forEach(function(time) {
+    body += '<h2 style="background:#483D8B;color:#fff;padding:8px 12px;margin:16px 0 8px;border-radius:6px">' + time + ' 送迎</h2>';
+    for (const [binName, binInfo] of Object.entries(MASTER.routes)) {
+      const dow = new Date(date+'T00:00:00').getDay();
+      const allUsers = binInfo.users.concat(time==='夕' && binInfo.pmOnly ? binInfo.pmOnly : []);
+      const list = [];
+      for (const u of allUsers) {
+        const log = latestFor(date, binName, u);
+        const sched = defaultSchedule[u];
+        const useKey = time==='朝' ? 'am' : 'pm';
+        let status = '乗車';
+        if (log) {
+          if (log.abs) status = '終日欠席';
+          else if (log[useKey]==='利用しない') status = '不要';
+        } else if (sched && sched[useKey] && sched[useKey][dow] === 0) {
+          status = '不要';
+        }
+        if (status === '乗車') list.push(u);
+      }
+      if (list.length) {
+        body += '<div style="margin:6px 0 12px;padding:6px 10px;border-left:4px solid #483D8B"><b>' + binName + '（' + list.length + '名）</b>：' + list.join('・') + '</div>';
+      }
+    }
+  });
+  openPrintWindow(title, body);
+};
+
+// ④-1 ケース記録 月次PDF
+window.printCaseMonthly = function() {
+  const monthInput = document.getElementById('case-print-month');
+  const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
+  const monthLogs = logs.filter(function(l) { return l.type==='case' && l.date && l.date.startsWith(month); });
+  if (!monthLogs.length) { showToast(month+'の記録なし'); return; }
+  // 利用者別グループ化
+  const byUser = {};
+  monthLogs.forEach(function(l) {
+    if (!byUser[l.user]) byUser[l.user] = [];
+    byUser[l.user].push(l);
+  });
+  let body = '<h1 style="text-align:center">ケース記録　月報</h1>';
+  body += '<p style="text-align:center">期間：' + month + '　／　作成：' + currentStaff + '</p>';
+  const users = Object.keys(byUser).sort();
+  users.forEach(function(user) {
+    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:16px 0 6px;border-radius:4px;page-break-before:auto">' + user + '（' + byUser[user].length + '件）</h2>';
+    body += '<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:4px;width:90px">日付</th><th style="border:1px solid #999;padding:4px;width:80px">記録者</th><th style="border:1px solid #999;padding:4px;width:100px">タグ</th><th style="border:1px solid #999;padding:4px">内容</th></tr>';
+    byUser[user].sort(function(a,b){ return a.date.localeCompare(b.date); }).forEach(function(l) {
+      body += '<tr>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.date||'') + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.staff||'') + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px;font-size:10px">' + ((l.tags||[]).join('・')) + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.caseText||'').replace(/\n/g,'<br>') + '</td>';
+      body += '</tr>';
+    });
+    body += '</table>';
+  });
+  openPrintWindow('ケース記録月報 '+month, body);
+};
+
+// ④-2 送迎記録 月次PDF
+window.printTransportMonthly = function() {
+  const monthInput = document.getElementById('tr-print-month');
+  const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
+  const monthLogs = logs.filter(function(l) { return (l.type==='change' || !l.type) && l.date && l.date.startsWith(month); });
+  if (!monthLogs.length) { showToast(month+'の変更記録なし'); return; }
+  // 日付別
+  const byDate = {};
+  monthLogs.forEach(function(l) {
+    if (!byDate[l.date]) byDate[l.date] = [];
+    byDate[l.date].push(l);
+  });
+  let body = '<h1 style="text-align:center">送迎変更記録　月報</h1>';
+  body += '<p style="text-align:center">期間：' + month + '</p>';
+  body += '<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:4px;width:90px">日付</th><th style="border:1px solid #999;padding:4px;width:70px">便</th><th style="border:1px solid #999;padding:4px;width:80px">利用者</th><th style="border:1px solid #999;padding:4px">変更内容</th><th style="border:1px solid #999;padding:4px;width:70px">記録者</th></tr>';
+  Object.keys(byDate).sort().forEach(function(d) {
+    byDate[d].forEach(function(l) {
+      let content = '';
+      if (l.abs) content = '終日欠席';
+      else content = (l.am||'') + ' / ' + (l.pm||'');
+      if (l.memo) content += '　' + l.memo;
+      body += '<tr>';
+      body += '<td style="border:1px solid #999;padding:4px">' + fmtDate(d) + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.bin||'') + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.user||'') + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + content + '</td>';
+      body += '<td style="border:1px solid #999;padding:4px">' + (l.staff||'') + '</td>';
+      body += '</tr>';
+    });
+  });
+  body += '</table>';
+  openPrintWindow('送迎変更記録月報 '+month, body);
+};
+
+// ④-3 距離記録 月次PDF
+window.printDistanceMonthly = function() {
+  const monthInput = document.getElementById('dist-month');
+  const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
+  const monthLogs = logs.filter(function(l) { return l.type==='distance' && l.date && l.date.slice(0,7)===month; });
+  if (!monthLogs.length) { showToast(month+'の距離記録なし'); return; }
+  // 車種×用途集計
+  const byCar = {};
+  let grandTotal = 0;
+  monthLogs.forEach(function(l) {
+    if (!byCar[l.car]) byCar[l.car] = { total:0, details:{} };
+    const key = (l.purpose||'その他') + ((l.bin) ? '（'+l.bin+'便）' : '');
+    byCar[l.car].details[key] = (byCar[l.car].details[key]||0) + (l.dist||0);
+    byCar[l.car].total += (l.dist||0);
+    grandTotal += (l.dist||0);
+  });
+  let body = '<h1 style="text-align:center">走行距離月報</h1>';
+  body += '<p style="text-align:center">期間：' + month + '　／　合計：' + grandTotal + ' km</p>';
+  Object.keys(byCar).sort().forEach(function(car) {
+    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px">' + car + '：' + byCar[car].total + ' km</h2>';
+    body += '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:4px">用途</th><th style="border:1px solid #999;padding:4px;width:100px">距離</th></tr>';
+    Object.keys(byCar[car].details).sort().forEach(function(key) {
+      body += '<tr><td style="border:1px solid #999;padding:4px">' + key + '</td><td style="border:1px solid #999;padding:4px;text-align:right">' + byCar[car].details[key] + ' km</td></tr>';
+    });
+    body += '</table>';
+  });
+  body += '<h3 style="text-align:right;margin-top:20px">月次合計：' + grandTotal + ' km</h3>';
+  body += '<h4 style="margin-top:30px">明細（全' + monthLogs.length + '件）</h4>';
+  body += '<table style="width:100%;border-collapse:collapse;font-size:10px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:3px;width:80px">日付</th><th style="border:1px solid #999;padding:3px;width:70px">車種</th><th style="border:1px solid #999;padding:3px;width:60px">便</th><th style="border:1px solid #999;padding:3px">用途</th><th style="border:1px solid #999;padding:3px;width:70px">距離</th><th style="border:1px solid #999;padding:3px;width:70px">記録者</th></tr>';
+  monthLogs.sort(function(a,b){return a.date.localeCompare(b.date);}).forEach(function(l) {
+    body += '<tr>';
+    body += '<td style="border:1px solid #999;padding:3px">' + l.date + '</td>';
+    body += '<td style="border:1px solid #999;padding:3px">' + (l.car||'') + '</td>';
+    body += '<td style="border:1px solid #999;padding:3px">' + (l.bin||'') + '</td>';
+    body += '<td style="border:1px solid #999;padding:3px">' + (l.purpose||'') + '</td>';
+    body += '<td style="border:1px solid #999;padding:3px;text-align:right">' + (l.dist||0) + ' km</td>';
+    body += '<td style="border:1px solid #999;padding:3px">' + (l.staff||'') + '</td>';
+    body += '</tr>';
+  });
+  body += '</table>';
+  openPrintWindow('走行距離月報 '+month, body);
+};
+
+// 共通：印刷ウィンドウを開く
+window.openPrintWindow = function(title, bodyHtml) {
+  const w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title+'</title>');
+  w.document.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:20px;color:#333}h1{font-size:18px}h2{font-size:14px}h3{font-size:13px}table{page-break-inside:auto}tr{page-break-inside:avoid}@media print{@page{size:A4;margin:15mm}}</style>');
+  w.document.write('</head><body>'+bodyHtml+'</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 500);
+};
+
 window.doSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
