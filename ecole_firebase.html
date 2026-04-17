@@ -373,14 +373,20 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
           </div>
           <div class="frow"><span class="flbl">氏名</span>
             <select id="d-staff">
-              <option>栗原</option><option>戸澤</option><option>福澤</option>
-              <option>牛山</option><option>青山</option><option>鈴木早</option>
-              <option>竹内</option><option>西野</option><option>篠原</option>
-              <option>杉浦</option><option>清水</option><option>朝河</option>
-              <option>鈴木清</option><option>加藤</option><option>芦田</option>
-              <option>松原</option><option>柴田</option><option>関根</option>
-              <option>橋本</option><option>梶尾</option><option>上原</option>
-              <option>桒原</option>
+              <option>福澤嵐</option><option>牛山智浩</option><option>鈴木早苗</option>
+              <option>青山祐介</option><option>杉浦翔子</option><option>清水歩</option>
+              <option>朝河碧</option><option>鈴木清益</option>
+              <option>栗原伸吉</option><option>戸澤リエ</option><option>竹内瑞江</option>
+              <option>西野淳司</option><option>篠原栄一</option><option>松原一樹</option>
+              <option>桒原幸太</option><option>加藤あきな</option><option>芦田美幸</option>
+              <option>上原しのぶ</option><option>関根清美</option><option>橋本真弓</option>
+              <option>梶尾義頼</option><option>柴田昌彦</option><option>國友豊</option>
+              <option>牧原修一</option>
+              <option>稲石聖子</option><option>岩城道代</option><option>岩瀬ユカ</option>
+              <option>加藤健吾</option><option>熊谷由美</option><option>後藤知子</option>
+              <option>高木とも子</option><option>田中友香里</option><option>内藤雅文</option>
+              <option>中島博之</option><option>林竜希</option><option>堀江修司</option>
+              <option>眞木祐奈</option><option>松下真弓</option>
             </select>
           </div>
           <div class="frow"><span class="flbl">利用者数</span><input type="number" id="d-count" min="0" value="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>
@@ -1288,12 +1294,12 @@ const GH_PATTERNS = {
   'abs_home':  { label: '奏楽休み・帰省',         lunch: false, dinner: false }
 };
 const TRANSPORT_STAFF = {
-  'マイクロ': { am: {2:'牧原/國友',3:'牧原/國友',4:'牧原/國友',5:'牧原/國友',6:'不定期/國友'}, pm: {2:'牧原/國友',3:'牧原/國友',4:'牧原/國友',5:'牧原/國友',6:'不定期/國友'} },
-  '賀茂':     { am: {2:'戸澤',3:'戸澤',4:'戸澤',5:'戸澤',6:'戸澤'}, pm: {2:'戸澤',3:'戸澤',4:'関根',5:'戸澤',6:'戸澤'} },
-  '東脇':     { am: {2:'柴田',3:'柴田',4:'柴田',5:'柴田',6:'柴田'}, pm: {2:'栗原',3:'栗原',4:'栗原',5:'栗原',6:'栗原'} },
-  '曙':       { am: {2:'堀江',3:'堀江',4:'内藤',5:'堀江',6:'堀江'}, pm: {2:'中島',3:'内藤',4:'林',5:'内藤',6:'林'} },
-  '草間':     { am: {2:'加藤（健）',3:'加藤（健）',4:'加藤（健）',5:'加藤（健）',6:'加藤（健）'}, pm: {2:'岩城',3:'熊谷',4:'岩瀬',5:'熊谷',6:'内藤'} },
-  '二川':     { am: {2:'中島',3:'松下',4:'松下',5:'岩瀬',6:'松下'}, pm: {2:'内藤',3:'高木',4:'後藤',5:'高木',6:'岩瀬'} }
+  '東脇':     { am: {2:'柴田昌彦',3:'柴田昌彦',4:'柴田昌彦',5:'柴田昌彦',6:'柴田昌彦'}, pm: {2:'栗原伸吉',3:'栗原伸吉',4:'栗原伸吉',5:'栗原伸吉',6:'栗原伸吉'} },
+  'マイクロ': { am: {2:'牧原修一',3:'牧原修一',4:'牧原修一',5:'牧原修一',6:'國友豊'},  pm: {2:'國友豊',3:'國友豊',4:'國友豊',5:'國友豊',6:'國友豊'} },
+  '賀茂':     { am: {2:'戸澤リエ',3:'戸澤リエ',4:'戸澤リエ',5:'戸澤リエ',6:'戸澤リエ'}, pm: {2:'戸澤リエ',3:'戸澤リエ',4:'関根清美',5:'戸澤リエ',6:'戸澤リエ'} },
+  '曙':       { am: {2:'堀江修司',3:'堀江修司',4:'内藤雅文',5:'堀江修司',6:'堀江修司'}, pm: {2:'中島博之',3:'内藤雅文',4:'林竜希',5:'内藤雅文',6:'林竜希'} },
+  '草間':     { am: {2:'加藤健吾',3:'加藤健吾',4:'加藤健吾',5:'加藤健吾',6:'加藤健吾'}, pm: {2:'岩城道代',3:'熊谷由美',4:'岩瀬ユカ',5:'熊谷由美',6:'内藤雅文'} },
+  '二川':     { am: {2:'中島博之',3:'松下真弓',4:'松下真弓',5:'岩瀬ユカ',6:'松下真弓'}, pm: {2:'内藤雅文',3:'高木とも子',4:'後藤知子',5:'高木とも子',6:'岩瀬ユカ'} }
 };
 
 // ── アカウントマスター ──
