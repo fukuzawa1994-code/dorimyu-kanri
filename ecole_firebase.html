@@ -1915,15 +1915,16 @@ window.aiSummarizeCase = async function() {
   const resultArea = document.getElementById('ai-result-area');
   if (!records.length) { showToast('記録がありません'); return; }
   btn.textContent = 'AI処理中...'; btn.disabled = true;
+  // 記録者名は含めない - caseTextのみ、tagsは文脈として残す
   const allText = records.map(function(l) {
     const tagStr = l.tags && l.tags.length ? '（' + l.tags.join('・') + '）' : '';
-    return '【' + (l.staff||'') + '】' + tagStr + '\n' + (l.caseText||'');
-  }).join('\n\n');
-  const promptText = '以下の記録を省略せず、重複は統合し、ケース記録として使える文章にまとめてください。\n\n【ルール】\n・内容を省略しない\n・同じ利用者の記録が複数ある場合は1つに統合\n・時系列順に並べる\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず事実のみ\n・常体（だ・である調）\n・「記録」「本文」などの見出しは入れない\n・名前 日付 文章 の順で記載\n\n【入力】\n' + user + 'さん ' + date + '\n\n' + allText;
+    return tagStr + (l.caseText||'');
+  }).join('\n');
+  const promptText = '以下の記録を1つの文章にまとめてください。\n\n【ルール】\n・記録者の名前は絶対に入れない（「○○さんは」「○○が」など職員名を主語にしない）\n・利用者の様子のみを記載\n・重複する内容は統合\n・時系列で整理\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず事実のみ\n・常体（だ・である調）\n・「記録」「本文」などの見出しは入れない\n・冒頭に「' + user + 'さん ' + date + '」とだけ記載し、次行から本文\n\n【入力記録】\n' + allText;
   try {
     let apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      apiKey = window.prompt('Gemini APIキーを入力してください：');
+      apiKey = window.prompt('Gemini APIキー：');
       if (!apiKey) { showToast('キャンセル'); btn.textContent='AIでまとめる（常体変換）'; btn.disabled=false; return; }
       localStorage.setItem('gemini_api_key', apiKey.trim());
       apiKey = apiKey.trim();
@@ -1941,7 +1942,8 @@ window.aiSummarizeCase = async function() {
     if (data.error) { showToast('APIエラー: ' + (data.error.message||'').slice(0,80)); btn.textContent='AIでまとめる（常体変換）'; btn.disabled=false; return; }
     if (!data.candidates || !data.candidates[0]) throw new Error('候補なし');
     const result = data.candidates[0].content.parts[0].text;
-    resultArea.innerHTML = '<div style="background:#E8F5E9;border:0.5px solid #81C784;border-radius:10px;padding:14px;margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:#2E7D32">✓ AIまとめ完了</div><button onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent); showToast(\'コピーしました\')" style="font-size:10px;padding:3px 8px;border:0.5px solid #2E7D32;border-radius:6px;background:transparent;color:#2E7D32;cursor:pointer">📋 コピー</button></div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
+    // コピペボタンなし版
+    resultArea.innerHTML = '<div style="background:#E8F5E9;border:0.5px solid #81C784;border-radius:10px;padding:14px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#2E7D32;margin-bottom:8px">✓ AIまとめ完了</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
     btn.textContent = 'もう一度まとめる'; btn.disabled = false;
   } catch(e) {
     console.error(e);
