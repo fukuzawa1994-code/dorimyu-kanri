@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#3C3489">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>École 送迎管理</title>
@@ -228,6 +229,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         <button class="cal-nav" onclick="calMove(1)">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
+      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button></div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -426,6 +428,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         </div>
         <button class="sbtn" onclick="doDistanceSubmit()">送信する</button>
       </div>
+      <div style="padding:0 14px 4px;display:flex;gap:6px"><button class="sbtn ghost" onclick="exportCSV('distance')" style="margin-top:0;font-size:12px">📥 距離CSV</button><button class="sbtn ghost" onclick="exportCSV('absence')" style="margin-top:0;font-size:12px">📥 欠席CSV</button></div>
       <div class="ksec-hd" style="margin-top:8px">今日の記録</div>
       <div id="distance-body"></div>
       </div><!-- end distance-input-area -->
@@ -529,6 +532,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
     </div>
   </div>
 
+    <div class="scr" id="scr-admin"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div></div></div>
   <button class="fab" id="fab" onclick="goForm()">＋</button>
 
   <div class="bnav">
@@ -569,6 +573,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
       <span>申請</span>
     </div>
+    <div class="ni" id="ni-admin" onclick="goScr('admin')" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>管理</span></div>
   </div>
 
   <div class="sheet-bg" id="sheet-bg" onclick="bgClose(event)">
@@ -625,12 +630,12 @@ let fState = { abs: '出席', kyushoku: 'あり', am: '利用する', pm: '利�
 const scrTitles = {
   list: '送迎一覧', form: '連絡入力', notif: '通知', hist: '履歴',
   kyushoku: '給食管理', absence: '欠席一覧', distance: '走行距離',
-  case: 'ケース記録', purchase: '購入申請'
+  case: 'ケース記録', purchase: '購入申請', admin: 'アカウント管理'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
   kyushoku: '給食数確認', absence: '欠席・遅刻・早退',
-  distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理'
+  distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理', admin: '職員アカウント管理'
 };
 
 // ── ユーティリティ ──
@@ -715,7 +720,7 @@ const MASTER = {
 
 window.goScr = function(s) {
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','absence','distance','case','purchase'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','absence','distance','case','purchase','admin'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -732,6 +737,8 @@ window.goScr = function(s) {
   if (s==='distance') { initDistanceForm(); renderDistanceLog(); }
   if (s==='case') { initCaseForm(); }
   if (s==='purchase') { setPurchaseTab('list'); }
+  if (s==='admin') { renderAdminPanel(); }
+  const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   updateDot();
 }
 
@@ -2043,6 +2050,7 @@ function updateUserBtn() {
     const roleLabel = currentUser.role === 3 ? '管理者' : currentUser.role === 2 ? '上司' : '一般';
     roleEl.textContent = roleLabel;
   }
+  const _adminBtn=document.getElementById('ni-admin'); if(_adminBtn) _adminBtn.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
 }
 
 // ── 給食マスタ（童里夢）──
