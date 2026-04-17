@@ -484,6 +484,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
           <div class="frow"><span class="flbl">購入予定日</span><input type="date" id="p-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>
           <div class="frow"><span class="flbl">承認依頼する上司</span>
             <select id="p-approver" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">
+              <option>牛山</option><option>鈴木早</option><option>福澤</option>
               <option>青山</option><option>杉浦</option><option>清水</option>
               <option>朝河</option><option>鈴木清</option>
             </select>
@@ -633,6 +634,19 @@ const scrSubs = {
 };
 
 // ── ユーティリティ ──
+// ── アバターカラー ──
+function avColor(name) {
+  const colors = [
+    ['#E8D5F5','#6B21A8'],['#D5EAF5','#1E40AF'],['#D5F5E3','#166534'],
+    ['#FEF3C7','#92400E'],['#FCE7F3','#9D174D'],['#E0F2FE','#0C4A6E'],
+    ['#FEE2E2','#991B1B'],['#ECFDF5','#065F46'],['#FFF7ED','#9A3412'],
+    ['#F0F9FF','#0369A1'],['#FDF4FF','#86198F'],['#F0FDF4','#14532D'],
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFFFF;
+  return colors[Math.abs(h) % colors.length];
+}
+
 function fmtDate(ds) {
   if (!ds) return '';
   const d = new Date(ds + 'T00:00:00');
