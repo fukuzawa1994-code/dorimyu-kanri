@@ -1049,6 +1049,49 @@ window.doGhSubmit = async function() {
   }
 };
 
+window.renderAdminPanel = function() {
+  const body = document.getElementById('admin-body');
+  if (!body) return;
+  if (!currentUser || currentUser.role < 3) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-dark)">管理者のみアクセス可能です</div>';
+    return;
+  }
+  const roleLabels = {3:'管理者', 2:'上司', 1:'一般'};
+  const roleColors = {3:'#E57373', 2:'#FFB74D', 1:'#81C784'};
+  
+  // 事業所別にグループ化
+  const byJigyosho = {};
+  for (const name in ACCOUNTS) {
+    const info = ACCOUNTS[name];
+    const jgs = Array.isArray(info.jigyosho) ? info.jigyosho : (info.jigyosho ? [info.jigyosho] : ['未分類']);
+    for (const jg of jgs) {
+      if (!byJigyosho[jg]) byJigyosho[jg] = [];
+      byJigyosho[jg].push({name: name, role: info.role, han: info.han || '', jigyosho: jgs});
+    }
+  }
+  
+  const jgOrder = ['童里夢','奏楽','ぱぁとなぁ','すたぁと','未分類'];
+  const keys = Object.keys(byJigyosho).sort(function(a,b){ return jgOrder.indexOf(a) - jgOrder.indexOf(b); });
+  
+  let html = '<div style="padding:12px">';
+  for (const jg of keys) {
+    const list = byJigyosho[jg].sort(function(a,b){ return b.role - a.role; });
+    html += '<div style="margin-bottom:16px"><div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:6px;padding:6px 12px;background:#F3ECFF;border-radius:8px">' + jg + '（' + list.length + '名）</div>';
+    for (const s of list) {
+      const rc = roleColors[s.role] || '#ccc';
+      const rl = roleLabels[s.role] || '?';
+      const jgsStr = s.jigyosho.join('・');
+      html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-weight:700;font-size:13px">' + s.name + '</span><span style="font-size:10px;background:' + rc + ';color:#fff;padding:2px 8px;border-radius:10px">' + rl + '</span></div>';
+      html += '<div style="font-size:11px;color:var(--gray-dark)">' + (s.han ? '班：' + s.han + ' / ' : '') + '事業所：' + jgsStr + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  body.innerHTML = html;
+};
+
 window.doSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
