@@ -1934,10 +1934,10 @@ window.aiSummarizeCase = async function() {
     // キー形式を自動判別：AIzaは?key=、AQ.はBearer認証
     let url, headers;
     if (apiKey.startsWith('AQ.')) {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
       headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
     } else {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey;
       headers = { 'Content-Type': 'application/json' };
     }
     
