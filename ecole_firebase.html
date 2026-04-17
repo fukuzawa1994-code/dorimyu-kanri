@@ -70,8 +70,8 @@ html, body { height: 100%; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans 
 .tok { background: var(--green-light); color: var(--green-dark); }
 .tno { background: var(--red-light); color: var(--red-dark); }
 .tabs { background: var(--gray-light); color: var(--gray-dark); }
-.bnav { position: absolute; bottom: 0; left: 0; right: 0; height: 68px; background: var(--surface); border-top: 0.5px solid var(--border); display: flex; align-items: flex-start; z-index: 50; }
-.ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 10px 0 0; position: relative; }
+.bnav { position: absolute; bottom: 0; left: 0; right: 0; height: 68px; background: var(--surface); border-top: 0.5px solid var(--border); display: flex; align-items: flex-start; z-index: 50; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; } .bnav::-webkit-scrollbar { display: none; }
+.ni { flex: 0 0 auto; min-width: 60px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 10px 8px 0; position: relative; }
 .ni svg { width: 22px; height: 22px; stroke: var(--text-sub); fill: none; stroke-width: 1.6; }
 .ni span { font-size: 10px; color: var(--text-sub); }
 .ni.on svg { stroke: var(--purple); }
