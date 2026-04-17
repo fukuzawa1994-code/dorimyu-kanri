@@ -373,20 +373,14 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
           </div>
           <div class="frow"><span class="flbl">氏名</span>
             <select id="d-staff">
-              <option>福澤嵐</option><option>牛山智浩</option><option>鈴木早苗</option>
-              <option>青山祐介</option><option>杉浦翔子</option><option>清水歩</option>
-              <option>朝河碧</option><option>鈴木清益</option>
-              <option>栗原伸吉</option><option>戸澤リエ</option><option>竹内瑞江</option>
-              <option>西野淳司</option><option>篠原栄一</option><option>松原一樹</option>
-              <option>桒原幸太</option><option>加藤あきな</option><option>芦田美幸</option>
-              <option>上原しのぶ</option><option>関根清美</option><option>橋本真弓</option>
-              <option>梶尾義頼</option><option>柴田昌彦</option><option>國友豊</option>
-              <option>牧原修一</option>
-              <option>稲石聖子</option><option>岩城道代</option><option>岩瀬ユカ</option>
-              <option>加藤健吾</option><option>熊谷由美</option><option>後藤知子</option>
-              <option>高木とも子</option><option>田中友香里</option><option>内藤雅文</option>
-              <option>中島博之</option><option>林竜希</option><option>堀江修司</option>
-              <option>眞木祐奈</option><option>松下真弓</option>
+              <option>栗原</option><option>戸澤</option><option>福澤</option>
+              <option>牛山</option><option>青山</option><option>鈴木早</option>
+              <option>竹内</option><option>西野</option><option>篠原</option>
+              <option>杉浦</option><option>清水</option><option>朝河</option>
+              <option>鈴木清</option><option>加藤</option><option>芦田</option>
+              <option>松原</option><option>柴田</option><option>関根</option>
+              <option>橋本</option><option>梶尾</option><option>上原</option>
+              <option>桒原</option>
             </select>
           </div>
           <div class="frow"><span class="flbl">利用者数</span><input type="number" id="d-count" min="0" value="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>
@@ -727,153 +721,7 @@ const MASTER = {
       pmOnly: []
     }
   },
-  defaultSchedule: {
-    '東脇': {
-      am: {
-        '西谷充弘':  [0,0,1,0,0,0,0],
-        '山本利典':  [0,0,1,0,0,0,0],
-        '野田裕介':  [0,0,1,1,1,1,0],
-        '渕名健太':  [0,0,1,1,1,1,1],
-        '渕名裕太':  [0,0,1,1,1,1,1],
-        '渡辺一正':  [0,0,1,1,1,1,1],
-        '古林孝康':  [0,0,1,1,1,1,1],
-        '松井大訓':  [0,0,1,1,1,1,1]
-      },
-      pm: {
-        '西谷充弘':  [0,0,1,0,0,0,1],
-        '山本利典':  [0,0,1,0,0,0,1],
-        '野田裕介':  [0,0,1,1,1,1,0],
-        '渕名健太':  [0,0,1,1,1,1,1],
-        '渕名裕太':  [0,0,1,1,1,1,1],
-        '渡辺一正':  [0,0,1,1,1,1,1],
-        '古林孝康':  [0,0,0,0,0,0,0],
-        '松井大訓':  [0,0,0,0,0,0,0],
-        '下門朋也':  [0,0,1,1,1,1,1],
-        '佐々木由佳':[0,0,1,1,1,1,1],
-        '稲垣雅子':  [0,0,0,0,0,0,1]
-      }
-    },
-    '賀茂': {
-      am: {
-        '小島彰':   [0,0,1,1,1,1,1],
-        '森英充':   [0,0,1,1,1,1,1],
-        '原田順子': [0,0,0,0,0,0,0],
-        '熊谷美那': [0,0,1,1,1,1,1],
-        '石黒真矢': [0,0,1,1,1,1,1],
-        '近田織義': [0,0,1,1,1,1,1],
-        '及部富志夫':[0,0,1,1,1,1,1]
-      },
-      pm: {
-        '小島彰':   [0,0,1,1,1,1,1],
-        '森英充':   [0,0,1,1,1,1,1],
-        '原田順子': [0,0,0,0,0,0,0],
-        '熊谷美那': [0,0,1,1,1,1,1],
-        '石黒真矢': [0,0,1,1,1,1,1],
-        '近田織義': [0,0,1,1,1,1,1],
-        '及部富志夫':[0,0,1,1,1,1,1]
-      }
-    },
-    'マイクロ': {
-      am: {
-        '土屋佳世':  [0,0,1,1,1,1,1],
-        '国澤磨世':  [0,0,1,0,0,0,0],
-        '尾崎元哉':  [0,0,0,0,1,1,0],
-        '隅田潤':    [0,0,1,0,0,0,0],
-        '彦坂珠枝':  [0,0,1,1,1,1,1],
-        '彦坂純奈':  [0,0,1,1,1,1,1],
-        '遠山梓':    [0,0,1,1,1,1,1],
-        '坂井夏恋':  [0,0,0,0,1,1,0],
-        '荒津美智子':[0,0,1,1,1,1,1],
-        '伊藤憲考':  [0,0,1,1,1,1,1],
-        '吉村しおり':[0,0,1,1,1,1,1],
-        '菅沼陽':    [0,0,1,1,1,1,1],
-        '権田和紀':  [0,0,1,1,1,1,1],
-        '大木晴充':  [0,0,1,1,1,1,1],
-        '小久保俊治':[0,0,1,1,1,1,1],
-        '奥平日出夫':[0,0,0,0,0,0,0],
-        '市古麻美':  [0,0,0,0,1,1,1],
-        '川野洋文':  [0,0,0,0,0,0,0]
-      },
-      pm: {
-        '土屋佳世':  [0,0,1,1,1,1,1],
-        '国澤磨世':  [0,0,0,0,0,0,1],
-        '尾崎元哉':  [0,0,0,0,1,1,0],
-        '隅田潤':    [0,0,0,0,0,0,1],
-        '彦坂珠枝':  [0,0,1,1,1,1,1],
-        '彦坂純奈':  [0,0,1,1,1,1,1],
-        '遠山梓':    [0,0,1,1,1,1,1],
-        '坂井夏恋':  [0,0,0,0,1,1,0],
-        '荒津美智子':[0,0,1,1,1,1,1],
-        '伊藤憲考':  [0,0,1,1,1,1,1],
-        '吉村しおり':[0,0,1,1,1,1,1],
-        '菅沼陽':    [0,0,1,1,1,1,1],
-        '権田和紀':  [0,0,1,1,1,1,1],
-        '大木晴充':  [0,0,1,1,1,1,1],
-        '小久保俊治':[0,0,1,1,1,1,1],
-        '奥平日出夫':[0,0,0,0,0,0,0],
-        '市古麻美':  [0,0,0,0,1,1,1],
-        '川野洋文':  [0,0,0,0,0,0,0]
-      }
-    },
-    '草間': {
-      am: {
-        '彦坂友咲': [0,0,1,1,1,1,1],
-        '田中千景': [0,0,1,1,1,1,1],
-        '牧野裕助': [0,0,1,1,1,1,1],
-        '加藤雅也': [0,0,1,1,1,1,1],
-        '大塚佑介': [0,0,1,0,0,0,0],
-        '松崎裕斗': [0,0,0,0,1,1,0],
-        '大山知美': [0,0,1,0,0,0,0]
-      },
-      pm: {
-        '彦坂友咲': [0,0,1,1,1,1,1],
-        '田中千景': [0,0,1,1,1,1,1],
-        '牧野裕助': [0,0,1,1,1,1,1],
-        '加藤雅也': [0,0,1,1,1,1,1],
-        '大塚佑介': [0,0,0,0,0,0,1],
-        '松崎裕斗': [0,0,0,0,1,1,0],
-        '大山知美': [0,0,0,0,0,0,1]
-      }
-    },
-    '曙': {
-      am: {
-        '田中仁':   [0,0,1,1,1,1,1],
-        '田中力':   [0,0,1,1,1,1,1],
-        '本藤明奈': [0,0,1,1,1,1,1],
-        '飯田康暉': [0,0,1,1,1,1,1],
-        '久米恵子': [0,0,1,1,1,1,1]
-      },
-      pm: {
-        '田中仁':   [0,0,1,1,1,1,1],
-        '田中力':   [0,0,1,1,1,1,1],
-        '本藤明奈': [0,0,1,1,1,1,1],
-        '飯田康暉': [0,0,1,1,1,1,1],
-        '久米恵子': [0,0,1,1,1,1,1]
-      }
-    },
-    '二川': {
-      am: {
-        '渡辺真実鼓':[0,0,1,1,1,1,1],
-        '森奈美恵': [0,0,1,1,1,1,1],
-        '山本一夫': [0,0,1,1,1,1,1],
-        '野津塁':   [0,0,1,1,1,1,1],
-        '高木由香': [0,0,1,0,0,0,0],
-        '朝倉祥子': [0,0,1,0,0,0,0]
-      },
-      pm: {
-        '渡辺真実鼓':[0,0,1,1,1,1,1],
-        '森奈美恵': [0,0,1,1,1,1,1],
-        '山本一夫': [0,0,1,1,1,1,1],
-        '野津塁':   [0,0,1,1,1,1,1],
-        '高木由香': [0,0,0,0,0,0,1],
-        '朝倉祥子': [0,0,0,0,0,0,1]
-      }
-    },
-    'すたぁと': {
-      am: {},
-      pm: {}
-    }
-  }
+  defaultSchedule: {}
 };
 
 window.goScr = function(s) {
@@ -1281,9 +1129,9 @@ function checkSession() {
 
 
 const GH_MASTER = {
-  '紬女': { capacity: 4, users: ['朝倉祥子','白井','国澤磨世','大山知美'] },
-  '紬男': { capacity: 6, users: ['木下','隅田潤','西谷充弘','大塚佑介','山本利典','上村'] },
-  'ひまわりハウス': { capacity: 4, users: ['松野','稲垣雅子','高木由香','臼井'] }
+  '紬男': { capacity: 6, users: ['大木晴充','権田和紀','川野洋文','吉田成秀','奥平日出夫','山本一夫'] },
+  '紬女': { capacity: 4, users: ['石黒真矢','市古麻美','彦坂友咲','田中千景'] },
+  'ひまわりハウス': { capacity: 4, users: ['久米恵子','朝倉祥子','渡辺真実鼓','高木由香'] }
 };
 const GH_DINNER_DAYS = [2,3,4,5];
 const GH_PATTERNS = {
@@ -1294,86 +1142,98 @@ const GH_PATTERNS = {
   'abs_home':  { label: '奏楽休み・帰省',         lunch: false, dinner: false }
 };
 const TRANSPORT_STAFF = {
-  '東脇':     { am: {2:'柴田昌彦',3:'柴田昌彦',4:'柴田昌彦',5:'柴田昌彦',6:'柴田昌彦'}, pm: {2:'栗原伸吉',3:'栗原伸吉',4:'栗原伸吉',5:'栗原伸吉',6:'栗原伸吉'} },
-  'マイクロ': { am: {2:'牧原修一',3:'牧原修一',4:'牧原修一',5:'牧原修一',6:'國友豊'},  pm: {2:'國友豊',3:'國友豊',4:'國友豊',5:'國友豊',6:'國友豊'} },
-  '賀茂':     { am: {2:'戸澤リエ',3:'戸澤リエ',4:'戸澤リエ',5:'戸澤リエ',6:'戸澤リエ'}, pm: {2:'戸澤リエ',3:'戸澤リエ',4:'関根清美',5:'戸澤リエ',6:'戸澤リエ'} },
-  '曙':       { am: {2:'堀江修司',3:'堀江修司',4:'内藤雅文',5:'堀江修司',6:'堀江修司'}, pm: {2:'中島博之',3:'内藤雅文',4:'林竜希',5:'内藤雅文',6:'林竜希'} },
-  '草間':     { am: {2:'加藤健吾',3:'加藤健吾',4:'加藤健吾',5:'加藤健吾',6:'加藤健吾'}, pm: {2:'岩城道代',3:'熊谷由美',4:'岩瀬ユカ',5:'熊谷由美',6:'内藤雅文'} },
-  '二川':     { am: {2:'中島博之',3:'松下真弓',4:'松下真弓',5:'岩瀬ユカ',6:'松下真弓'}, pm: {2:'内藤雅文',3:'高木とも子',4:'後藤知子',5:'高木とも子',6:'岩瀬ユカ'} }
+  'マイクロ': { am: {2:'牧原/國友',3:'牧原/國友',4:'牧原/國友',5:'牧原/國友',6:'不定期/國友'}, pm: {2:'牧原/國友',3:'牧原/國友',4:'牧原/國友',5:'牧原/國友',6:'不定期/國友'} },
+  '賀茂':     { am: {2:'戸澤',3:'戸澤',4:'戸澤',5:'戸澤',6:'戸澤'}, pm: {2:'戸澤',3:'戸澤',4:'関根',5:'戸澤',6:'戸澤'} },
+  '東脇':     { am: {2:'柴田',3:'柴田',4:'柴田',5:'柴田',6:'柴田'}, pm: {2:'栗原',3:'栗原',4:'栗原',5:'栗原',6:'栗原'} },
+  '曙':       { am: {2:'堀江',3:'堀江',4:'内藤',5:'堀江',6:'堀江'}, pm: {2:'中島',3:'内藤',4:'林',5:'内藤',6:'林'} },
+  '草間':     { am: {2:'加藤（健）',3:'加藤（健）',4:'加藤（健）',5:'加藤（健）',6:'加藤（健）'}, pm: {2:'岩城',3:'熊谷',4:'岩瀬',5:'熊谷',6:'内藤'} },
+  '二川':     { am: {2:'中島',3:'松下',4:'松下',5:'岩瀬',6:'松下'}, pm: {2:'内藤',3:'高木',4:'後藤',5:'高木',6:'岩瀬'} }
 };
 
 // ── アカウントマスター ──
 const ACCOUNTS = {
-  // ── 童里夢 管理者 ──
-  '福澤嵐':     { password: '', role: 3, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
-  '牛山智浩':   { password: '', role: 3, han: '事務',       jigyosho: ['童里夢'] },
-  '鈴木早苗':   { password: '', role: 3, han: '事務',       jigyosho: ['童里夢','ぱぁとなぁ'] },
-  // ── 童里夢 上司 ──
-  '青山祐介':   { password: '', role: 2, han: 'パン缶',     jigyosho: ['童里夢'] },
-  '杉浦翔子':   { password: '', role: 2, han: '雑貨',       jigyosho: ['童里夢'] },
-  '清水歩':     { password: '', role: 2, han: 'レストラン', jigyosho: ['童里夢'] },
-  '朝河碧':     { password: '', role: 2, han: 'レストラン', jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '鈴木清益':   { password: '', role: 2, han: 'パン',       jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
-  // ── 童里夢 一般 ──
-  '栗原伸吉':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
-  '戸澤リエ':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
-  '竹内瑞江':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢'] },
-  '西野淳司':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
-  '篠原栄一':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '松原一樹':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','すたぁと'] },
-  '桒原幸太':   { password: '', role: 1, han: '雑貨',       jigyosho: ['童里夢','ぱぁとなぁ','すたぁと'] },
-  '加藤あきな': { password: '', role: 1, han: 'レストラン', jigyosho: ['童里夢'] },
-  '芦田美幸':   { password: '', role: 1, han: 'レストラン', jigyosho: ['童里夢'] },
-  '上原しのぶ': { password: '', role: 1, han: 'パン',       jigyosho: ['童里夢'] },
-  '関根清美':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢','すたぁと'] },
-  '橋本真弓':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢'] },
-  '梶尾義頼':   { password: '', role: 1, han: 'パン缶',     jigyosho: ['童里夢','ぱぁとなぁ'] },
-  '柴田昌彦':   { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
-  '國友豊':     { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
-  '牧原修一':   { password: '', role: 1, han: '送迎',       jigyosho: ['童里夢'] },
-  // ── 奏楽 就労B ──
-  '稲石聖子':   { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
-  '岩城道代':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  '岩瀬ユカ':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','ぱぁとなぁ'] },
-  '加藤健吾':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  '熊谷由美':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
-  '後藤知子':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽','すたぁと'] },
-  '高木とも子': { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  '田中友香里': { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽','ぱぁとなぁ'] },
-  '内藤雅文':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  '中島博之':   { password: '', role: 3, han: '奏楽',       jigyosho: ['奏楽'] },
-  '林竜希':     { password: '', role: 2, han: '奏楽',       jigyosho: ['奏楽'] },
-  '堀江修司':   { password: '', role: 3, han: '奏楽',       jigyosho: ['奏楽'] },
-  '眞木祐奈':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  '松下真弓':   { password: '', role: 1, han: '奏楽',       jigyosho: ['奏楽'] },
-  // ── 奏楽 相談 ──
-  '小笠原朱美': { password: '', role: 3, han: '相談',       jigyosho: ['奏楽相談'] },
-  '加藤賢吾':   { password: '', role: 1, han: '相談',       jigyosho: ['奏楽相談'] },
-  '近田哲子':   { password: '', role: 1, han: '相談',       jigyosho: ['奏楽相談'] },
-  '橋元賢治':   { password: '', role: 3, han: '相談',       jigyosho: ['奏楽','奏楽相談'] },
-  // ── ぱぁとなぁ ──
-  '岩下理香':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '大江由紀子': { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '大河まり子': { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '河合佳子':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ','すたぁと'] },
-  '菅野照代':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '木林恭子':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '久瀬充洋':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  '坂柳千歳':   { password: '', role: 1, han: 'ぱぁとなぁ', jigyosho: ['ぱぁとなぁ'] },
-  // ── すたぁと ──
-  '石川陸子':   { password: '', role: 2, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '市古尚子':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '大田一美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '小柳津恵子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '加藤美代子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '小林万知子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '米谷佐知子': { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '鈴木洋美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '鈴木俊介':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '安田米子':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '山田明美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
-  '福井正之':   { password: '', role: 3, han: 'GH', jigyosho: ['GH'] }
-}
+  '栗原':   { password: '',   role: 1, han: '雑貨' },
+  '戸澤':   { password: '',   role: 1, han: '雑貨' },
+  '福澤':   { password: '',   role: 3, han: '雑貨' },
+  '牛山':   { password: '',   role: 3, han: '事務' },
+  '青山':   { password: '',   role: 2, han: 'パン缶' },
+  '鈴木早': { password: '', role: 3, han: '事務' },
+  '竹内':   { password: '',   role: 1, han: '雑貨' },
+  '西野':   { password: '',   role: 1, han: '雑貨' },
+  '篠原':   { password: '',   role: 1, han: '雑貨' },
+  '杉浦':   { password: '',   role: 2, han: '雑貨' },
+  '清水':   { password: '',   role: 2, han: 'レストラン' },
+  '朝河':   { password: '',   role: 2, han: 'レストラン' },
+  '鈴木清': { password: '', role: 2, han: 'パン' },
+  '加藤あ': { password: '', role: 1, han: 'レストラン' },
+  '芦田':   { password: '',   role: 1, han: 'レストラン' },
+  '松原':   { password: '',   role: 1, han: '雑貨' },
+  '柴田':   { password: '',   role: 1, han: '送迎' },
+  '関根':   { password: '',   role: 1, han: 'パン缶' },
+  '橋本':   { password: '',   role: 1, han: 'パン缶' },
+  '梶尾':   { password: '',   role: 1, han: 'パン缶' },
+  '上原':   { password: '',   role: 1, han: 'パン' },
+  '桒原':   { password: '',   role: 1, han: '雑貨' },
+  '稲石':   { password: '',   role: 1, han: '奏楽' },
+};
+let currentUser = null;
+
+window.doLogin = async function() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('login-error');
+  err.textContent = '認証中...';
+  
+  if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
+  
+  try {
+    // Firestoreでパスワードを照合
+    const accountDoc = await getDoc(doc(db, 'staff_accounts', name));
+    let validPw;
+    
+    if (accountDoc.exists()) {
+      // Firestoreにアカウントがある場合
+      const data = accountDoc.data();
+      // SHA-256ハッシュで比較
+      const passHash = await hashPassword(pass);
+      if (data.passwordHash !== passHash) {
+        // ローカル変更パスワードも確認
+        const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+        const localPw = pwStore[name];
+        if (localPw && localPw === pass) {
+          // ローカルパスワードが一致 → Firestoreに移行
+          await updateDoc(doc(db, 'staff_accounts', name), { passwordHash: passHash });
+        } else {
+          err.textContent = 'パスワードが違います'; return;
+        }
+      }
+    } else {
+      // 初回：デフォルトパスワード(0000)で照合してFirestoreに登録
+      const defaultHash = await hashPassword('0000');
+      const inputHash = await hashPassword(pass);
+      const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+      const localPw = pwStore[name];
+      
+      if (pass !== '0000' && pass !== localPw) {
+        err.textContent = 'パスワードが違います'; return;
+      }
+      // Firestoreにアカウント作成
+      await setDoc(doc(db, 'staff_accounts', name), {
+        passwordHash: inputHash,
+        role: ACCOUNTS[name].role,
+        han: ACCOUNTS[name].han,
+        createdAt: serverTimestamp()
+      });
+    }
+    
+    // セッショントークン生成
+    const sessionToken = generateToken();
+    const sessionData = { 
+      name, 
+      role: ACCOUNTS[name].role, 
+      sessionToken,
+      loginAt: Date.now()
+    };
     
     currentUser = sessionData;
     currentStaff = name;
@@ -1897,74 +1757,47 @@ window.aiSummarizeCase = async function() {
   const records = logs.filter(l => l.type==='case' && l.date===date && l.user===user);
   const btn = document.getElementById('ai-summarize-btn');
   const resultArea = document.getElementById('ai-result-area');
-  
-  if (!records.length) { showToast('この日の記録がありません'); return; }
-  
   btn.textContent = 'AI処理中...';
   btn.disabled = true;
 
+  // 全記録をまとめてAIに投げる
   const allText = records.map(l => {
     const tagStr = l.tags && l.tags.length ? '（' + l.tags.join('・') + '）' : '';
     return '【' + (l.staff||'') + '】' + tagStr + '\n' + (l.caseText||'');
   }).join('\n\n');
 
   const dateStr = document.getElementById('cs-date').value;
-  const promptText = '以下の記録を、省略せず、重複は統合して、ケース記録としてそのまま使える文章にまとめてください。\n\n【ルール】\n・内容を省略しない\n・同じ利用者の記録が複数ある場合は1つに統合する\n・時系列順に並べる\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず、記録に書かれている事実のみを書く\n・「記録」「本文」などの見出しは入れない\n・常体（だ・である調）で書く\n・以下の順番で記載する：名前 日付 文章\n\n【出力例】\n小嶋さん 1/4 朝、送迎車にてエコールへ来所した。…\n\n【入力する記録】\n' + user + 'さん ' + dateStr + '\n\n' + allText;
+  const prompt = '以下の記録を、省略せず、重複は統合して、ケース記録としてそのまま使える文章にまとめてください。\n\n【ルール】\n・内容を省略しない\n・同じ利用者の記録が複数ある場合は1つに統合する\n・時系列順に並べる\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず、記録に書かれている事実のみを書く\n・「記録」「本文」などの見出しは入れない\n・以下の順番で記載する：名前 日付 文章\n\n【出力例】\n小嶋さん 1/4 朝、送迎車にてエコールへ来所した。…\n\n【入力する記録】\n' + user + 'さん ' + dateStr + '\n\n' + allText;
 
   try {
     let apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      apiKey = window.prompt('Gemini APIキーを入力してください：');
-      if (!apiKey) {
-        showToast('キャンセルされました');
-        btn.textContent = 'AIで考える（常体変換）';
-        btn.disabled = false;
-        return;
-      }
-      localStorage.setItem('gemini_api_key', apiKey.trim());
-      apiKey = apiKey.trim();
+      apiKey = prompt('Gemini APIキーを入力してください：');
+      if (!apiKey) { showToast('APIキーが入力されませんでした'); btn.textContent = 'AIでまとめる（常体変換）'; btn.disabled = false; return; }
+      localStorage.setItem('gemini_api_key', apiKey);
     }
-    
-    // キー形式を自動判別：AIzaは?key=、AQ.はBearer認証
-    let url, headers;
-    if (apiKey.startsWith('AQ.')) {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
-      headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
-    } else {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey;
-      headers = { 'Content-Type': 'application/json' };
-    }
-    
-    const response = await fetch(url, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
     });
-    
     const data = await response.json();
-    
-    if (data.error) {
-      showToast('APIエラー: ' + (data.error.message || '').slice(0, 80));
-      console.error('API Error:', data.error);
-      btn.textContent = 'AIで考える（常体変換）';
-      btn.disabled = false;
-      return;
-    }
-    
-    if (!data.candidates || !data.candidates[0]) {
-      console.error('No candidates:', data);
-      throw new Error('候補なし');
-    }
-    
+    if (!data.candidates) { localStorage.removeItem('gemini_api_key'); throw new Error('API error'); }
     const result = data.candidates[0].content.parts[0].text;
-    resultArea.innerHTML = '<div style="background:var(--green-light);border:0.5px solid #C0DD97;border-radius:var(--radius);padding:14px;margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--green-dark)">✓ AIまとめ完了</div><button onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent); showToast(\'コピーしました\')" style="font-size:10px;padding:3px 8px;border:0.5px solid var(--green-dark);border-radius:6px;background:transparent;color:var(--green-dark);cursor:pointer">📋 コピー</button></div><div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
+    resultArea.innerHTML = `
+      <div style="background:var(--green-light);border:0.5px solid #C0DD97;border-radius:var(--radius);padding:14px;margin-top:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:8px">✓ AIまとめ完了</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${result}</div>
+      </div>`;
     btn.textContent = 'もう一度まとめる';
     btn.disabled = false;
   } catch(e) {
-    console.error(e);
-    showToast('AI処理に失敗しました: ' + e.message);
-    btn.textContent = 'AIで考える（常体変換）';
+    showToast('AI処理に失敗しました');
+    btn.textContent = 'AIでまとめる（常体変換）';
     btn.disabled = false;
+    console.error(e);
   }
 }
 
