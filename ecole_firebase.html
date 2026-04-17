@@ -300,7 +300,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 
     <div class="scr" id="scr-case">
       <div class="phase-tabs" style="padding:10px 14px 0">
-        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div>
+        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px">📄 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printCaseMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div>
         <div class="ptab" id="ctab-summary" onclick="setCaseTab('summary')">まとめ</div>
       </div>
 
@@ -350,7 +350,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         </div>
         <div id="case-summary-body"></div>
         <div style="padding:0 14px 80px">
-          <button class="sbtn" id="ai-summarize-btn" onclick="aiSummarizeCase()" style="display:none">プロンプトをコピー</button>
+          <button class="sbtn" id="ai-summarize-btn" onclick="aiSummarizeCase()">AIでまとめる（常体変換）</button>
         </div>
       </div>
     </div>
@@ -435,7 +435,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       <div id="distance-summary-area" style="display:none">
         <div class="fp" style="padding-bottom:0">
           <div class="fsec">
-            <div class="frow"><span class="flbl">集計月</span><input type="month" id="d-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderDistanceSummary()"/></div>
+            <div class="frow"><span class="flbl">集計月</span><input type="month" id="d-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderDistanceSummary()"/></div><div class="frow" style="border-top:0.5px solid var(--border);padding-top:10px;margin-top:8px"><span class="flbl">📄 PDF出力月</span><input type="month" id="d-pdf-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div style="padding:0 14px"><button onclick="printDistanceMonthly()" style="width:100%;padding:10px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px">📄 PDF出力（ブラウザ印刷→PDFとして保存）</button></div>
           </div>
         </div>
         <div id="distance-summary-body"></div>
@@ -1193,7 +1193,7 @@ window.printTransportMonthly = function() {
 
 // ④-3 距離記録 月次PDF
 window.printDistanceMonthly = function() {
-  const monthInput = document.getElementById('dist-month');
+  const monthInput = document.getElementById('d-pdf-month');
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
   const monthLogs = logs.filter(function(l) { return l.type==='distance' && l.date && l.date.slice(0,7)===month; });
   if (!monthLogs.length) { showToast(month+'の距離記録なし'); return; }
