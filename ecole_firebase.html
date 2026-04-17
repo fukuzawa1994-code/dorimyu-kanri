@@ -469,7 +469,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 
     <div class="scr" id="scr-hist">
       <div class="search-wrap"><input type="text" placeholder="名前・便で検索..." oninput="filterHist(this.value)" id="hist-search"/></div>
-      <div id="hist-body"></div>
+      <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px">📄 送迎変更記録 月次PDF</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="tr-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printTransportMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div><div id="hist-body"></div>
     </div>
     <div class="scr" id="scr-purchase">
       <!-- 申請一覧タブ -->
