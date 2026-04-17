@@ -482,6 +482,12 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 
           <div class="frow"><span class="flbl">申請者</span><span id="p-applicant" style="font-size:13px;color:var(--text)"></span></div>
           <div class="frow"><span class="flbl">購入予定日</span><input type="date" id="p-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>
+          <div class="frow"><span class="flbl">承認依頼する上司</span>
+            <select id="p-approver" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">
+              <option>青山</option><option>杉浦</option><option>清水</option>
+              <option>朝河</option><option>鈴木清</option>
+            </select>
+          </div>
 
           <div class="ksec-hd" style="margin-top:12px">福祉事業活動・就労生産活動</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="p-category-wrap">
@@ -651,9 +657,47 @@ function tagHtml(am, pm, abs) {
   return a + ' ' + p;
 }
 
-
-
-
+// ── 送迎マスタ ──
+const MASTER = {
+  routes: {
+    '東脇': {
+      color: '#E57373',
+      users: ['西谷充弘','山本利典','福浦葉聖','野田裕介','渕名健太','渕名裕太','渡辺一正','古林孝康','松井大訓','下門朋也','野津塁','佐々木由佳','稲垣雅子'],
+      pmOnly: []
+    },
+    '賀茂': {
+      color: '#FFB74D',
+      users: ['小島彰','森英充','原田順子','熊谷美那','石黒真矢','近田織義','及部富志夫'],
+      pmOnly: []
+    },
+    'マイクロ': {
+      color: '#81C784',
+      users: ['土屋佳世','国澤磨世','尾崎元哉','隅田潤','彦坂珠枝','彦坂純奈','遠山梓','坂井夏恋','荒津美智子','伊藤憲考','吉村しおり','菅沼陽','権田和紀','大木晴充','小久保俊治','奥平日出夫','市古麻美','川野洋文'],
+      pmOnly: []
+    },
+    '草間': {
+      color: '#64B5F6',
+      users: ['彦坂友咲','田中千景','牧野裕助','加藤雅也','大塚佑介','松崎裕斗','大山知美'],
+      pmOnly: []
+    },
+    '曙': {
+      color: '#BA68C8',
+      users: ['田中仁','田中力','本藤明奈','飯田康暉','久米恵子'],
+      pmOnly: []
+    },
+    '二川': {
+      color: '#4DB6AC',
+      users: ['渡辺真実鼓','森奈美恵','山本一夫','野津塁','木下真利','高木由香','朝倉祥子','坂井夏恋'],
+      pmOnly: []
+    },
+    'すたぁと': {
+      color: '#A1887F',
+      users: [],
+      pmOnly: []
+    }
+  },
+  defaultSchedule: {}
+};
 
 window.goScr = function(s) {
   currentScr = s;
@@ -948,13 +992,15 @@ window.doSubmit = async function() {
 // ── 通知 ──
 function renderNotif() {
   const body = document.getElementById('notif-body');
-  if (!logs.length) { body.innerHTML = '<div class="empty">通知はありません</div>'; return; }
-  body.innerHTML = logs.slice(0,40).map(l => {
+  const notifLogs = logs.filter(l => l.user && l.bin && !l.type);
+  if (!notifLogs.length) { body.innerHTML = '<div class="empty">通知はありません</div>'; return; }
+  body.innerHTML = notifLogs.slice(0,40).map(l => {
     const isNew = l.isNew && !readNotif.includes(l.id);
+    const absText = l.abs ? '終日欠席' : l.am==='利用しない' ? '朝：利用しない' : '朝夕：乗車';
     return `<div class="hrow">
       <div class="${isNew?'nnew':'nold'}">${l.ts||''}${isNew?' · 新着':''}</div>
       <div class="hname">${l.user}</div>
-      <div class="hdet">${l.bin}便 · ${l.abs?'終日欠席':l.am==='利用しない'?'朝：利用しない':'朝夕：乗車'}${l.note?' ／ '+l.note:''}</div>
+      <div class="hdet">${l.bin}便 · ${absText}${l.note?' ／ '+l.note:''}</div>
       <div class="htags">${tagHtml(l.am,l.pm,l.abs)}</div>
     </div>`;
   }).join('');
@@ -1341,11 +1387,14 @@ window.submitPurchase1 = async function() {
   }
 
   const totalPrice = items.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+  const approverEl = document.getElementById('p-approver');
+  const approver = approverEl ? approverEl.value : '';
   const rec = {
     type: 'purchase',
     step: 1,
     status: '打診中',
     applicant: currentStaff,
+    approver,
     date,
     categories: cats,
     items,
@@ -1370,11 +1419,11 @@ window.renderPurchaseList = function() {
     if (list.length===0) { body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">申請はありません</div>'; return; }
     body.innerHTML = list.map(p => {
       const statusColor = p.status==='承認済' ? 'var(--green-dark)' : p.status==='却下' ? 'var(--red-dark)' : 'var(--amber-dark)';
-      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant && currentUser && currentUser.role >= 2;
+      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant && currentUser && currentUser.role >= 2 && (!p.approver || p.approver === currentStaff || currentUser.role >= 3);
       const canStep2 = p.step===1 && p.status==='承認済' && p.applicant===currentStaff;
       return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}</span>
+          <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}${p.approver ? ' → '+p.approver : ''}</span>
           <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px">${p.status}（${p.step===1?'打診':'本申請'}）</span>
         </div>
         <div style="font-size:12px;color:var(--gray-dark);margin-bottom:4px">${(p.categories||[]).join('・')}</div>
