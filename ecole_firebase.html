@@ -594,7 +594,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, addDoc, getDoc, getDocs, updateDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Firebase設定（あなたのプロジェクトの値）──
 const firebaseConfig = {
@@ -1080,52 +1080,126 @@ window.editFromSheet = function() {
 
 
 // ── 職員マスタ ──
+
+// ── セキュリティユーティリティ ──
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + 'ecole_salt_2026');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateToken() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ── アカウントマスター ──
 const ACCOUNTS = {
-  '栗原':   { password: '0000',   role: 1, han: '雑貨' },
-  '戸澤':   { password: '0000',   role: 1, han: '雑貨' },
-  '福澤':   { password: '0000',   role: 3, han: '雑貨' },
-  '牛山':   { password: '0000',   role: 3, han: '事務' },
-  '青山':   { password: '0000',   role: 2, han: 'パン缶' },
-  '鈴木早': { password: '0000', role: 3, han: '事務' },
-  '竹内':   { password: '0000',   role: 1, han: '雑貨' },
-  '西野':   { password: '0000',   role: 1, han: '雑貨' },
-  '篠原':   { password: '0000',   role: 1, han: '雑貨' },
-  '杉浦':   { password: '0000',   role: 2, han: '雑貨' },
-  '清水':   { password: '0000',   role: 2, han: 'レストラン' },
-  '朝河':   { password: '0000',   role: 2, han: 'レストラン' },
-  '鈴木清': { password: '0000', role: 2, han: 'パン' },
-  '加藤あ': { password: '0000', role: 1, han: 'レストラン' },
-  '芦田':   { password: '0000',   role: 1, han: 'レストラン' },
-  '松原':   { password: '0000',   role: 1, han: '雑貨' },
-  '柴田':   { password: '0000',   role: 1, han: '送迎' },
-  '関根':   { password: '0000',   role: 1, han: 'パン缶' },
-  '橋本':   { password: '0000',   role: 1, han: 'パン缶' },
-  '梶尾':   { password: '0000',   role: 1, han: 'パン缶' },
-  '上原':   { password: '0000',   role: 1, han: 'パン' },
-  '桒原':   { password: '0000',   role: 1, han: '雑貨' },
-  '稲石':   { password: '0000',   role: 1, han: '奏楽' },
+  '栗原':   { password: '',   role: 1, han: '雑貨' },
+  '戸澤':   { password: '',   role: 1, han: '雑貨' },
+  '福澤':   { password: '',   role: 3, han: '雑貨' },
+  '牛山':   { password: '',   role: 3, han: '事務' },
+  '青山':   { password: '',   role: 2, han: 'パン缶' },
+  '鈴木早': { password: '', role: 3, han: '事務' },
+  '竹内':   { password: '',   role: 1, han: '雑貨' },
+  '西野':   { password: '',   role: 1, han: '雑貨' },
+  '篠原':   { password: '',   role: 1, han: '雑貨' },
+  '杉浦':   { password: '',   role: 2, han: '雑貨' },
+  '清水':   { password: '',   role: 2, han: 'レストラン' },
+  '朝河':   { password: '',   role: 2, han: 'レストラン' },
+  '鈴木清': { password: '', role: 2, han: 'パン' },
+  '加藤あ': { password: '', role: 1, han: 'レストラン' },
+  '芦田':   { password: '',   role: 1, han: 'レストラン' },
+  '松原':   { password: '',   role: 1, han: '雑貨' },
+  '柴田':   { password: '',   role: 1, han: '送迎' },
+  '関根':   { password: '',   role: 1, han: 'パン缶' },
+  '橋本':   { password: '',   role: 1, han: 'パン缶' },
+  '梶尾':   { password: '',   role: 1, han: 'パン缶' },
+  '上原':   { password: '',   role: 1, han: 'パン' },
+  '桒原':   { password: '',   role: 1, han: '雑貨' },
+  '稲石':   { password: '',   role: 1, han: '奏楽' },
 };
 let currentUser = null;
 
-window.doLogin = function() {
+window.doLogin = async function() {
   const name = document.getElementById('login-name').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
   const err = document.getElementById('login-error');
+  err.textContent = '認証中...';
+  
   if (!ACCOUNTS[name]) { err.textContent = 'ユーザーが見つかりません'; return; }
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  const validPw = pwStore[name] || ACCOUNTS[name].password;
-  if (validPw !== pass) { err.textContent = 'パスワードが違います'; return; }
-  currentUser = { name, role: ACCOUNTS[name].role, password: validPw };
-  currentStaff = name;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-root').style.display = 'block';
-  updateUserBtn();
-  goScr('list');
+  
+  try {
+    // Firestoreでパスワードを照合
+    const accountDoc = await getDoc(doc(db, 'staff_accounts', name));
+    let validPw;
+    
+    if (accountDoc.exists()) {
+      // Firestoreにアカウントがある場合
+      const data = accountDoc.data();
+      // SHA-256ハッシュで比較
+      const passHash = await hashPassword(pass);
+      if (data.passwordHash !== passHash) {
+        // ローカル変更パスワードも確認
+        const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+        const localPw = pwStore[name];
+        if (localPw && localPw === pass) {
+          // ローカルパスワードが一致 → Firestoreに移行
+          await updateDoc(doc(db, 'staff_accounts', name), { passwordHash: passHash });
+        } else {
+          err.textContent = 'パスワードが違います'; return;
+        }
+      }
+    } else {
+      // 初回：デフォルトパスワード(0000)で照合してFirestoreに登録
+      const defaultHash = await hashPassword('0000');
+      const inputHash = await hashPassword(pass);
+      const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+      const localPw = pwStore[name];
+      
+      if (pass !== '0000' && pass !== localPw) {
+        err.textContent = 'パスワードが違います'; return;
+      }
+      // Firestoreにアカウント作成
+      await setDoc(doc(db, 'staff_accounts', name), {
+        passwordHash: inputHash,
+        role: ACCOUNTS[name].role,
+        han: ACCOUNTS[name].han,
+        createdAt: serverTimestamp()
+      });
+    }
+    
+    // セッショントークン生成
+    const sessionToken = generateToken();
+    const sessionData = { 
+      name, 
+      role: ACCOUNTS[name].role, 
+      sessionToken,
+      loginAt: Date.now()
+    };
+    
+    currentUser = sessionData;
+    currentStaff = name;
+    sessionStorage.setItem('ecole_session', JSON.stringify(sessionData));
+    // localStorageからパスワード情報を削除
+    localStorage.removeItem('ecole_login');
+    
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-root').style.display = 'block';
+    updateUserBtn();
+    err.textContent = '';
+    goScr('list');
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'ログインに失敗しました';
+  }
 };
 
 window.doLogout = function() {
+  sessionStorage.removeItem('ecole_session');
   localStorage.removeItem('ecole_login');
   currentUser = null; currentStaff = '';
   document.getElementById('app-root').style.display = 'none';
@@ -1152,22 +1226,55 @@ window.showUserMenu = function() {
   }, 100);
 };
 
-window.doChangePw = function() {
+window.doChangePw = async function() {
   const cur = document.getElementById('pw-cur').value;
   const n1 = document.getElementById('pw-new1').value;
   const n2 = document.getElementById('pw-new2').value;
   const err = document.getElementById('pw-err');
-  const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-  const validPw = pwStore[currentStaff] || ACCOUNTS[currentStaff].password;
-  if (validPw !== cur) { err.textContent = '現在のパスワードが違います'; return; }
+  
   if (n1.length < 4) { err.textContent = '4文字以上にしてください'; return; }
   if (n1 !== n2) { err.textContent = 'パスワードが一致しません'; return; }
-  pwStore[currentStaff] = n1;
-  localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
-  currentUser.password = n1;
-  localStorage.setItem('ecole_login', JSON.stringify(currentUser));
-  document.getElementById('pw-dialog').style.display = 'none';
-  showToast('パスワードを変更しました');
+  
+  err.textContent = '確認中...';
+  
+  try {
+    // 現在のパスワードをFirestoreで照合
+    const accountDoc = await getDoc(doc(db, 'staff_accounts', currentStaff));
+    const curHash = await hashPassword(cur);
+    
+    if (accountDoc.exists()) {
+      if (accountDoc.data().passwordHash !== curHash) {
+        // ローカル変更も確認
+        const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+        if (pwStore[currentStaff] !== cur && cur !== '0000') {
+          err.textContent = '現在のパスワードが違います'; return;
+        }
+      }
+    } else if (cur !== '0000') {
+      err.textContent = '現在のパスワードが違います'; return;
+    }
+    
+    // 新しいパスワードをFirestoreに保存（ハッシュ化）
+    const newHash = await hashPassword(n1);
+    await setDoc(doc(db, 'staff_accounts', currentStaff), {
+      passwordHash: newHash,
+      role: ACCOUNTS[currentStaff]?.role || 1,
+      han: ACCOUNTS[currentStaff]?.han || '',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    // ローカルの古いパスワード情報を削除
+    const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
+    delete pwStore[currentStaff];
+    localStorage.setItem('ecole_passwords', JSON.stringify(pwStore));
+    
+    document.getElementById('pw-dialog').style.display = 'none';
+    showToast('パスワードを変更しました');
+    err.textContent = '';
+  } catch(e) {
+    console.error(e);
+    err.textContent = '変更に失敗しました';
+  }
 };
 
 const STAFF = [
@@ -1868,25 +1975,30 @@ window.selectKyushokuDay = function(ds) {
 let currentStaff = '';
 
 function initLogin() {
-  // アカウント制ログインチェック
-  const saved = localStorage.getItem('ecole_login');
+  // セッションストレージからログイン確認（パスワードは保存しない）
+  const saved = sessionStorage.getItem('ecole_session');
   if (saved) {
     try {
       const u = JSON.parse(saved);
-      if (ACCOUNTS[u.name]) {
-        const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
-        const validPw = pwStore[u.name] || ACCOUNTS[u.name].password;
-        if (validPw === u.password) {
+      if (ACCOUNTS[u.name] && u.sessionToken && u.loginAt) {
+        // セッション有効期限チェック（8時間）
+        const elapsed = Date.now() - u.loginAt;
+        if (elapsed < 8 * 60 * 60 * 1000) {
           currentUser = u; currentStaff = u.name;
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('app-root').style.display = 'block';
           updateUserBtn();
           goScr('list');
           return;
+        } else {
+          // セッション期限切れ
+          sessionStorage.removeItem('ecole_session');
         }
       }
     } catch(e) {}
   }
+  // 古いlocalStorage情報を削除
+  localStorage.removeItem('ecole_login');
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app-root').style.display = 'none';
 }
