@@ -982,6 +982,73 @@ function updateFormBlocks() {
   if (ksec) ksec.style.display = 'block';
 }
 
+window.renderGhPanel = function() {
+  const body = document.getElementById('gh-body');
+  if (!body) return;
+  const date = document.getElementById('gh-date') ? document.getElementById('gh-date').value : today();
+  
+  const patternLabels = {
+    'normal':    '通常（昼:奏楽 夕:GH）',
+    'abs_gh':    '奏楽休み・GH戻り',
+    'work_home': '奏楽出勤・帰省',
+    'all_home':  '奏楽休み・帰省',
+    'abs_home':  '奏楽欠席・帰省'
+  };
+  
+  const groupColors = { '紬男': '#7C3AED', '紬女': '#EC4899', 'ひまわりハウス': '#F59E0B' };
+  
+  let html = '';
+  for (const group in GH_MASTER) {
+    const info = GH_MASTER[group];
+    const color = groupColors[group] || '#666';
+    html += '<div style="margin-bottom:16px">';
+    html += '<div style="background:'+color+'22;color:'+color+';padding:8px 14px;border-radius:10px;font-weight:700;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">';
+    html += '<span>'+group+'</span><span style="font-size:12px;font-weight:400">定員'+info.capacity+'名</span>';
+    html += '</div>';
+    for (const user of info.users) {
+      const existingLog = logs.find(function(l) { return l.type==='gh_kyushoku' && l.date===date && l.user===user; });
+      const pattern = existingLog ? existingLog.pattern : 'normal';
+      const c = avColor(user);
+      html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px">';
+      html += '<div style="display:flex;align-items:center;margin-bottom:8px">';
+      html += '<div class="av" style="background:'+c[0]+';color:'+c[1]+';width:32px;height:32px;font-size:12px">'+user.slice(0,2)+'</div>';
+      html += '<span style="margin-left:10px;font-weight:700;font-size:13px">'+user+'</span>';
+      html += '</div>';
+      html += '<select id="gh-'+user+'" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px">';
+      for (const k in patternLabels) {
+        const sel = pattern === k ? ' selected' : '';
+        html += '<option value="'+k+'"'+sel+'>'+patternLabels[k]+'</option>';
+      }
+      html += '</select></div>';
+    }
+    html += '</div>';
+  }
+  body.innerHTML = html;
+};
+
+window.doGhSubmit = async function() {
+  const date = document.getElementById('gh-date') ? document.getElementById('gh-date').value : today();
+  const records = [];
+  for (const group in GH_MASTER) {
+    for (const user of GH_MASTER[group].users) {
+      const sel = document.getElementById('gh-'+user);
+      if (sel) records.push({user, group, pattern: sel.value});
+    }
+  }
+  try {
+    for (const r of records) {
+      await addDoc(collection(db, 'logs'), {
+        type: 'gh_kyushoku', date, user: r.user, group: r.group, pattern: r.pattern,
+        staff: currentStaff, ts: tsNow(), createdAt: Date.now()
+      });
+    }
+    showToast('✓ GH給食情報を登録しました（'+records.length+'名分）');
+  } catch(e) {
+    showToast('送信失敗: ' + e.message);
+    console.error(e);
+  }
+};
+
 window.doSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
