@@ -1880,12 +1880,12 @@ window.aiSummarizeCase = async function() {
   }).join('\n\n');
 
   const dateStr = document.getElementById('cs-date').value;
-  const prompt = '以下の記録を、省略せず、重複は統合して、ケース記録としてそのまま使える文章にまとめてください。\n\n【ルール】\n・内容を省略しない\n・同じ利用者の記録が複数ある場合は1つに統合する\n・時系列順に並べる\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず、記録に書かれている事実のみを書く\n・「記録」「本文」などの見出しは入れない\n・以下の順番で記載する：名前 日付 文章\n\n【出力例】\n小嶋さん 1/4 朝、送迎車にてエコールへ来所した。…\n\n【入力する記録】\n' + user + 'さん ' + dateStr + '\n\n' + allText;
+  const promptText = '以下の記録を、省略せず、重複は統合して、ケース記録としてそのまま使える文章にまとめてください。\n\n【ルール】\n・内容を省略しない\n・同じ利用者の記録が複数ある場合は1つに統合する\n・時系列順に並べる\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず、記録に書かれている事実のみを書く\n・「記録」「本文」などの見出しは入れない\n・以下の順番で記載する：名前 日付 文章\n\n【出力例】\n小嶋さん 1/4 朝、送迎車にてエコールへ来所した。…\n\n【入力する記録】\n' + user + 'さん ' + dateStr + '\n\n' + allText;
 
   try {
     let apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      apiKey = prompt('Gemini APIキーを入力してください：');
+      apiKey = window.prompt('Gemini APIキーを入力してください：');
       if (!apiKey) { showToast('APIキーが入力されませんでした'); btn.textContent = 'AIでまとめる（常体変換）'; btn.disabled = false; return; }
       localStorage.setItem('gemini_api_key', apiKey);
     }
@@ -1893,7 +1893,7 @@ window.aiSummarizeCase = async function() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{ parts: [{ text: promptText }] }]
       })
     });
     const data = await response.json();
