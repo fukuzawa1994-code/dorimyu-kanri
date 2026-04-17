@@ -970,6 +970,7 @@ function updateFormBlocks() {
 }
 
 window.doSubmit = async function() {
+  if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
   const bin  = document.getElementById('f-bin').value;
   const user = document.getElementById('f-user').value;
@@ -1094,6 +1095,23 @@ function generateToken() {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+
+// ── Firestoreアクセスセキュリティ ──
+function checkSession() {
+  if (!currentUser || !currentUser.sessionToken) {
+    showToast('セッションが切れました。再ログインしてください');
+    doLogout();
+    return false;
+  }
+  // セッション8時間チェック
+  if (Date.now() - currentUser.loginAt > 8 * 60 * 60 * 1000) {
+    showToast('セッションが期限切れです。再ログインしてください');
+    doLogout();
+    return false;
+  }
+  return true;
 }
 
 // ── アカウントマスター ──
@@ -1341,6 +1359,7 @@ window.updateDistanceCalc = function() {
 }
 
 window.doDistanceSubmit = async function() {
+  if (!checkSession()) return;
   const date = document.getElementById('d-date').value;
   const car = document.getElementById('d-car').value;
   const staff = document.getElementById('d-staff').value;
@@ -1449,6 +1468,7 @@ function renderCaseTodayList() {
 }
 
 window.doCaseSubmit = async function() {
+  if (!checkSession()) return;
   const date = document.getElementById('c-date').value;
   const user = document.getElementById('c-user').value;
   const text = document.getElementById('c-text').value.trim();
@@ -1495,6 +1515,7 @@ window.togglePTax = function(el) {
 }
 
 window.submitPurchase1 = async function() {
+  if (!checkSession()) return;
   const date = document.getElementById('p-date').value;
   const purpose = document.getElementById('p-purpose').value.trim();
   const cats = [...document.querySelectorAll('#p-category-wrap .tog.son')].map(t => t.dataset.v);
@@ -2138,7 +2159,7 @@ renderDateStrip();
 document.getElementById('hd-sub').textContent = fmtDate(selectedDate);
 initLogin();
 
-// Firebaseリアルタイム購読
+// Firebaseリアルタイム購読（セッション確認済みの場合のみ）
 onSnapshot(query(collection(db, 'logs'), orderBy('createdAt', 'desc')), snap => {
   logs = [];
   snap.forEach(d => logs.push({ id: d.id, ...d.data() }));
