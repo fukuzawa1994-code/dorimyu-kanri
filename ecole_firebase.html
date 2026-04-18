@@ -3990,8 +3990,8 @@ function renderKyushoku() {
   try {
     const pnUsers = (USER_MASTER && USER_MASTER['ぱぁとなぁ']) || {};
     if (typeof window.getMealPlan === 'function') {
-      let dinnerRows = '', breakfastRows = '';
-      let dinnerCount = 0, breakfastCount = 0;
+      let dinnerRows = '';
+      let dinnerCount = 0;
       for (const [hanName, users] of Object.entries(pnUsers)) {
         for (const u of users) {
           const plan = window.getMealPlan(u, kyushokuDate);
@@ -3999,20 +3999,14 @@ function renderKyushoku() {
             dinnerRows += '<div class="krow"><span class="krow-name">' + u + '</span><span class="krow-status">' + hanName + '</span></div>';
             dinnerCount++;
           }
-          if (plan.breakfast && plan.breakfast.eat && plan.breakfast.location === 'ぱぁとなぁ') {
-            breakfastRows += '<div class="krow"><span class="krow-name">' + u + '</span><span class="krow-status">' + hanName + '</span></div>';
-            breakfastCount++;
-          }
         }
       }
-      if (dinnerCount > 0 || breakfastCount > 0) {
-        html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（朝夕食）</div>';
+      if (dinnerCount > 0) {
+        html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（夕食）</div>';
         if (dinnerCount > 0) {
           html += '<div class="kcard"><div class="kcard-hd"><span class="kcard-title">🌙 夕食</span><div><span class="kcard-count">' + dinnerCount + '<span>名</span></span></div></div>' + dinnerRows + '</div>';
         }
-        if (breakfastCount > 0) {
-          html += '<div class="kcard"><div class="kcard-hd"><span class="kcard-title">🌅 朝食</span><div><span class="kcard-count">' + breakfastCount + '<span>名</span></span></div></div>' + breakfastRows + '</div>';
-        }
+        
       }
     }
   } catch(e) { console.error('ぱぁとなぁ集計エラー:', e); }
