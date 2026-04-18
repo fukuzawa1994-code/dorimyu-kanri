@@ -2096,12 +2096,11 @@ function initCaseSummary() {
   // 利用者リスト
   const sel = document.getElementById('cs-user');
   let html = '<option value="">利用者を選択</option>';
-  for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
-    for (const [han, data] of Object.entries(hans)) {
-      html += `<optgroup label="${jigyosho}・${han}">`;
-      html += [...data.users, ...Object.keys(data.conditional||{})].map(u => `<option>${u}</option>`).join('');
-      html += '</optgroup>';
-    }
+  const dorimiyomu = KYUSHOKU['童里夢'] || {};
+  for (const [han, data] of Object.entries(dorimiyomu)) {
+    html += `<optgroup label="【${han}】">`;
+    html += [...(data.users||[]), ...Object.keys(data.conditional||{})].map(u => `<option value="${u}">${u}</option>`).join('');
+    html += '</optgroup>';
   }
   sel.innerHTML = html;
   document.getElementById('case-summary-body').innerHTML = '';
