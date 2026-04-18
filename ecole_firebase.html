@@ -1905,6 +1905,26 @@ window.onCasePrintModeChange = function() {
   }
 };
 
+// 給食画面のタブ切替（給食/ぱぁとなぁ/すたぁと）
+window.setKyushokuTab = function(tab) {
+  document.getElementById('ktab-main').classList.toggle('on', tab === 'main');
+  document.getElementById('ktab-gh').classList.toggle('on', tab === 'gh');
+  document.getElementById('ktab-start').classList.toggle('on', tab === 'start');
+  document.getElementById('kyushoku-main-area').style.display = tab === 'main' ? 'block' : 'none';
+  document.getElementById('kyushoku-gh-area').style.display = tab === 'gh' ? 'block' : 'none';
+  document.getElementById('kyushoku-start-area').style.display = tab === 'start' ? 'block' : 'none';
+  
+  // タブ切替時の初期化
+  if (tab === 'gh') {
+    const dateInput = document.getElementById('gh-date');
+    if (dateInput && !dateInput.value) dateInput.value = today();
+    if (typeof renderGhPanel === 'function') renderGhPanel();
+  } else if (tab === 'start') {
+    const dateInput = document.getElementById('start-date');
+    if (dateInput && !dateInput.value) dateInput.value = today();
+  }
+};
+
 window.doSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
