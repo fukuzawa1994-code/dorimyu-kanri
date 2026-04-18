@@ -229,7 +229,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         <button class="cal-nav" onclick="calMove(1)">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)">📄 月次PDF</button></div>
+      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button></div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -1231,46 +1231,6 @@ window.printCaseMonthly = async function() {
 };
 
 // ④-2 送迎記録 月次PDF
-window.printTransportListMonthly = function() {
-  const month = prompt('月を入力してください（YYYY-MM）', new Date().toISOString().slice(0,7));
-  if (!month || !month.match(/^\d{4}-\d{2}$/)) { showToast('月の形式が不正'); return; }
-  const ym = month.split('-');
-  const year = parseInt(ym[0]), mm = parseInt(ym[1]);
-  const lastDay = new Date(year, mm, 0).getDate();
-  let body = '<h1 style="text-align:center">送迎一覧月報</h1><p style="text-align:center">期間：'+month+'</p>';
-  for (let d = 1; d <= lastDay; d++) {
-    const dateStr = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-    const dow = new Date(dateStr+'T00:00:00').getDay();
-    const dowStr = ['日','月','火','水','木','金','土'][dow];
-    if (dow === 0) continue;
-    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px;font-size:13px">' + mm + '/' + d + '（' + dowStr + '）</h2>';
-    ['朝','夕'].forEach(function(time) {
-      body += '<div style="font-size:11px;font-weight:700;margin:6px 0 3px">' + time + '送迎</div>';
-      for (const [binName, binInfo] of Object.entries(MASTER.routes)) {
-        const allUsers = binInfo.users.concat(time==='夕' && binInfo.pmOnly ? binInfo.pmOnly : []);
-        const list = [];
-        for (const u of allUsers) {
-          const lg = latestFor(dateStr, binName, u);
-          const sched = defaultSchedule[u];
-          const useKey = time==='朝' ? 'am' : 'pm';
-          let status = '乗車';
-          if (lg) {
-            if (lg.abs) status = '欠席';
-            else if (lg[useKey]==='利用しない') status = '不要';
-          } else if (sched && sched[useKey] && sched[useKey][dow] === 0) {
-            status = '不要';
-          }
-          if (status === '乗車') list.push(u);
-        }
-        if (list.length) {
-          body += '<div style="font-size:10px;margin:2px 0;padding-left:10px"><b>' + binName + '</b>（' + list.length + '名）：' + list.join('・') + '</div>';
-        }
-      }
-    });
-  }
-  openPrintWindow('送迎一覧月報 '+month, body);
-};
-
 window.printTransportMonthly = function() {
   const monthInput = document.getElementById('tr-print-month');
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
@@ -2133,18 +2093,71 @@ function initCaseSummary() {
   const ds = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('cs-date').value = ds;
   document.getElementById('cs-date').onchange = renderCaseSummary;
-  // 利用者リスト（童里夢の班別）
+  // 利用者リスト
   const sel = document.getElementById('cs-user');
   let html = '<option value="">利用者を選択</option>';
-  const dorimiyomu = KYUSHOKU['童里夢'] || {};
-  for (const [han, data] of Object.entries(dorimiyomu)) {
-    html += `<optgroup label="【${han}】">`;
-    const users = [...(data.users||[]), ...Object.keys(data.conditional||{})];
-    html += users.map(u => `<option value="${u}">${u}</option>`).join('');
-    html += '</optgroup>';
+  for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
+    for (const [han, data] of Object.entries(hans)) {
+      html += `<optgroup label="${jigyosho}・${han}">`;
+      html += [...data.users, ...Object.keys(data.conditional||{})].map(u => `<option>${u}</option>`).join('');
+      html += '</optgroup>';
+    }
   }
   sel.innerHTML = html;
-  };
+  document.getElementById('case-summary-body').innerHTML = '';
+  document.getElementById('ai-summarize-btn').style.display = 'none';
+}
+
+window.renderCaseSummary = function() {
+  const date = document.getElementById('cs-date').value;
+  const user = document.getElementById('cs-user').value;
+  const body = document.getElementById('case-summary-body');
+  const btn = document.getElementById('ai-summarize-btn');
+  if (!user) { body.innerHTML = ''; btn.style.display = 'none'; return; }
+  const records = logs.filter(l => l.type==='case' && l.date===date && l.user===user);
+  if (!records.length) {
+    body.innerHTML = '<div class="empty">この日の記録はありません</div>';
+    btn.style.display = 'none';
+    return;
+  }
+  body.innerHTML = records.map(l => `
+    <div class="hrow" style="margin:4px 12px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 14px">
+      <div class="hdate">${l.ts||''} · ${l.staff||''}</div>
+      ${l.tags&&l.tags.length ? `<div class="htags" style="margin:4px 0">${l.tags.map(t=>`<span class="stag tabs">${t}</span>`).join(' ')}</div>` : ''}
+      <div style="font-size:13px;color:var(--text);margin-top:4px;line-height:1.6">${l.caseText||''}</div>
+    </div>`).join('') +
+    `<div id="ai-result-area" style="margin:8px 12px"></div>`;
+  btn.style.display = 'block';
+  btn.textContent = 'AIでまとめる（常体変換）';
+  btn.disabled = false;
+}
+
+window.aiSummarizeCase = async function() {
+  const date = document.getElementById('cs-date').value;
+  const user = document.getElementById('cs-user').value;
+  const records = logs.filter(function(l) { return l.type==='case' && l.date===date && l.user===user; });
+  const btn = document.getElementById('ai-summarize-btn');
+  const resultArea = document.getElementById('ai-result-area');
+  if (!records.length) { showToast('記録がありません'); return; }
+  btn.textContent = 'AI処理中...'; btn.disabled = true;
+  // 記録者名は含めない - caseTextのみ、tagsは文脈として残す
+  const allText = records.map(function(l) {
+    const tagStr = l.tags && l.tags.length ? '（' + l.tags.join('・') + '）' : '';
+    return tagStr + (l.caseText||'');
+  }).join('\n');
+  const promptText = '以下の記録を1つの文章にまとめてください。\n\n【ルール】\n・記録者の名前は絶対に入れない（「○○さんは」「○○が」など職員名を主語にしない）\n・利用者の様子のみを記載\n・重複する内容は統合\n・時系列で整理\n・箇条書きにせず文章でまとめる\n・推測や評価は入れず事実のみ\n・常体（だ・である調）\n・「記録」「本文」などの見出しは入れない\n・冒頭に「' + user + 'さん ' + date + '」とだけ記載し、次行から本文\n\n【入力記録】\n' + allText;
+  try {
+    let apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      apiKey = window.prompt('Gemini APIキー：');
+      if (!apiKey) { showToast('キャンセル'); btn.textContent='AIでまとめる（常体変換）'; btn.disabled=false; return; }
+      localStorage.setItem('gemini_api_key', apiKey.trim());
+      apiKey = apiKey.trim();
+    }
+    let url, headers;
+    if (apiKey.startsWith('AQ.')) {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+      headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
     } else {
       url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey;
       headers = { 'Content-Type': 'application/json' };
