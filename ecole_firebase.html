@@ -300,7 +300,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 
     <div class="scr" id="scr-case">
       <div class="phase-tabs" style="padding:10px 14px 0">
-        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px">📄 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printCaseMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div>
+        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px;font-weight:700">📄 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:#666;min-width:28px">月</span><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/></div><div style="display:flex;gap:6px;margin-bottom:8px"><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="all" checked style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-all" style="padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700">👥 班全員</div></label><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="one" style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-one" style="padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px">👤 1人だけ</div></label></div><div id="case-print-user-area" style="display:none;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">利用者を選択</span><select id="case-print-user" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">選択してください</option></select></div><button class="sbtn" onclick="printCaseMonthly()" style="width:100%;padding:10px;font-size:13px;font-weight:700">📄 PDF出力</button></div>
         <div class="ptab" id="ctab-summary" onclick="setCaseTab('summary')">まとめ</div>
       </div>
 
@@ -1202,69 +1202,61 @@ window.printCaseMonthly = function() {
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
   if (!month) { showToast('月を選択してください'); return; }
   
-  // 童里夢の班別データを取得
+  const modeEl = document.querySelector('input[name="case-print-mode"]:checked');
+  const mode = modeEl ? modeEl.value : 'all';
+  
+  if (mode === 'one') {
+    const user = document.getElementById('case-print-user').value;
+    if (!user) { showToast('利用者を選択してください'); return; }
+    printCaseMonthlyOne(month, user);
+  } else {
+    printCaseMonthlyAll(month);
+  }
+};
+
+window.printCaseMonthlyAll = function(month) {
   const dorimiyomu = KYUSHOKU['童里夢'] || {};
   const hanList = Object.keys(dorimiyomu);
-  if (!hanList.length) { showToast('班情報なし'); return; }
-  
-  // 当月の日数
   const ym = month.split('-');
   const year = parseInt(ym[0]), mm = parseInt(ym[1]);
   const lastDay = new Date(year, mm, 0).getDate();
   const dows = ['日','月','火','水','木','金','土'];
-  
-  // 月の記録
   const monthLogs = logs.filter(function(l) { return l.type==='case' && l.date && l.date.startsWith(month); });
   if (!monthLogs.length) { showToast(month+'の記録なし'); return; }
-  
-  // 利用者×日付のマトリクス作成 map[user][date] = [記録配列]
   const map = {};
   monthLogs.forEach(function(l) {
     if (!map[l.user]) map[l.user] = {};
     if (!map[l.user][l.date]) map[l.user][l.date] = [];
     map[l.user][l.date].push(l);
   });
-  
   let body = '';
-  
-  // 班ごとにページを作る
   hanList.forEach(function(han, hanIdx) {
     const data = dorimiyomu[han];
     const users = [...(data.users||[]), ...Object.keys(data.conditional||{})];
-    // その班に記録がある利用者のみ（もしくは全員表示）
-    const displayUsers = users;
-    if (!displayUsers.length) return;
-    
+    if (!users.length) return;
     const pageBreak = hanIdx > 0 ? 'page-break-before:always;' : '';
     body += '<div style="' + pageBreak + '">';
     body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #483D8B;padding-bottom:6px;margin-bottom:10px">';
     body += '<h1 style="margin:0;font-size:18px;color:#483D8B">R' + (year-2018) + '年度' + mm + '月ケース記録【' + han + '】</h1>';
     body += '<div style="font-size:10px;color:#666">作成：' + currentStaff + '</div>';
     body += '</div>';
-    
-    // 横並び表（列=利用者、行=日付）
     body += '<table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed">';
-    // ヘッダー：日付 + 利用者名
     body += '<thead><tr style="background:#E8E3F5">';
     body += '<th style="border:1px solid #666;padding:3px;width:50px;font-size:10px">日付</th>';
-    displayUsers.forEach(function(u) {
+    users.forEach(function(u) {
       body += '<th style="border:1px solid #666;padding:3px;font-size:10px">' + u + '</th>';
     });
     body += '</tr></thead><tbody>';
-    
-    // 各日付の行
     for (let d = 1; d <= lastDay; d++) {
       const dateStr = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
       const dow = new Date(dateStr+'T00:00:00').getDay();
-      if (dow === 0) continue;  // 日曜スキップ
-      // その日にこの班のいずれかの利用者に記録があるか確認
-      const hasAnyRecord = displayUsers.some(function(u) { return map[u] && map[u][dateStr]; });
-      if (!hasAnyRecord) continue;  // 記録なしの日はスキップ
-      
+      if (dow === 0) continue;
+      const hasAny = users.some(function(u) { return map[u] && map[u][dateStr]; });
+      if (!hasAny) continue;
       const bgColor = (dow === 6) ? '#F5F5F5' : '#FFF';
       body += '<tr style="background:' + bgColor + '">';
       body += '<td style="border:1px solid #666;padding:3px;text-align:center;vertical-align:top;font-weight:700;font-size:10px">' + mm + '/' + d + '<br>(' + dows[dow] + ')</td>';
-      displayUsers.forEach(function(u) {
+      users.forEach(function(u) {
         const records = (map[u] && map[u][dateStr]) || [];
         let cellText = '';
         records.forEach(function(rec) {
@@ -1275,13 +1267,62 @@ window.printCaseMonthly = function() {
       });
       body += '</tr>';
     }
-    body += '</tbody></table>';
-    body += '</div>';
+    body += '</tbody></table></div>';
   });
-  
   if (!body) { showToast('該当月の記録なし'); return; }
+  openPrintWindow('ケース記録月報(班別) '+month, body);
+};
+
+window.printCaseMonthlyOne = function(month, user) {
+  const userLogs = logs.filter(function(l) { return l.type==='case' && l.user===user && l.date && l.date.startsWith(month); });
+  if (!userLogs.length) { showToast(user+'さんの'+month+'の記録なし'); return; }
+  userLogs.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  const ym = month.split('-');
+  const year = parseInt(ym[0]), mm = parseInt(ym[1]);
+  const dows = ['日','月','火','水','木','金','土'];
   
-  openPrintWindow('ケース記録月報 '+month, body);
+  let body = '<div style="padding:10px 0">';
+  body += '<div style="border-bottom:2px solid #483D8B;padding-bottom:6px;margin-bottom:14px">';
+  body += '<h1 style="margin:0;font-size:20px;color:#483D8B">ケース記録　月次レポート</h1>';
+  body += '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#666">';
+  body += '<div>期間：R' + (year-2018) + '年度' + mm + '月　／　記録件数：' + userLogs.length + '件</div>';
+  body += '<div>作成：' + currentStaff + '</div>';
+  body += '</div></div>';
+  body += '<h2 style="font-size:22px;margin:0 0 14px;color:#333">' + user + '　さん</h2>';
+  body += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  body += '<thead><tr style="background:#E8E3F5">';
+  body += '<th style="border:1px solid #666;padding:6px;width:100px">日付</th>';
+  body += '<th style="border:1px solid #666;padding:6px;width:120px">タグ</th>';
+  body += '<th style="border:1px solid #666;padding:6px">内容</th>';
+  body += '<th style="border:1px solid #666;padding:6px;width:80px">記録者</th>';
+  body += '</tr></thead><tbody>';
+  userLogs.forEach(function(l) {
+    const dow = new Date(l.date+'T00:00:00').getDay();
+    const dateLabel = parseInt(l.date.slice(5,7)) + '/' + parseInt(l.date.slice(8,10)) + '<br>(' + dows[dow] + ')';
+    const tags = (l.tags && l.tags.length) ? l.tags.join('・') : '';
+    const content = (l.caseText||'').replace(/\n/g, '<br>');
+    body += '<tr>';
+    body += '<td style="border:1px solid #666;padding:6px;text-align:center;vertical-align:top;font-weight:700">' + dateLabel + '</td>';
+    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;font-size:10px">' + tags + '</td>';
+    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;line-height:1.6">' + content + '</td>';
+    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;font-size:11px">' + (l.staff||'') + '</td>';
+    body += '</tr>';
+  });
+  body += '</tbody></table>';
+  // 承認欄
+  body += '<table style="width:100%;border-collapse:collapse;margin-top:30px;font-size:11px"><tr>';
+  body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">記録者</td>';
+  body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">主任</td>';
+  body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">サービス管理責任者</td>';
+  body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">管理者</td>';
+  body += '</tr><tr>';
+  body += '<td style="border:1px solid #666;padding:18px">　</td>';
+  body += '<td style="border:1px solid #666;padding:18px">　</td>';
+  body += '<td style="border:1px solid #666;padding:18px">　</td>';
+  body += '<td style="border:1px solid #666;padding:18px">　</td>';
+  body += '</tr></table>';
+  body += '</div>';
+  openPrintWindow('ケース記録月報 '+user+' '+month, body);
 };
 
 // ④-2 送迎記録 月次PDF
@@ -1832,6 +1873,36 @@ window.printAlcoholMonthly = function() {
   body += '</tbody></table>';
   
   openPrintWindow('アルコールチェック ' + month, body);
+};
+
+// ケース記録PDF出力モード切替
+window.onCasePrintModeChange = function() {
+  const mode = document.querySelector('input[name="case-print-mode"]:checked').value;
+  const allBtn = document.getElementById('cpm-all');
+  const oneBtn = document.getElementById('cpm-one');
+  const userArea = document.getElementById('case-print-user-area');
+  if (mode === 'all') {
+    allBtn.style.cssText = 'padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700';
+    oneBtn.style.cssText = 'padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px';
+    userArea.style.display = 'none';
+  } else {
+    oneBtn.style.cssText = 'padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700';
+    allBtn.style.cssText = 'padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px';
+    userArea.style.display = 'block';
+    // 利用者リスト生成（童里夢・班別）
+    const sel = document.getElementById('case-print-user');
+    if (sel && sel.options.length <= 1) {
+      let h = '<option value="">選択してください</option>';
+      const dorimiyomu = KYUSHOKU['童里夢'] || {};
+      for (const [han, data] of Object.entries(dorimiyomu)) {
+        h += '<optgroup label="【'+han+'】">';
+        const users = [...(data.users||[]), ...Object.keys(data.conditional||{})];
+        users.forEach(function(u){ h += '<option value="'+u+'">'+u+'</option>'; });
+        h += '</optgroup>';
+      }
+      sel.innerHTML = h;
+    }
+  }
 };
 
 window.doSubmit = async function() {
