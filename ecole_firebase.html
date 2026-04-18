@@ -1848,11 +1848,10 @@ window.doAlcoholSubmit = async function() {
   if (!date) { showToast('日付を入力'); return; }
   
   const me = currentStaff;
-  const am = document.getElementById('alc-me-am').value;
-  const pm = document.getElementById('alc-me-pm').value;
+  const am = document.getElementById('alc-me-am').value || '0';
+  const pm = document.getElementById('alc-me-pm').value || '0';
   const memo = document.getElementById('alc-me-memo').value;
   
-  if (am === '' && pm === '') { showToast('朝または夕の測定値を入力してください'); return; }
   
   try {
     // 自分の既存記録を削除
