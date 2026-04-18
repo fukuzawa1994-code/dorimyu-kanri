@@ -229,7 +229,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         <button class="cal-nav" onclick="calMove(1)">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button></div>
+      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)">📄 月次PDF</button></div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -1231,6 +1231,46 @@ window.printCaseMonthly = async function() {
 };
 
 // ④-2 送迎記録 月次PDF
+window.printTransportListMonthly = function() {
+  const month = prompt('月を入力してください（YYYY-MM）', new Date().toISOString().slice(0,7));
+  if (!month || !month.match(/^\d{4}-\d{2}$/)) { showToast('月の形式が不正'); return; }
+  const ym = month.split('-');
+  const year = parseInt(ym[0]), mm = parseInt(ym[1]);
+  const lastDay = new Date(year, mm, 0).getDate();
+  let body = '<h1 style="text-align:center">送迎一覧月報</h1><p style="text-align:center">期間：'+month+'</p>';
+  for (let d = 1; d <= lastDay; d++) {
+    const dateStr = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const dow = new Date(dateStr+'T00:00:00').getDay();
+    const dowStr = ['日','月','火','水','木','金','土'][dow];
+    if (dow === 0) continue;
+    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px;font-size:13px">' + mm + '/' + d + '（' + dowStr + '）</h2>';
+    ['朝','夕'].forEach(function(time) {
+      body += '<div style="font-size:11px;font-weight:700;margin:6px 0 3px">' + time + '送迎</div>';
+      for (const [binName, binInfo] of Object.entries(MASTER.routes)) {
+        const allUsers = binInfo.users.concat(time==='夕' && binInfo.pmOnly ? binInfo.pmOnly : []);
+        const list = [];
+        for (const u of allUsers) {
+          const lg = latestFor(dateStr, binName, u);
+          const sched = defaultSchedule[u];
+          const useKey = time==='朝' ? 'am' : 'pm';
+          let status = '乗車';
+          if (lg) {
+            if (lg.abs) status = '欠席';
+            else if (lg[useKey]==='利用しない') status = '不要';
+          } else if (sched && sched[useKey] && sched[useKey][dow] === 0) {
+            status = '不要';
+          }
+          if (status === '乗車') list.push(u);
+        }
+        if (list.length) {
+          body += '<div style="font-size:10px;margin:2px 0;padding-left:10px"><b>' + binName + '</b>（' + list.length + '名）：' + list.join('・') + '</div>';
+        }
+      }
+    });
+  }
+  openPrintWindow('送迎一覧月報 '+month, body);
+};
+
 window.printTransportMonthly = function() {
   const monthInput = document.getElementById('tr-print-month');
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
