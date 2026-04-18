@@ -510,7 +510,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
     </div>
 
     <div class="scr" id="scr-kyushoku">
-      <div class="phase-tabs" style="padding:10px 14px 0"><div class="ptab on" id="ktab-main" onclick="setKyushokuTab('main')">給食</div><div class="ptab" id="ktab-gh" onclick="setKyushokuTab('gh')">GH夕食</div><div class="ptab" id="ktab-start" onclick="setKyushokuTab('start')">すたぁと</div></div>
+      <div class="phase-tabs" style="padding:10px 14px 0"><div class="ptab on" id="ktab-main" onclick="setKyushokuTab('main')">給食</div><div class="ptab" id="ktab-gh" onclick="setKyushokuTab('gh')">ぱぁとなぁ</div><div class="ptab" id="ktab-start" onclick="setKyushokuTab('start')">すたぁと</div></div>
       <div id="kyushoku-main-area">
       <div class="cal-bar" id="kcal-bar">
         <button class="cal-nav" onclick="kcalMove(-1)">‹</button>
@@ -520,7 +520,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       <div class="cal-grid" id="kcal-grid"></div>
       <div id="kyushoku-body"></div>
       </div><!-- kyushoku-main-area -->
-      <div id="kyushoku-gh-area" style="display:none"><div class="fp"><div class="ksec-hd">GH棟別夕食連絡</div><div class="frow"><span class="flbl">日付</span><input type="date" id="gh-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderGhPanel()"/></div><div id="gh-body"></div><button class="sbtn" onclick="doGhSubmit()">GH給食連絡を送信</button></div></div>
+      <div id="kyushoku-gh-area" style="display:none"><div class="fp"><div class="ksec-hd">ぱぁとなぁ夕食連絡</div><div class="frow"><span class="flbl">日付</span><input type="date" id="gh-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderGhPanel()"/></div><div id="gh-body"></div><button class="sbtn" onclick="doGhSubmit()">ぱぁとなぁ夕食連絡を送信</button></div></div>
       <div id="kyushoku-start-area" style="display:none"><div class="fp"><div class="fsec"><span class="tog-label">すたぁと給食連絡（水・木・金）</span><div class="frow"><span class="flbl">日付</span><input type="date" id="start-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">利用者数</span><input type="number" id="start-users" min="0" value="0" style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--purple);outline:none;text-align:right;width:60px"/></div><div class="frow"><span class="flbl">職員数</span><input type="number" id="start-staff" min="0" value="0" style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--purple);outline:none;text-align:right;width:60px"/></div><div class="frow"><span class="flbl">翌日昼食数</span><input type="number" id="start-next" min="0" value="0" style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--purple);outline:none;text-align:right;width:60px"/></div></div><button class="sbtn" onclick="doStartSubmit()">すたぁとに連絡する</button></div></div>
     </div>
 
@@ -1065,7 +1065,7 @@ window.renderGhPanel = function() {
     'abs_home':  '奏楽欠席・帰省'
   };
   
-  const groupColors = { '紬男': '#7C3AED', '紬女': '#EC4899', 'ひまわりハウス': '#F59E0B' };
+  const groupColors = { '紬男子': '#6366F1', '紬女子': '#EC4899', 'ひまわり': '#F59E0B' };
   
   let html = '';
   for (const group in GH_MASTER) {
@@ -1112,7 +1112,7 @@ window.doGhSubmit = async function() {
         staff: currentStaff, ts: tsNow(), createdAt: Date.now()
       });
     }
-    showToast('✓ GH給食情報を登録しました（'+records.length+'名分）');
+    showToast('✓ ぱぁとなぁ夕食情報を登録しました（'+records.length+'名分）');
   } catch(e) {
     showToast('送信失敗: ' + e.message);
     console.error(e);
@@ -1981,9 +1981,9 @@ function checkSession() {
 
 
 const GH_MASTER = {
-  '紬男': { capacity: 6, users: ['木下真利','隅田潤','西谷充弘','大塚佑介','山本利典','上村恭弘'] },
-  '紬女': { capacity: 4, users: ['朝倉祥子','白井かおり','国澤磨世','大山知美'] },
-  'ひまわりハウス': { capacity: 4, users: ['松野友紀','稲垣雅子','高木由香','臼井想'] }
+  '紬男子': { capacity: 6, users: ['木下真利','隅田潤','西谷充弘','大塚佑介','山本利典','上村恭弘'] },
+  '紬女子': { capacity: 4, users: ['朝倉祥子','白井かおり','国澤磨世','大山知美'] },
+  'ひまわり': { capacity: 4, users: ['松野友紀','稲垣雅子','高木由香','臼井想'] }
 };
 const GH_DINNER_DAYS = [2,3,4,5];
 const GH_PATTERNS = {
