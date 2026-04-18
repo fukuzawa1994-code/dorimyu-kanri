@@ -2435,7 +2435,7 @@ window.DEFAULT_TRANSPORT = DEFAULT_TRANSPORT;
 // 月: TBD（火と同じと仮定）
 // 土: 朝なし、夕 事業所→自宅
 const PAATONAA_SCHEDULE = {
-  '月': { am: { mode: 'ride', from: '自宅', to: '事業所' }, pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '月': { am: { mode: 'none' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
   '火': { am: { mode: 'ride', from: '自宅', to: '事業所' }, pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
   '水': { am: { mode: 'walk' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
   '木': { am: { mode: 'walk' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
@@ -2490,55 +2490,6 @@ window.isPaatonaaResident = isPaatonaaResident;
 window.getPaatonaaUserJigyosho = getPaatonaaUserJigyosho;
 window.getScheduledTransport = getScheduledTransport;
 
-// ═══ 兼務者の送迎パターン選択肢 ═══
-// 変更入力時に選択できるパターン（日によって変わる）
-const TRANSPORT_PATTERNS = {
-  '西谷充弘': [
-    { label: '通常（自宅⇔童里夢）', am: { from: '自宅', to: '童里夢' }, pm: { from: '童里夢', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '童里夢' }, pm: { from: '童里夢', to: 'ぱぁとなぁ' } }
-  ],
-  '山本利典': [
-    { label: '通常（自宅⇔童里夢）', am: { from: '自宅', to: '童里夢' }, pm: { from: '童里夢', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '童里夢' }, pm: { from: '童里夢', to: 'ぱぁとなぁ' } },
-    { label: 'エコール直行', am: { from: '自宅', to: 'エコール' }, pm: { from: 'エコール', to: '自宅' } }
-  ],
-  '稲垣雅子': [
-    { label: '通常（自宅⇔奏楽）', am: { from: '自宅', to: '奏楽' }, pm: { from: '奏楽', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: 'ぱぁとなぁ' } }
-  ],
-  '国澤磨世': [
-    { label: '通常（自宅⇔童里夢）', am: { from: '自宅', to: '童里夢' }, pm: { from: '童里夢', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '童里夢' }, pm: { from: '童里夢', to: 'ぱぁとなぁ' } }
-  ],
-  '隅田潤': [
-    { label: '通常（自宅⇔奏楽）', am: { from: '自宅', to: '奏楽' }, pm: { from: '奏楽', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: 'ぱぁとなぁ' } }
-  ],
-  '大塚祐介': [
-    { label: '通常（自宅⇔奏楽）', am: { from: '自宅', to: '奏楽' }, pm: { from: '奏楽', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: 'ぱぁとなぁ' } }
-  ],
-  '大山知美': [
-    { label: '通常（自宅⇔童里夢）', am: { from: '自宅', to: '童里夢' }, pm: { from: '童里夢', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '童里夢' }, pm: { from: '童里夢', to: 'ぱぁとなぁ' } }
-  ],
-  '高木由香': [
-    { label: '通常（ぱぁとなぁ基点）', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: 'ぱぁとなぁ' } },
-    { label: '自宅帰り', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: '自宅' } }
-  ],
-  '朝倉祥子': [
-    { label: '通常（自宅⇔奏楽）', am: { from: '自宅', to: '奏楽' }, pm: { from: '奏楽', to: '自宅' } },
-    { label: 'ぱぁとなぁ泊', am: { from: 'ぱぁとなぁ', to: '奏楽' }, pm: { from: '奏楽', to: 'ぱぁとなぁ' } }
-  ]
-};
-
-// 利用者のパターン候補を取得
-function getTransportPatterns(userName) {
-  return TRANSPORT_PATTERNS[userName] || null;
-}
-
-window.TRANSPORT_PATTERNS = TRANSPORT_PATTERNS;
-window.getTransportPatterns = getTransportPatterns;
 
 
 
@@ -3428,7 +3379,7 @@ function renderAbsence() {
 
 // ── 職員給食マスタ ──
 // 給食の食べる場所選択肢
-const MEAL_LOCATIONS = ['童里夢','奏楽','たんぽぽ','パン缶','すたぁと','なし'];
+const MEAL_LOCATIONS = ['童里夢','奏楽','たんぽぽ','エコール'];
 window.MEAL_LOCATIONS = MEAL_LOCATIONS;
 
 const STAFF_KYUSHOKU = {
