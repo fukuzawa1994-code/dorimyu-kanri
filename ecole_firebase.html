@@ -2119,6 +2119,81 @@ function getUserAffiliation(userName) {
 window.USER_MASTER = USER_MASTER;
 window.getUserAffiliation = getUserAffiliation;
 
+// ═══ 基本送迎マスター（各利用者の普段の便と降車場所）═══
+// 朝: 便名, 降車場所（エコール/すたぁと）
+// 夕: 便名, 降車場所（自宅/ぱぁとなぁ/その他）
+const DEFAULT_TRANSPORT = {
+  // ── 東脇便 ──
+  '西谷充弘':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: 'ぱぁとなぁ' } },
+  '山本利典':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: 'ぱぁとなぁ' } },
+  '野田裕介':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '渕名健太':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '渕名裕太':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '渡邊一正':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '古林孝康':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '松井大訓':   { am: { bin: '東脇', drop: 'エコール' }, pm: { bin: '東脇', drop: '自宅' } },
+  '下門朋矢':   { am: { bin: '-', drop: '-' },          pm: { bin: '東脇', drop: '自宅' } },
+  '佐々木由佳': { am: { bin: '-', drop: '-' },          pm: { bin: '東脇', drop: '自宅' } },
+  '稲垣雅子':   { am: { bin: '-', drop: '-' },          pm: { bin: '東脇', drop: 'ぱぁとなぁ' } },
+  // ── 賀茂便 ──
+  '小島彰':     { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '森英充':     { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '原田順子':   { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '熊谷美那':   { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '石黒真矢':   { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '近田織義':   { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  '及部富志夫': { am: { bin: '賀茂', drop: 'エコール' }, pm: { bin: '賀茂', drop: '自宅' } },
+  // ── マイクロ便 ──
+  '土屋佳世':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '国澤磨世':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: 'ぱぁとなぁ' } },
+  '尾崎元哉':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '隅田潤':     { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: 'ぱぁとなぁ' } },
+  '彦坂珠枝':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '彦坂純奈':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '遠山梓':     { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '坂井夏恋':   { am: { bin: '-', drop: '-' },             pm: { bin: 'マイクロ', drop: '自宅' } },
+  '荒津美智子': { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '伊藤憲':     { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '吉村史帆里': { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '菅沼陽':     { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '権田和紀':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '大木晴充':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '小久保俊哉': { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '奥平日出男': { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '市古麻美':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  '川野洋文':   { am: { bin: 'マイクロ', drop: 'エコール' }, pm: { bin: 'マイクロ', drop: '自宅' } },
+  // ── 草間便 ──
+  '彦坂友咲':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: '自宅' } },
+  '田中千景':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: '自宅' } },
+  '牧野裕助':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: '自宅' } },
+  '加藤雅也':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: '自宅' } },
+  '大塚祐介':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: 'ぱぁとなぁ' } },
+  '松崎優斗':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: '自宅' } },
+  '大山知美':   { am: { bin: '草間', drop: 'エコール' }, pm: { bin: '草間', drop: 'ぱぁとなぁ' } },
+  // ── 曙便 ──
+  '田中仁':     { am: { bin: '曙', drop: 'エコール' }, pm: { bin: '曙', drop: '自宅' } },
+  '田中力':     { am: { bin: '曙', drop: 'エコール' }, pm: { bin: '曙', drop: '自宅' } },
+  '本藤明奈':   { am: { bin: '曙', drop: 'エコール' }, pm: { bin: '曙', drop: '自宅' } },
+  '飯田康暉':   { am: { bin: '曙', drop: 'エコール' }, pm: { bin: '曙', drop: '自宅' } },
+  '久米恵子':   { am: { bin: '曙', drop: 'エコール' }, pm: { bin: '曙', drop: '自宅' } },
+  // ── 二川便 ──
+  '渡辺真実鼓': { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: '自宅' } },
+  '森奈美恵':   { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: '自宅' } },
+  '山本一夫':   { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: '自宅' } },
+  '野津塁':     { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: '自宅' } },
+  '高木由香':   { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: 'ぱぁとなぁ' } },
+  '朝倉祥子':   { am: { bin: '二川', drop: 'エコール' }, pm: { bin: '二川', drop: 'ぱぁとなぁ' } },
+  // ── GH居住者（ぱぁとなぁ発着）──
+  '木下真利':   { am: { bin: 'ぱぁとなぁ', drop: 'エコール' }, pm: { bin: 'ぱぁとなぁ', drop: 'ぱぁとなぁ' } },
+  '上村恭弘':   { am: { bin: 'ぱぁとなぁ', drop: 'エコール' }, pm: { bin: 'ぱぁとなぁ', drop: 'ぱぁとなぁ' } },
+  '白井かおり': { am: { bin: 'ぱぁとなぁ', drop: 'エコール' }, pm: { bin: 'ぱぁとなぁ', drop: 'ぱぁとなぁ' } },
+  '松野友紀':   { am: { bin: 'ぱぁとなぁ', drop: 'エコール' }, pm: { bin: 'ぱぁとなぁ', drop: 'ぱぁとなぁ' } },
+  '臼井想':     { am: { bin: 'ぱぁとなぁ', drop: 'エコール' }, pm: { bin: 'ぱぁとなぁ', drop: 'ぱぁとなぁ' } }
+};
+
+window.DEFAULT_TRANSPORT = DEFAULT_TRANSPORT;
+
+
 const GH_DINNER_DAYS = [2,3,4,5];
 const GH_PATTERNS = {
   'normal':    { label: '通常（昼:奏楽 夕:GH）', lunch: true,  dinner: true  },
