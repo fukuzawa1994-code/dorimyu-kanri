@@ -2193,6 +2193,68 @@ const DEFAULT_TRANSPORT = {
 
 window.DEFAULT_TRANSPORT = DEFAULT_TRANSPORT;
 
+// ═══ ぱぁとなぁ居住者の曜日別基本送迎パターン ═══
+// 火曜: 朝 自宅→事業所（童里夢 or 奏楽）、夕 事業所→ぱぁとなぁ
+// 水木金: 徒歩（送迎なし）、夕 事業所→ぱぁとなぁ
+// 月: TBD（火と同じと仮定）
+// 土: 朝なし、夕 事業所→自宅
+const PAATONAA_SCHEDULE = {
+  '月': { am: { mode: 'ride', from: '自宅', to: '事業所' }, pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '火': { am: { mode: 'ride', from: '自宅', to: '事業所' }, pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '水': { am: { mode: 'walk' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '木': { am: { mode: 'walk' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '金': { am: { mode: 'walk' },                              pm: { mode: 'ride', from: '事業所', to: 'ぱぁとなぁ' } },
+  '土': { am: { mode: 'none' },                              pm: { mode: 'ride', from: '事業所', to: '自宅' } }
+};
+
+// ぱぁとなぁ居住者かどうか判定
+function isPaatonaaResident(userName) {
+  const gh = USER_MASTER['ぱぁとなぁ'] || {};
+  for (const users of Object.values(gh)) {
+    if (users.includes(userName)) return true;
+  }
+  return false;
+}
+
+// ぱぁとなぁ居住者の事業所を取得（童里夢 or 奏楽）
+function getPaatonaaUserJigyosho(userName) {
+  const aff = getUserAffiliation(userName);
+  // ぱぁとなぁ以外の所属（童里夢 or 奏楽）を返す
+  const other = aff.find(a => a.jigyosho !== 'ぱぁとなぁ');
+  return other ? other.jigyosho : null;
+}
+
+// 特定日の送迎情報を取得（ぱぁとなぁ居住者は曜日別パターン）
+function getScheduledTransport(userName, dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay(); // 0=日, 1=月...6=土
+  const dowMap = ['日','月','火','水','木','金','土'];
+  const dowName = dowMap[dow];
+  
+  if (isPaatonaaResident(userName)) {
+    const sched = PAATONAA_SCHEDULE[dowName];
+    if (!sched) return null;
+    const jigyosho = getPaatonaaUserJigyosho(userName);
+    return {
+      am: sched.am.mode === 'walk' ? { mode: 'walk', label: '徒歩' } :
+          sched.am.mode === 'none' ? { mode: 'none', label: '-' } :
+          { mode: 'ride', from: '自宅', to: jigyosho || 'エコール', label: '自宅→' + (jigyosho || 'エコール') },
+      pm: sched.pm.mode === 'none' ? { mode: 'none', label: '-' } :
+          { mode: 'ride', from: jigyosho || '事業所', to: sched.pm.to, label: (jigyosho || '事業所') + '→' + sched.pm.to }
+    };
+  }
+  
+  // ぱぁとなぁ居住者以外は DEFAULT_TRANSPORT を返す
+  const def = DEFAULT_TRANSPORT[userName];
+  return def || null;
+}
+
+window.PAATONAA_SCHEDULE = PAATONAA_SCHEDULE;
+window.isPaatonaaResident = isPaatonaaResident;
+window.getPaatonaaUserJigyosho = getPaatonaaUserJigyosho;
+window.getScheduledTransport = getScheduledTransport;
+
+
 
 const GH_DINNER_DAYS = [2,3,4,5];
 const GH_PATTERNS = {
