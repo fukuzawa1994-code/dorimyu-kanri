@@ -230,6 +230,10 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       </div>
       <div class="cal-grid" id="cal-grid"></div>
       <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)">📄 月次PDF</button></div>
+      <div id="list-mode-toggle" style="display:flex;gap:4px;padding:4px 12px 0">
+        <button id="lmode-bin" onclick="setListMode('bin')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700">🚐 便ベース</button>
+        <button id="lmode-aff" onclick="setListMode('aff')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer">🏢 所属ベース</button>
+      </div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -2459,6 +2463,109 @@ window.onUserSelectChange = function() {
   } else {
     infoDiv.style.display = 'none';
   }
+};
+
+// ═══ 送迎一覧：表示モード切替（便ベース / 所属ベース）═══
+window.currentListMode = window.currentListMode || 'bin';
+
+window.setListMode = function(mode) {
+  window.currentListMode = mode;
+  const binBtn = document.getElementById('lmode-bin');
+  const affBtn = document.getElementById('lmode-aff');
+  if (binBtn && affBtn) {
+    if (mode === 'bin') {
+      binBtn.style.cssText = 'flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700';
+      affBtn.style.cssText = 'flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer';
+    } else {
+      affBtn.style.cssText = 'flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700';
+      binBtn.style.cssText = 'flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer';
+    }
+  }
+  // 朝夕タブは両モードで共通
+  if (mode === 'bin') {
+    renderList(); // 既存関数
+  } else {
+    renderListByAffiliation();
+  }
+};
+
+// ═══ 所属ベース表示（USER_MASTER参照）═══
+window.renderListByAffiliation = function() {
+  const body = document.getElementById('list-body');
+  if (!body) return;
+  if (typeof USER_MASTER === 'undefined') {
+    body.innerHTML = '<div class="loading">所属データ読み込み中...</div>';
+    return;
+  }
+  
+  const phase = currentPhase; // '朝' or '夕'
+  const dow = new Date(selectedDate + 'T00:00:00').getDay();
+  const dowName = ['日','月','火','水','木','金','土'][dow];
+  
+  let html = '';
+  const colors = {'童里夢': '#483D8B', '奏楽': '#F39C12', 'ぱぁとなぁ': '#E91E63'};
+  
+  for (const [jigyosho, hans] of Object.entries(USER_MASTER)) {
+    const color = colors[jigyosho] || '#666';
+    
+    // 事業所ヘッダー
+    html += '<div style="margin:12px 12px 4px;padding:8px 12px;background:' + color + ';color:#fff;border-radius:8px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center">';
+    html += '<span>' + jigyosho + '</span>';
+    // 事業所合計（ぱぁとなぁ居住者は一度だけ）
+    const jigTotal = Object.values(hans).reduce(function(s, u){ return s + u.length; }, 0);
+    html += '<span style="font-size:12px;font-weight:400">計' + jigTotal + '名</span>';
+    html += '</div>';
+    
+    for (const [han, users] of Object.entries(hans)) {
+      if (!users.length) continue;
+      
+      // 班カード
+      html += '<div style="margin:4px 12px 8px;background:var(--surface);border:0.5px solid var(--border);border-radius:10px;overflow:hidden">';
+      html += '<div style="padding:8px 12px;background:' + color + '22;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">';
+      html += '<span style="font-weight:700;font-size:13px;color:' + color + '">' + han + '</span>';
+      html += '<span style="font-size:11px;color:#666">' + users.length + '名</span>';
+      html += '</div>';
+      
+      // 利用者行
+      users.forEach(function(u) {
+        // 送迎情報取得
+        let schedLabel = '-';
+        try {
+          if (typeof getScheduledTransport === 'function') {
+            const sched = getScheduledTransport(u, selectedDate);
+            if (sched) {
+              if (phase === '朝') {
+                if (sched.am && sched.am.label) schedLabel = sched.am.label;
+                else if (sched.am && sched.am.bin) schedLabel = sched.am.bin + '→' + sched.am.drop;
+              } else {
+                if (sched.pm && sched.pm.label) schedLabel = sched.pm.label;
+                else if (sched.pm && sched.pm.bin) schedLabel = sched.pm.bin + '→' + sched.pm.drop;
+              }
+            }
+          }
+        } catch(e) {}
+        
+        // 欠席・変更チェック
+        const userLog = logs.find(function(l){ return l.date === selectedDate && l.user === u; });
+        const isAbs = userLog && userLog.abs;
+        const bgStyle = isAbs ? 'background:#FFEBEE;' : '';
+        const statusBadge = isAbs ? '<span style="font-size:10px;background:#F44336;color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px">欠席</span>' : '';
+        
+        const avc = (typeof avColor === 'function') ? avColor(u) : ['#ddd','#333'];
+        html += '<div style="padding:6px 12px;border-bottom:0.5px solid #F0F0F0;display:flex;align-items:center;gap:8px;' + bgStyle + '">';
+        html += '<div class="av" style="background:' + avc[0] + ';color:' + avc[1] + ';width:28px;height:28px;font-size:10px;flex-shrink:0">' + u.slice(0,2) + '</div>';
+        html += '<div style="flex:1;min-width:0">';
+        html += '<div style="font-size:12px;font-weight:600;color:' + (isAbs ? '#999' : 'var(--text)') + ';' + (isAbs ? 'text-decoration:line-through;' : '') + '">' + u + statusBadge + '</div>';
+        html += '<div style="font-size:10px;color:#888">' + schedLabel + '</div>';
+        html += '</div>';
+        html += '</div>';
+      });
+      
+      html += '</div>';
+    }
+  }
+  
+  body.innerHTML = html;
 };
 
 window.doSubmit = async function() {
