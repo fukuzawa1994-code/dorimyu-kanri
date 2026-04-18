@@ -1925,6 +1925,65 @@ window.setKyushokuTab = function(tab) {
   }
 };
 
+// ═══ 給食場所変更申請 ═══
+// 欠席とは独立して、特定日に「どこで食べるか」を変更する
+window.openMealChangeModal = function(targetName, isStaff) {
+  const modal = document.createElement('div');
+  modal.id = 'meal-change-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px;max-width:400px;width:100%">' +
+    '<h3 style="margin:0 0 12px;font-size:16px">🍱 給食場所変更</h3>' +
+    '<div style="font-size:13px;margin-bottom:14px"><b>' + targetName + '</b>' + (isStaff ? '（職員）' : '（利用者）') + '</div>' +
+    '<div style="margin-bottom:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">日付</div>' +
+    '<input type="date" id="mc-date" style="width:100%;padding:8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px" value="' + today() + '"/></div>' +
+    '<div style="margin-bottom:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">食べる場所</div>' +
+    '<select id="mc-location" style="width:100%;padding:8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px">' +
+    MEAL_LOCATIONS.map(function(l){ return '<option value="'+l+'">'+l+'</option>'; }).join('') +
+    '</select></div>' +
+    '<div style="margin-bottom:14px"><div style="font-size:11px;color:#666;margin-bottom:4px">備考（任意）</div>' +
+    '<input type="text" id="mc-memo" placeholder="理由など" style="width:100%;padding:8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px"/></div>' +
+    '<div style="display:flex;gap:8px">' +
+    '<button onclick="document.getElementById(\'meal-change-modal\').remove()" style="flex:1;padding:10px;background:#fff;border:0.5px solid #ccc;border-radius:8px;font-size:13px;cursor:pointer">キャンセル</button>' +
+    '<button onclick="submitMealChange(\'' + targetName + '\',' + isStaff + ')" style="flex:1;padding:10px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">申請</button>' +
+    '</div></div>';
+  document.body.appendChild(modal);
+};
+
+window.submitMealChange = async function(targetName, isStaff) {
+  if (!checkSession()) return;
+  const date = document.getElementById('mc-date').value;
+  const location = document.getElementById('mc-location').value;
+  const memo = document.getElementById('mc-memo').value;
+  if (!date) { showToast('日付を入力'); return; }
+  
+  try {
+    // 同じ人・同じ日の既存の給食変更申請を削除（上書き）
+    const existing = logs.filter(function(l){ return l.type==='meal_change' && l.date===date && l.target===targetName; });
+    for (const ex of existing) {
+      await deleteDoc(doc(db, 'logs', ex.id));
+    }
+    
+    await addDoc(collection(db, 'logs'), {
+      type: 'meal_change', date: date, target: targetName, isStaff: isStaff,
+      location: location, memo: memo, recordedBy: currentStaff,
+      ts: tsNow(), createdAt: Date.now()
+    });
+    showToast('✓ 給食変更を申請しました');
+    document.getElementById('meal-change-modal').remove();
+    // 給食画面を再描画
+    if (typeof renderKyushokuPanel === 'function') renderKyushokuPanel();
+  } catch(e) {
+    showToast('失敗: ' + e.message);
+  }
+};
+
+// 指定日の給食場所を取得（変更申請があればそれを優先）
+window.getMealLocation = function(targetName, date) {
+  const change = logs.find(function(l){ return l.type==='meal_change' && l.date===date && l.target===targetName; });
+  if (change) return { changed: true, location: change.location, memo: change.memo };
+  return { changed: false, location: null };
+};
+
 window.doSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('f-date').value;
@@ -3191,12 +3250,16 @@ function renderAbsence() {
 
 
 // ── 職員給食マスタ ──
+// 給食の食べる場所選択肢
+const MEAL_LOCATIONS = ['童里夢','奏楽','たんぽぽ','パン缶','すたぁと','なし'];
+window.MEAL_LOCATIONS = MEAL_LOCATIONS;
+
 const STAFF_KYUSHOKU = {
   '童里夢職員': {
     users: ['牛山','栗原','梶尾'],
     conditional: {
       '篠原': [1,1,1,1,0,1,1], // 木曜除く
-      '関根': [0,0,1,1,1,1,0]  // 火〜金のみ
+      '関根清美': [0,1,1,1,1,1,0]  // 火〜金のみ
     }
   },
   '奏楽職員': {
