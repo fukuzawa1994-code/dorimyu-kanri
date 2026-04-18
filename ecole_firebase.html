@@ -1107,7 +1107,7 @@ window.printList = function() {
       const list = [];
       for (const u of allUsers) {
         const log = latestFor(date, binName, u);
-        const sched = defaultSchedule[u];
+        const sched = (typeof defaultSchedule !== "undefined") ? defaultSchedule[u] : (MASTER.defaultSchedule||{})[u];
         const useKey = time==='朝' ? 'am' : 'pm';
         let status = '乗車';
         if (log) {
@@ -1251,7 +1251,7 @@ window.printTransportListMonthly = function() {
         const list = [];
         for (const u of allUsers) {
           const lg = latestFor(dateStr, binName, u);
-          const sched = defaultSchedule[u];
+          const sched = (typeof defaultSchedule !== "undefined") ? defaultSchedule[u] : (MASTER.defaultSchedule||{})[u];
           const useKey = time==='朝' ? 'am' : 'pm';
           let status = '乗車';
           if (lg) {
