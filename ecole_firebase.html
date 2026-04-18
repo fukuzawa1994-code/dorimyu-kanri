@@ -1127,105 +1127,89 @@ window.printList = function() {
 };
 
 // ④-1 ケース記録 月次PDF
-window.printCaseMonthly = async function() {
+window.printCaseMonthly = function() {
   const monthInput = document.getElementById('case-print-month');
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
   if (!month) { showToast('月を選択してください'); return; }
+  
+  // 童里夢の班別データを取得
+  const dorimiyomu = KYUSHOKU['童里夢'] || {};
+  const hanList = Object.keys(dorimiyomu);
+  if (!hanList.length) { showToast('班情報なし'); return; }
+  
+  // 当月の日数
+  const ym = month.split('-');
+  const year = parseInt(ym[0]), mm = parseInt(ym[1]);
+  const lastDay = new Date(year, mm, 0).getDate();
+  const dows = ['日','月','火','水','木','金','土'];
+  
+  // 月の記録
   const monthLogs = logs.filter(function(l) { return l.type==='case' && l.date && l.date.startsWith(month); });
   if (!monthLogs.length) { showToast(month+'の記録なし'); return; }
   
-  // 利用者別グループ化
-  const byUser = {};
+  // 利用者×日付のマトリクス作成 map[user][date] = [記録配列]
+  const map = {};
   monthLogs.forEach(function(l) {
-    if (!byUser[l.user]) byUser[l.user] = [];
-    byUser[l.user].push(l);
+    if (!map[l.user]) map[l.user] = {};
+    if (!map[l.user][l.date]) map[l.user][l.date] = [];
+    map[l.user][l.date].push(l);
   });
-  const users = Object.keys(byUser).sort();
   
-  // 確認
-  if (!confirm(month + 'の月報を作成します。\n利用者 ' + users.length + '名分・記録 ' + monthLogs.length + '件をAIでまとめます。\n\n処理時間：約' + users.length + '秒\n\n開始しますか？')) return;
-  
-  // APIキー取得
-  let apiKey = localStorage.getItem('gemini_api_key');
-  if (!apiKey) { showToast('APIキー未設定'); return; }
-  
-  // 進捗ダイアログ
-  const progDiv = document.createElement('div');
-  progDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
-  progDiv.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;min-width:300px;max-width:90%"><div style="font-size:14px;font-weight:700;margin-bottom:12px">📄 月報作成中...</div><div id="prog-text" style="font-size:12px;color:#666;margin-bottom:8px">準備中...</div><div style="background:#eee;border-radius:8px;overflow:hidden;height:8px"><div id="prog-bar" style="background:#483D8B;height:100%;width:0%;transition:width 0.3s"></div></div></div>';
-  document.body.appendChild(progDiv);
-  
-  // API URL構築
-  let url, headers;
-  if (apiKey.startsWith('AQ.')) {
-    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
-    headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
-  } else {
-    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey;
-    headers = { 'Content-Type': 'application/json' };
-  }
-  
-  // 各利用者ごとにAI処理
-  const summaries = {};
-  for (let i = 0; i < users.length; i++) {
-    const user = users[i];
-    const userLogs = byUser[user].sort(function(a,b){ return a.date.localeCompare(b.date); });
-    
-    document.getElementById('prog-text').textContent = '(' + (i+1) + '/' + users.length + ') ' + user + 'さんをまとめ中...';
-    document.getElementById('prog-bar').style.width = ((i/users.length)*100) + '%';
-    
-    const allText = userLogs.map(function(l) {
-      const tagStr = l.tags && l.tags.length ? '（' + l.tags.join('・') + '）' : '';
-      return l.date + tagStr + '：' + (l.caseText||'');
-    }).join('\n');
-    
-    const prompt = '以下は1ヶ月分のケース記録です。これをまとめて、利用者の1ヶ月の様子がわかる月次レポートを作成してください。\n\n【ルール】\n・記録者の名前は絶対に入れない\n・利用者の様子・変化・特徴を中心に\n・時系列で整理\n・重要な出来事・傾向・特徴を拾う\n・常体（だ・である調）\n・段落を使って読みやすく\n・400-600字程度\n・冒頭に' + user + 'さんとだけ記載\n\n【入力】\n' + user + 'さん ' + month + '\n\n' + allText;
-    
-    try {
-      const response = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
-      const data = await response.json();
-      if (data.candidates && data.candidates[0]) {
-        summaries[user] = data.candidates[0].content.parts[0].text;
-      } else {
-        summaries[user] = 'AI処理失敗: ' + JSON.stringify(data.error||{}).slice(0,100);
-      }
-    } catch(e) {
-      summaries[user] = 'エラー: ' + e.message;
-    }
-    // レート制限回避（1秒待機）
-    await new Promise(function(r) { setTimeout(r, 1000); });
-  }
-  
-  progDiv.remove();
-  
-  // PDFレポート生成（1人1ページ）
   let body = '';
-  users.forEach(function(user, i) {
-    const pageBreak = i > 0 ? 'page-break-before:always;' : '';
-    const count = byUser[user].length;
-    body += '<div style="' + pageBreak + 'padding:20px 0">';
-    body += '<div style="border-bottom:2px solid #483D8B;padding-bottom:8px;margin-bottom:16px">';
-    body += '<h1 style="margin:0;font-size:22px;color:#483D8B">ケース記録月報</h1>';
-    body += '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:#666">';
-    body += '<div>期間：' + month + '　／　記録件数：' + count + '件</div>';
-    body += '<div>作成：' + currentStaff + '</div>';
-    body += '</div></div>';
-    body += '<h2 style="font-size:18px;margin:0 0 12px;color:#333">' + user + 'さん</h2>';
-    body += '<div style="background:#F8F6FF;border-left:4px solid #483D8B;padding:16px;border-radius:4px;font-size:13px;line-height:1.9;white-space:pre-wrap">' + summaries[user].replace(/^' + user + 'さん\\s*\\n?/, '') + '</div>';
-    // 承認欄
-    body += '<table style="width:100%;margin-top:40px;border-collapse:collapse;font-size:11px"><tr>';
-    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">記録者</td>';
-    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">主任</td>';
-    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">サービス管理責任者</td>';
-    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">管理者</td>';
-    body += '</tr><tr>';
-    body += '<td style="border:1px solid #999;padding:16px">　</td>';
-    body += '<td style="border:1px solid #999;padding:16px">　</td>';
-    body += '<td style="border:1px solid #999;padding:16px">　</td>';
-    body += '<td style="border:1px solid #999;padding:16px">　</td>';
-    body += '</tr></table>';
+  
+  // 班ごとにページを作る
+  hanList.forEach(function(han, hanIdx) {
+    const data = dorimiyomu[han];
+    const users = [...(data.users||[]), ...Object.keys(data.conditional||{})];
+    // その班に記録がある利用者のみ（もしくは全員表示）
+    const displayUsers = users;
+    if (!displayUsers.length) return;
+    
+    const pageBreak = hanIdx > 0 ? 'page-break-before:always;' : '';
+    body += '<div style="' + pageBreak + '">';
+    body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #483D8B;padding-bottom:6px;margin-bottom:10px">';
+    body += '<h1 style="margin:0;font-size:18px;color:#483D8B">R' + (year-2018) + '年度' + mm + '月ケース記録【' + han + '】</h1>';
+    body += '<div style="font-size:10px;color:#666">作成：' + currentStaff + '</div>';
+    body += '</div>';
+    
+    // 横並び表（列=利用者、行=日付）
+    body += '<table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed">';
+    // ヘッダー：日付 + 利用者名
+    body += '<thead><tr style="background:#E8E3F5">';
+    body += '<th style="border:1px solid #666;padding:3px;width:50px;font-size:10px">日付</th>';
+    displayUsers.forEach(function(u) {
+      body += '<th style="border:1px solid #666;padding:3px;font-size:10px">' + u + '</th>';
+    });
+    body += '</tr></thead><tbody>';
+    
+    // 各日付の行
+    for (let d = 1; d <= lastDay; d++) {
+      const dateStr = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      const dow = new Date(dateStr+'T00:00:00').getDay();
+      if (dow === 0) continue;  // 日曜スキップ
+      // その日にこの班のいずれかの利用者に記録があるか確認
+      const hasAnyRecord = displayUsers.some(function(u) { return map[u] && map[u][dateStr]; });
+      if (!hasAnyRecord) continue;  // 記録なしの日はスキップ
+      
+      const bgColor = (dow === 6) ? '#F5F5F5' : '#FFF';
+      body += '<tr style="background:' + bgColor + '">';
+      body += '<td style="border:1px solid #666;padding:3px;text-align:center;vertical-align:top;font-weight:700;font-size:10px">' + mm + '/' + d + '<br>(' + dows[dow] + ')</td>';
+      displayUsers.forEach(function(u) {
+        const records = (map[u] && map[u][dateStr]) || [];
+        let cellText = '';
+        records.forEach(function(rec) {
+          const tags = (rec.tags && rec.tags.length) ? '【' + rec.tags.join('・') + '】' : '';
+          cellText += tags + (rec.caseText||'').replace(/\n/g, '<br>') + '<br>';
+        });
+        body += '<td style="border:1px solid #666;padding:3px;vertical-align:top;font-size:9px;line-height:1.3">' + cellText + '</td>';
+      });
+      body += '</tr>';
+    }
+    body += '</tbody></table>';
     body += '</div>';
   });
+  
+  if (!body) { showToast('該当月の記録なし'); return; }
   
   openPrintWindow('ケース記録月報 '+month, body);
 };
@@ -1349,21 +1333,18 @@ window.printDistanceMonthly = function() {
 
 // 共通：印刷ウィンドウを開く
 window.openPrintWindow = function(title, bodyHtml) {
-  // 既存のiframe削除
   const old = document.getElementById('print-iframe');
   if (old) old.remove();
-  // iframeを作成
   const iframe = document.createElement('iframe');
   iframe.id = 'print-iframe';
-  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:600px;border:none;visibility:hidden';
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1200px;height:800px;border:none;visibility:hidden';
   document.body.appendChild(iframe);
   const doc = iframe.contentDocument || iframe.contentWindow.document;
   doc.open();
   doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title+'</title>');
-  doc.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:20px;color:#333}h1{font-size:18px;margin:0 0 8px}h2{font-size:14px;margin:12px 0 6px}h3{font-size:13px}table{width:100%;border-collapse:collapse;font-size:11px;page-break-inside:auto}tr{page-break-inside:avoid}td,th{padding:4px;border:1px solid #999}@media print{@page{size:A4;margin:15mm}}</style>');
+  doc.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:10mm;color:#333;margin:0}h1{font-size:16px;margin:0 0 6px}h2{font-size:13px;margin:8px 0 4px}table{width:100%;border-collapse:collapse;page-break-inside:auto}tr{page-break-inside:avoid}td,th{padding:3px;border:1px solid #666;vertical-align:top}@media print{@page{size:A4 landscape;margin:10mm}}</style>');
   doc.write('</head><body>'+bodyHtml+'</body></html>');
   doc.close();
-  // 印刷ダイアログを表示
   setTimeout(function() {
     try {
       iframe.contentWindow.focus();
