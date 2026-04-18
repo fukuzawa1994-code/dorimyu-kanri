@@ -548,38 +548,25 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
     </div>
     <div class="ni" id="ni-form" onclick="goForm()">
       <svg viewBox="0 0 24 24"><path d="M11 4H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      <span>変更入力</span>
+      <span>入力</span>
     </div>
     <div class="ni" id="ni-notif" onclick="goScr('notif')">
       <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
       <div class="ndot" id="notif-dot"></div>
       <span>通知</span>
     </div>
-    <div class="ni" id="ni-case" onclick="goScr('case')">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    <div class="ni" id="ni-record-menu" onclick="showSubMenu('record')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       <span>記録</span>
     </div>
-    <div class="ni" id="ni-distance" onclick="goScr('distance')">
-      <svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/><circle cx="8" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
-      <span>距離</span>
+    <div class="ni" id="ni-vehicle-menu" onclick="showSubMenu('vehicle')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="10" width="20" height="8" rx="2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10V6a2 2 0 012-2h10a2 2 0 012 2v4"/></svg>
+      <span>車両</span>
     </div>
-    <div class="ni" id="ni-absence" onclick="goScr('absence')">
-      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-      <span>欠席</span>
+    <div class="ni" id="ni-other-menu" onclick="showSubMenu('other')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+      <span>その他</span>
     </div>
-    <div class="ni" id="ni-kyushoku" onclick="goScr('kyushoku')">
-      <svg viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-      <span>給食</span>
-    </div>
-    <div class="ni" id="ni-hist" onclick="goScr('hist')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      <span>履歴</span>
-    </div>
-    <div class="ni" id="ni-purchase" onclick="goScr('purchase')">
-      <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-      <span>申請</span>
-    </div>
-    <div class="ni" id="ni-admin" onclick="goScr('admin')" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>管理</span></div>
   </div>
 
   <div class="sheet-bg" id="sheet-bg" onclick="bgClose(event)">
@@ -1353,6 +1340,77 @@ window.openPrintWindow = function(title, bodyHtml) {
       showToast('印刷エラー: ' + e.message);
     }
   }, 500);
+};
+
+// サブメニュー（下部ナビの集約メニュー）
+window.showSubMenu = function(type) {
+  const old = document.getElementById('submenu-popup');
+  if (old) { old.remove(); return; }
+  
+  const menus = {
+    'record': {
+      title: '記録メニュー',
+      items: [
+        { icon: '📋', label: 'ケース記録', action: "goScr('case')" },
+        { icon: '📜', label: '変更履歴', action: "goScr('hist')" },
+        { icon: '🛒', label: '購入申請', action: "goScr('purchase')" },
+        { icon: '🏖️', label: '休暇申請', action: "goScr('vacation')" }
+      ]
+    },
+    'vehicle': {
+      title: '車両メニュー',
+      items: [
+        { icon: '📏', label: '走行距離', action: "goScr('distance')" },
+        { icon: '🔧', label: '車両点検', action: "goScr('inspection')" },
+        { icon: '🍺', label: 'アルコールチェック', action: "goScr('alcohol')" }
+      ]
+    },
+    'other': {
+      title: 'その他',
+      items: [
+        { icon: '🙅', label: '欠席一覧', action: "goScr('absence')" },
+        { icon: '🍱', label: '給食管理', action: "goScr('kyushoku')" },
+        { icon: '👥', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
+      ]
+    }
+  };
+  
+  const menu = menus[type];
+  if (!menu) return;
+  
+  const popup = document.createElement('div');
+  popup.id = 'submenu-popup';
+  popup.style.cssText = 'position:fixed;bottom:78px;left:50%;transform:translateX(-50%);background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:9999;min-width:220px;max-width:90%;overflow:hidden;animation:submenuIn 0.2s ease';
+  
+  let html = '<div style="padding:10px 16px;border-bottom:0.5px solid #eee;font-size:12px;font-weight:700;color:#666">' + menu.title + '</div>';
+  
+  menu.items.forEach(function(item) {
+    if (item.adminOnly && (!currentUser || currentUser.role < 3)) return;
+    html += '<div onclick="document.getElementById(\'submenu-popup\').remove();' + item.action + '" style="padding:14px 18px;font-size:14px;cursor:pointer;border-bottom:0.5px solid #f5f5f5;display:flex;align-items:center;gap:12px" onmouseover="this.style.background=\'#f8f8f8\'" onmouseout="this.style.background=\'transparent\'">';
+    html += '<span style="font-size:18px">' + item.icon + '</span><span>' + item.label + '</span></div>';
+  });
+  
+  popup.innerHTML = html;
+  document.body.appendChild(popup);
+  
+  // アニメーションCSS（1回だけ）
+  if (!document.getElementById('submenu-style')) {
+    const s = document.createElement('style');
+    s.id = 'submenu-style';
+    s.textContent = '@keyframes submenuIn { from { transform: translateX(-50%) translateY(20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }';
+    document.head.appendChild(s);
+  }
+  
+  // 外側クリックで閉じる
+  setTimeout(function() {
+    function onDoc(e) {
+      if (!popup.contains(e.target) && !e.target.closest('[onclick*="showSubMenu"]')) {
+        popup.remove();
+        document.removeEventListener('click', onDoc);
+      }
+    }
+    document.addEventListener('click', onDoc);
+  }, 100);
 };
 
 window.doSubmit = async function() {
