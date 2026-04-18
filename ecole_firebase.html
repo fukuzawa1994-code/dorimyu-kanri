@@ -509,7 +509,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
     </div>
 
     <div class="scr" id="scr-kyushoku">
-      <div class="phase-tabs" style="padding:10px 14px 0"><div class="ptab on" id="ktab-main" onclick="setKyushokuTab('main')">給食</div><div class="ptab" id="ktab-gh" onclick="setKyushokuTab('gh')">ぱぁとなぁ</div><div class="ptab" id="ktab-start" onclick="setKyushokuTab('start')">すたぁと</div></div>
+      <div class="phase-tabs" style="padding:10px 14px 0"><div class="ptab on" id="ktab-main" onclick="setKyushokuTab('main')">給食</div><div class="ptab" id="ktab-start" onclick="setKyushokuTab('start')">すたぁと</div></div>
       <div id="kyushoku-main-area">
       <div class="cal-bar" id="kcal-bar">
         <button class="cal-nav" onclick="kcalMove(-1)">‹</button>
@@ -519,7 +519,6 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       <div class="cal-grid" id="kcal-grid"></div>
       <div id="kyushoku-body"></div>
       </div><!-- kyushoku-main-area -->
-      <div id="kyushoku-gh-area" style="display:none"><div class="fp"><div class="ksec-hd">ぱぁとなぁ夕食連絡</div><div class="frow"><span class="flbl">日付</span><input type="date" id="gh-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderGhPanel()"/></div><div id="gh-body"></div><button class="sbtn" onclick="doGhSubmit()">ぱぁとなぁ夕食連絡を送信</button></div></div>
       <div id="kyushoku-start-area" style="display:none">
       <!-- 申請フォーム -->
       <div class="fp">
