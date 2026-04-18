@@ -3407,9 +3407,14 @@ function renderKyushoku() {
         const ls = logs.find(l => l.date===kyushokuDate && l.user===name);
         const isAbs = ls ? (ls.abs || ls.kyushoku==='なし') : false;
         if (!isAbs) count++;
-        rows += `<div class="krow${isAbs?' abs':''}">
-          <span class="krow-name">${name}</span>
-          <span class="krow-status">${isAbs ? '欠席' : '給食あり'}</span>
+        // 給食場所変更があるかチェック
+        const mealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name);
+        const statusText = isAbs ? '欠席' : (mealChg ? '→' + mealChg.location : '給食あり');
+        const statusColor = isAbs ? '' : mealChg ? 'color:#F57C00;font-weight:700;' : '';
+        rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
+          <span class="krow-name" style="flex:1">${name}</span>
+          <span class="krow-status" style="${statusColor}">${statusText}</span>
+          <button onclick="event.stopPropagation();openMealChangeModal('${name}',false)" style="padding:2px 8px;font-size:10px;background:#fff;border:0.5px solid #CCC;color:#666;border-radius:6px;cursor:pointer">変更</button>
         </div>`;
       }
       grandTotal += count;
@@ -3443,9 +3448,14 @@ function renderKyushoku() {
       const ls = logs.find(l => l.date===kyushokuDate && l.user===name && l.isStaff);
       const isAbs = ls ? (ls.abs || ls.kyushoku==='なし') : false;
       if (!isAbs) count++;
-      rows += `<div class="krow${isAbs?' abs':''}">
-        <span class="krow-name">${name}</span>
-        <span class="krow-status">${isAbs ? (ls&&ls.absType?ls.absType:'欠席') : '給食あり'}</span>
+      // 職員の給食場所変更チェック
+      const staffMealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name);
+      const staffStatus = isAbs ? (ls&&ls.absType?ls.absType:'欠席') : (staffMealChg ? '→' + staffMealChg.location : '給食あり');
+      const staffColor = isAbs ? '' : staffMealChg ? 'color:#F57C00;font-weight:700;' : '';
+      rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
+        <span class="krow-name" style="flex:1">${name}</span>
+        <span class="krow-status" style="${staffColor}">${staffStatus}</span>
+        <button onclick="event.stopPropagation();openMealChangeModal('${name}',true)" style="padding:2px 8px;font-size:10px;background:#fff;border:0.5px solid #CCC;color:#666;border-radius:6px;cursor:pointer">変更</button>
       </div>`;
     }
     grandTotal += count;
