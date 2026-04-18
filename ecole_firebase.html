@@ -230,6 +230,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
       </div>
       <div class="cal-grid" id="cal-grid"></div>
       <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)">📄 月次PDF</button></div>
+      <div id="list-mode-toggle" style="display:flex;gap:4px;padding:4px 12px 0"><button id="lmode-bin" onclick="setListMode('bin')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700">🚐 便ベース</button><button id="lmode-aff" onclick="setListMode('aff')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer">🏢 所属ベース</button></div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -2459,6 +2460,93 @@ window.onUserSelectChange = function() {
   } else {
     infoDiv.style.display = 'none';
   }
+};
+
+// ═══ 送迎一覧：表示モード切替 ═══
+window.currentListMode = window.currentListMode || "bin";
+
+window.setListMode = function(mode) {
+  window.currentListMode = mode;
+  var binBtn = document.getElementById("lmode-bin");
+  var affBtn = document.getElementById("lmode-aff");
+  var activeStyle = "flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700";
+  var inactiveStyle = "flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer";
+  if (binBtn && affBtn) {
+    binBtn.style.cssText = (mode === "bin") ? activeStyle : inactiveStyle;
+    affBtn.style.cssText = (mode === "aff") ? activeStyle : inactiveStyle;
+  }
+  if (mode === "bin") {
+    if (typeof renderList === "function") renderList();
+  } else {
+    renderListByAffiliation();
+  }
+};
+
+window.renderListByAffiliation = function() {
+  var body = document.getElementById("list-body");
+  if (!body) return;
+  if (typeof USER_MASTER === "undefined") {
+    body.innerHTML = '<div class="loading">所属データ読み込み中...</div>';
+    return;
+  }
+  var phase = currentPhase;
+  var colors = {"童里夢":"#483D8B","奏楽":"#F39C12","ぱぁとなぁ":"#E91E63"};
+  var h = "";
+  for (var jig in USER_MASTER) {
+    var hans = USER_MASTER[jig];
+    var color = colors[jig] || "#666";
+    var jigTotal = 0;
+    for (var hn in hans) jigTotal += hans[hn].length;
+    h += '<div style="margin:12px 12px 4px;padding:8px 12px;background:' + color + ';color:#fff;border-radius:8px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center">';
+    h += '<span>' + jig + '</span>';
+    h += '<span style="font-size:12px;font-weight:400">計' + jigTotal + '名</span>';
+    h += '</div>';
+    for (var han in hans) {
+      var users = hans[han];
+      if (!users.length) continue;
+      h += '<div style="margin:4px 12px 8px;background:var(--surface);border:0.5px solid var(--border);border-radius:10px;overflow:hidden">';
+      h += '<div style="padding:8px 12px;background:' + color + '22;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">';
+      h += '<span style="font-weight:700;font-size:13px;color:' + color + '">' + han + '</span>';
+      h += '<span style="font-size:11px;color:#666">' + users.length + '名</span>';
+      h += '</div>';
+      for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        var schedLabel = "-";
+        try {
+          if (typeof getScheduledTransport === "function") {
+            var sched = getScheduledTransport(u, selectedDate);
+            if (sched) {
+              var key = (phase === "朝") ? "am" : "pm";
+              var s = sched[key];
+              if (s) {
+                if (s.label) schedLabel = s.label;
+                else if (s.bin) schedLabel = s.bin + "→" + (s.drop || "");
+              }
+            }
+          }
+        } catch(e) {}
+        var userLog = null;
+        if (typeof logs !== "undefined") {
+          for (var k = 0; k < logs.length; k++) {
+            if (logs[k].date === selectedDate && logs[k].user === u) { userLog = logs[k]; break; }
+          }
+        }
+        var isAbs = !!(userLog && userLog.abs);
+        var bgStyle = isAbs ? "background:#FFEBEE;" : "";
+        var badge = isAbs ? '<span style="font-size:10px;background:#F44336;color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px">欠席</span>' : "";
+        var avc = (typeof avColor === "function") ? avColor(u) : ["#ddd","#333"];
+        h += '<div style="padding:6px 12px;border-bottom:0.5px solid #F0F0F0;display:flex;align-items:center;gap:8px;' + bgStyle + '">';
+        h += '<div class="av" style="background:' + avc[0] + ';color:' + avc[1] + ';width:28px;height:28px;font-size:10px;flex-shrink:0">' + u.slice(0,2) + '</div>';
+        h += '<div style="flex:1;min-width:0">';
+        var nameStyle = isAbs ? "font-size:12px;font-weight:600;color:#999;text-decoration:line-through" : "font-size:12px;font-weight:600;color:var(--text)";
+        h += '<div style="' + nameStyle + '">' + u + badge + '</div>';
+        h += '<div style="font-size:10px;color:#888">' + schedLabel + '</div>';
+        h += '</div></div>';
+      }
+      h += '</div>';
+    }
+  }
+  body.innerHTML = h;
 };
 
 window.doSubmit = async function() {
