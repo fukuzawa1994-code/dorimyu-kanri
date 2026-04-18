@@ -1127,33 +1127,106 @@ window.printList = function() {
 };
 
 // ④-1 ケース記録 月次PDF
-window.printCaseMonthly = function() {
+window.printCaseMonthly = async function() {
   const monthInput = document.getElementById('case-print-month');
   const month = monthInput ? monthInput.value : (new Date().toISOString().slice(0,7));
+  if (!month) { showToast('月を選択してください'); return; }
   const monthLogs = logs.filter(function(l) { return l.type==='case' && l.date && l.date.startsWith(month); });
   if (!monthLogs.length) { showToast(month+'の記録なし'); return; }
+  
   // 利用者別グループ化
   const byUser = {};
   monthLogs.forEach(function(l) {
     if (!byUser[l.user]) byUser[l.user] = [];
     byUser[l.user].push(l);
   });
-  let body = '<h1 style="text-align:center">ケース記録　月報</h1>';
-  body += '<p style="text-align:center">期間：' + month + '　／　作成：' + currentStaff + '</p>';
   const users = Object.keys(byUser).sort();
-  users.forEach(function(user) {
-    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:16px 0 6px;border-radius:4px;page-break-before:auto">' + user + '（' + byUser[user].length + '件）</h2>';
-    body += '<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:4px;width:90px">日付</th><th style="border:1px solid #999;padding:4px;width:80px">記録者</th><th style="border:1px solid #999;padding:4px;width:100px">タグ</th><th style="border:1px solid #999;padding:4px">内容</th></tr>';
-    byUser[user].sort(function(a,b){ return a.date.localeCompare(b.date); }).forEach(function(l) {
-      body += '<tr>';
-      body += '<td style="border:1px solid #999;padding:4px">' + (l.date||'') + '</td>';
-      body += '<td style="border:1px solid #999;padding:4px">' + (l.staff||'') + '</td>';
-      body += '<td style="border:1px solid #999;padding:4px;font-size:10px">' + ((l.tags||[]).join('・')) + '</td>';
-      body += '<td style="border:1px solid #999;padding:4px">' + (l.caseText||'').replace(/\n/g,'<br>') + '</td>';
-      body += '</tr>';
-    });
-    body += '</table>';
+  
+  // 確認
+  if (!confirm(month + 'の月報を作成します。\n利用者 ' + users.length + '名分・記録 ' + monthLogs.length + '件をAIでまとめます。\n\n処理時間：約' + users.length + '秒\n\n開始しますか？')) return;
+  
+  // APIキー取得
+  let apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) { showToast('APIキー未設定'); return; }
+  
+  // 進捗ダイアログ
+  const progDiv = document.createElement('div');
+  progDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  progDiv.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;min-width:300px;max-width:90%"><div style="font-size:14px;font-weight:700;margin-bottom:12px">📄 月報作成中...</div><div id="prog-text" style="font-size:12px;color:#666;margin-bottom:8px">準備中...</div><div style="background:#eee;border-radius:8px;overflow:hidden;height:8px"><div id="prog-bar" style="background:#483D8B;height:100%;width:0%;transition:width 0.3s"></div></div></div>';
+  document.body.appendChild(progDiv);
+  
+  // API URL構築
+  let url, headers;
+  if (apiKey.startsWith('AQ.')) {
+    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+    headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+  } else {
+    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey;
+    headers = { 'Content-Type': 'application/json' };
+  }
+  
+  // 各利用者ごとにAI処理
+  const summaries = {};
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    const userLogs = byUser[user].sort(function(a,b){ return a.date.localeCompare(b.date); });
+    
+    document.getElementById('prog-text').textContent = '(' + (i+1) + '/' + users.length + ') ' + user + 'さんをまとめ中...';
+    document.getElementById('prog-bar').style.width = ((i/users.length)*100) + '%';
+    
+    const allText = userLogs.map(function(l) {
+      const tagStr = l.tags && l.tags.length ? '（' + l.tags.join('・') + '）' : '';
+      return l.date + tagStr + '：' + (l.caseText||'');
+    }).join('\n');
+    
+    const prompt = '以下は1ヶ月分のケース記録です。これをまとめて、利用者の1ヶ月の様子がわかる月次レポートを作成してください。\n\n【ルール】\n・記録者の名前は絶対に入れない\n・利用者の様子・変化・特徴を中心に\n・時系列で整理\n・重要な出来事・傾向・特徴を拾う\n・常体（だ・である調）\n・段落を使って読みやすく\n・400-600字程度\n・冒頭に' + user + 'さんとだけ記載\n\n【入力】\n' + user + 'さん ' + month + '\n\n' + allText;
+    
+    try {
+      const response = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+      const data = await response.json();
+      if (data.candidates && data.candidates[0]) {
+        summaries[user] = data.candidates[0].content.parts[0].text;
+      } else {
+        summaries[user] = 'AI処理失敗: ' + JSON.stringify(data.error||{}).slice(0,100);
+      }
+    } catch(e) {
+      summaries[user] = 'エラー: ' + e.message;
+    }
+    // レート制限回避（1秒待機）
+    await new Promise(function(r) { setTimeout(r, 1000); });
+  }
+  
+  progDiv.remove();
+  
+  // PDFレポート生成（1人1ページ）
+  let body = '';
+  users.forEach(function(user, i) {
+    const pageBreak = i > 0 ? 'page-break-before:always;' : '';
+    const count = byUser[user].length;
+    body += '<div style="' + pageBreak + 'padding:20px 0">';
+    body += '<div style="border-bottom:2px solid #483D8B;padding-bottom:8px;margin-bottom:16px">';
+    body += '<h1 style="margin:0;font-size:22px;color:#483D8B">ケース記録月報</h1>';
+    body += '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:#666">';
+    body += '<div>期間：' + month + '　／　記録件数：' + count + '件</div>';
+    body += '<div>作成：' + currentStaff + '</div>';
+    body += '</div></div>';
+    body += '<h2 style="font-size:18px;margin:0 0 12px;color:#333">' + user + 'さん</h2>';
+    body += '<div style="background:#F8F6FF;border-left:4px solid #483D8B;padding:16px;border-radius:4px;font-size:13px;line-height:1.9;white-space:pre-wrap">' + summaries[user].replace(/^' + user + 'さん\\s*\\n?/, '') + '</div>';
+    // 承認欄
+    body += '<table style="width:100%;margin-top:40px;border-collapse:collapse;font-size:11px"><tr>';
+    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">記録者</td>';
+    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">主任</td>';
+    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">サービス管理責任者</td>';
+    body += '<td style="border:1px solid #999;padding:6px;text-align:center;width:25%">管理者</td>';
+    body += '</tr><tr>';
+    body += '<td style="border:1px solid #999;padding:16px">　</td>';
+    body += '<td style="border:1px solid #999;padding:16px">　</td>';
+    body += '<td style="border:1px solid #999;padding:16px">　</td>';
+    body += '<td style="border:1px solid #999;padding:16px">　</td>';
+    body += '</tr></table>';
+    body += '</div>';
   });
+  
   openPrintWindow('ケース記録月報 '+month, body);
 };
 
