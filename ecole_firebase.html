@@ -2053,6 +2053,115 @@ window.getMealLocation = function(targetName, date) {
   return { changed: false, location: null };
 };
 
+// ═══ 食事計画ロジック（複雑条件対応）═══
+// 戻り値: { lunch: {eat, location}, dinner: {eat, location}, breakfast: {eat, location} }
+// eat: true/false, location: '童里夢'/'奏楽'/'ぱぁとなぁ'/null
+window.getMealPlan = function(userName, dateStr) {
+  const isPaatonaaRes = isPaatonaaResident(userName);
+  const affs = getUserAffiliation(userName).filter(a => a.jigyosho !== 'ぱぁとなぁ');
+  const primaryJigyosho = affs[0] ? affs[0].jigyosho : null; // 童里夢 or 奏楽
+  
+  // その日の欠席記録を取得
+  const userLogs = logs.filter(function(l) { return l.date === dateStr && l.user === userName; });
+  const absLog = userLogs.find(function(l) { return l.abs; });
+  const isAbsent = !!absLog;
+  const absType = absLog ? (absLog.absType || '欠席') : null;
+  
+  // 給食場所変更申請
+  const mealChg = logs.find(function(l){ return l.type==='meal_change' && l.date===dateStr && l.target===userName; });
+  
+  // 日付情報
+  const d = new Date(dateStr+'T00:00:00');
+  const dow = d.getDay(); // 0日〜6土
+  const dowName = ['日','月','火','水','木','金','土'][dow];
+  
+  const plan = { lunch: { eat: false, location: null }, dinner: { eat: false, location: null }, breakfast: { eat: false, location: null } };
+  
+  // ══ 昼食 ══
+  if (isAbsent) {
+    // 欠席 → 昼食なし
+    plan.lunch = { eat: false, location: null };
+  } else if (mealChg) {
+    // 給食場所変更あり
+    plan.lunch = { eat: mealChg.location !== 'なし', location: mealChg.location };
+  } else if (primaryJigyosho) {
+    plan.lunch = { eat: true, location: primaryJigyosho };
+  }
+  
+  // ══ 夕食（ぱぁとなぁ居住者のみ）══
+  if (isPaatonaaRes) {
+    // 土日は? → 土曜夕食は自宅帰り、日曜は不明（一旦ありにしとく）
+    if (dow === 6) {
+      // 土曜：自宅へ帰る → ぱぁとなぁ夕食なし
+      plan.dinner = { eat: false, location: null };
+    } else if (isAbsent) {
+      // 昼に欠席している場合
+      if (primaryJigyosho === '童里夢') {
+        // 童里夢休み → ぱぁとなぁ戻っても夕食なし
+        plan.dinner = { eat: false, location: 'ぱぁとなぁ（夕食なし）' };
+      } else if (primaryJigyosho === '奏楽') {
+        // 奏楽休み → ぱぁとなぁ戻って夕食あり
+        plan.dinner = { eat: true, location: 'ぱぁとなぁ' };
+      }
+    } else {
+      // 通常出勤 → ぱぁとなぁ夕食あり
+      plan.dinner = { eat: true, location: 'ぱぁとなぁ' };
+    }
+  }
+  
+  // ══ 朝食（ぱぁとなぁ居住者のみ）══
+  // ぱぁとなぁ朝食あり：前日夕食があった場合（＝ぱぁとなぁに泊まった場合）
+  // 前日の同じ判定を再帰的に呼ぶ（ただし無限ループ回避のため1日だけ）
+  if (isPaatonaaRes) {
+    const prev = new Date(d.getTime() - 86400000);
+    const prevDate = prev.toISOString().slice(0,10);
+    const prevDow = prev.getDay();
+    // 前日土曜日なら帰宅していて朝食なし
+    if (prevDow === 6) {
+      plan.breakfast = { eat: false, location: null };
+    } else if (prevDow === 0) {
+      // 日曜日の翌日（月曜朝） → 自宅からの送迎
+      plan.breakfast = { eat: false, location: null };
+    } else {
+      // 前日ぱぁとなぁに泊まっていれば朝食あり
+      const prevLogs = logs.filter(function(l){ return l.date===prevDate && l.user===userName; });
+      const prevAbs = prevLogs.find(function(l){ return l.abs; });
+      if (prevAbs && primaryJigyosho === '童里夢') {
+        // 前日童里夢休み → ぱぁとなぁに泊まらず → 朝食なし
+        plan.breakfast = { eat: false, location: null };
+      } else {
+        plan.breakfast = { eat: true, location: 'ぱぁとなぁ' };
+      }
+    }
+  }
+  
+  return plan;
+};
+
+// 指定日の食事数を集計（事業所別）
+window.aggregateMeals = function(dateStr) {
+  const stats = {
+    童里夢: { lunch: 0 }, 奏楽: { lunch: 0 }, たんぽぽ: { lunch: 0 },
+    ぱぁとなぁ: { lunch: 0, dinner: 0, breakfast: 0 }
+  };
+  
+  // 全利用者をループ
+  for (const [jig, hans] of Object.entries(USER_MASTER)) {
+    for (const [han, users] of Object.entries(hans)) {
+      for (const u of users) {
+        const plan = window.getMealPlan(u, dateStr);
+        if (plan.lunch.eat && plan.lunch.location && stats[plan.lunch.location]) {
+          stats[plan.lunch.location].lunch++;
+        }
+        if (plan.dinner.eat && plan.dinner.location === 'ぱぁとなぁ') stats['ぱぁとなぁ'].dinner++;
+        if (plan.breakfast.eat && plan.breakfast.location === 'ぱぁとなぁ') stats['ぱぁとなぁ'].breakfast++;
+      }
+    }
+  }
+  return stats;
+};
+
+
 // ═══ マスター一覧画面（閲覧専用）═══
 window.renderMasterList = function() {
   const body = document.getElementById('master-body');
