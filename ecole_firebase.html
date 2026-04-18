@@ -1662,31 +1662,61 @@ window.renderAlcoholInput = function() {
   document.getElementById('alc-date').value = date;
   const body = document.getElementById('alc-input-body');
   
-  // その日の既存記録
-  const existing = {};
-  logs.filter(function(l){ return l.type==='alcohol' && l.date===date; }).forEach(function(l) {
-    existing[l.staff] = l;
-  });
+  // ログインユーザー本人の情報
+  const me = currentStaff;
+  if (!me) { body.innerHTML = '<div style="padding:20px;text-align:center;color:#999">ログインが必要です</div>'; return; }
   
-  let html = '<div style="font-size:11px;color:#666;margin:8px 0;padding:0 4px">職員ごとに朝・夕2回の測定値を入力（mg/L）</div>';
+  // その日の自分の記録を取得
+  const myLog = logs.find(function(l){ return l.type==='alcohol' && l.date===date && l.staff===me; });
+  const am = myLog ? (myLog.am||'') : '';
+  const pm = myLog ? (myLog.pm||'') : '';
+  const memo = myLog ? (myLog.memo||'') : '';
   
-  ALCOHOL_STAFF.forEach(function(staff) {
-    const log = existing[staff];
-    const am = log ? (log.am||'') : '';
-    const pm = log ? (log.pm||'') : '';
-    const colors = avColor(staff);
-    html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px">';
-    html += '<div style="display:flex;align-items:center;margin-bottom:8px">';
-    html += '<div class="av" style="background:' + colors[0] + ';color:' + colors[1] + ';width:32px;height:32px;font-size:12px">' + staff.slice(0,2) + '</div>';
-    html += '<span style="margin-left:10px;font-weight:700;font-size:13px">' + staff + '</span>';
+  const colors = avColor(me);
+  let html = '';
+  
+  // 説明
+  html += '<div style="background:#FFF9E6;border:0.5px solid #FFC107;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:11px;color:#B7791F"><b>📝 自分のアルコールチェック記録</b><br>送迎業務前（朝）・業務後（夕）の2回、測定値を記入してください</div>';
+  
+  // 自分の名前カード
+  html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">';
+  html += '<div style="display:flex;align-items:center;margin-bottom:14px">';
+  html += '<div class="av" style="background:' + colors[0] + ';color:' + colors[1] + ';width:48px;height:48px;font-size:18px">' + me.slice(0,2) + '</div>';
+  html += '<div style="margin-left:12px"><div style="font-weight:700;font-size:16px">' + me + '</div><div style="font-size:11px;color:#888">' + date + '</div></div>';
+  html += '</div>';
+  
+  // 朝・夕入力
+  html += '<div style="display:flex;gap:10px;margin-bottom:12px">';
+  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700">🌅 朝（業務前）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-am" value="' + am + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
+  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700">🌆 夕（業務後）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-pm" value="' + pm + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
+  html += '</div>';
+  
+  // 備考
+  html += '<div><div style="font-size:11px;color:#666;margin-bottom:4px">備考（任意）</div><textarea id="alc-me-memo" placeholder="体調や気になる点があれば" style="width:100%;padding:8px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;min-height:50px">' + memo + '</textarea></div>';
+  html += '</div>';
+  
+  // 保存ボタン
+  html += '<button class="sbtn" onclick="doAlcoholSubmit()" style="width:100%;padding:14px;margin-top:8px">' + (myLog ? '記録を更新する' : 'チェック結果を保存') + '</button>';
+  
+  // 管理者・上司向け：今日の全員の状況を表示
+  if (currentUser && currentUser.role >= 2) {
+    html += '<div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:8px">👥 今日の全員のチェック状況</div>';
+    const todayLogs = {};
+    logs.filter(function(l){ return l.type==='alcohol' && l.date===date; }).forEach(function(l){ todayLogs[l.staff] = l; });
+    ALCOHOL_STAFF.forEach(function(s) {
+      const rec = todayLogs[s];
+      const done = rec && (rec.am !== '' || rec.pm !== '');
+      const c = avColor(s);
+      html += '<div style="display:flex;align-items:center;padding:6px 10px;background:' + (done?'#E8F5E9':'#FFF3E0') + ';border-radius:8px;margin-bottom:4px;font-size:12px">';
+      html += '<div class="av" style="background:' + c[0] + ';color:' + c[1] + ';width:24px;height:24px;font-size:10px">' + s.slice(0,2) + '</div>';
+      html += '<span style="margin-left:8px;flex:1;font-weight:600">' + s + '</span>';
+      if (done) html += '<span style="color:#2E7D32">✓ 朝' + (rec.am||'-') + ' / 夕' + (rec.pm||'-') + '</span>';
+      else html += '<span style="color:#E65100">未記録</span>';
+      html += '</div>';
+    });
     html += '</div>';
-    html += '<div style="display:flex;gap:8px">';
-    html += '<div style="flex:1"><div style="font-size:10px;color:#888;margin-bottom:2px">朝</div><input type="number" step="0.01" min="0" max="1" id="alc-' + staff + '-am" value="' + am + '" placeholder="0.00" style="width:100%;padding:6px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;text-align:center"/></div>';
-    html += '<div style="flex:1"><div style="font-size:10px;color:#888;margin-bottom:2px">夕</div><input type="number" step="0.01" min="0" max="1" id="alc-' + staff + '-pm" value="' + pm + '" placeholder="0.00" style="width:100%;padding:6px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;text-align:center"/></div>';
-    html += '</div></div>';
-  });
+  }
   
-  html += '<button class="sbtn" onclick="doAlcoholSubmit()" style="width:100%;padding:14px;margin-top:8px">アルコールチェックを保存</button>';
   body.innerHTML = html;
 };
 
@@ -1695,29 +1725,26 @@ window.doAlcoholSubmit = async function() {
   const date = document.getElementById('alc-date').value;
   if (!date) { showToast('日付を入力'); return; }
   
-  const entries = [];
-  ALCOHOL_STAFF.forEach(function(staff) {
-    const am = document.getElementById('alc-' + staff + '-am').value;
-    const pm = document.getElementById('alc-' + staff + '-pm').value;
-    if (am !== '' || pm !== '') entries.push({ staff: staff, am: am, pm: pm });
-  });
+  const me = currentStaff;
+  const am = document.getElementById('alc-me-am').value;
+  const pm = document.getElementById('alc-me-pm').value;
+  const memo = document.getElementById('alc-me-memo').value;
   
-  if (!entries.length) { showToast('入力された記録がありません'); return; }
+  if (am === '' && pm === '') { showToast('朝または夕の測定値を入力してください'); return; }
   
   try {
-    // 既存記録は削除してから再保存
-    const existing = logs.filter(function(l){ return l.type==='alcohol' && l.date===date; });
+    // 自分の既存記録を削除
+    const existing = logs.filter(function(l){ return l.type==='alcohol' && l.date===date && l.staff===me; });
     for (const ex of existing) {
       await deleteDoc(doc(db, 'logs', ex.id));
     }
     // 新規保存
-    for (const e of entries) {
-      await addDoc(collection(db, 'logs'), {
-        type: 'alcohol', date: date, staff: e.staff, am: e.am, pm: e.pm,
-        recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now()
-      });
-    }
-    showToast('✓ ' + entries.length + '名分のアルコールチェックを保存');
+    await addDoc(collection(db, 'logs'), {
+      type: 'alcohol', date: date, staff: me, am: am, pm: pm, memo: memo,
+      recordedBy: me, ts: tsNow(), createdAt: Date.now()
+    });
+    showToast('✓ アルコールチェックを保存しました');
+    setTimeout(function(){ renderAlcoholInput(); }, 500);
   } catch(e) {
     showToast('保存失敗: ' + e.message);
   }
