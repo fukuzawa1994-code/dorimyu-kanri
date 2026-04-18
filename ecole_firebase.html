@@ -1037,15 +1037,26 @@ window.onBinChange = function() {
     userSel.innerHTML = html;
     updateFormBlocks();
     return;
-  } else if (bin === 'なし' || bin === 'すたぁと') {
-    // 事業所→班でグループ表示
+  } else if (bin === 'なし' || bin === 'すたぁと' || bin === '所属から選ぶ') {
+    // 事業所→班でグループ表示（USER_MASTER参照：童里夢・奏楽・ぱぁとなぁ全員）
     let html = '';
-    for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
-      for (const [han, data] of Object.entries(hans)) {
-        const members = [...data.users, ...Object.keys(data.conditional||{})];
-        html += `<optgroup label="${jigyosho}・${han}">`;
-        html += members.map(u => `<option>${u}</option>`).join('');
-        html += '</optgroup>';
+    if (typeof USER_MASTER !== 'undefined') {
+      for (const [jigyosho, hans] of Object.entries(USER_MASTER)) {
+        for (const [han, users] of Object.entries(hans)) {
+          html += `<optgroup label="${jigyosho}・${han}">`;
+          html += users.map(u => `<option>${u}</option>`).join('');
+          html += '</optgroup>';
+        }
+      }
+    } else {
+      // フォールバック（KYUSHOKU）
+      for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
+        for (const [han, data] of Object.entries(hans)) {
+          const members = [...data.users, ...Object.keys(data.conditional||{})];
+          html += `<optgroup label="${jigyosho}・${han}">`;
+          html += members.map(u => `<option>${u}</option>`).join('');
+          html += '</optgroup>';
+        }
       }
     }
     userSel.innerHTML = html;
