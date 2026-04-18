@@ -242,7 +242,8 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         <div class="fsec">
           <div class="frow"><span class="flbl">日付</span><input type="date" id="f-date"/></div>
           <div class="frow"><span class="flbl">便</span><select id="f-bin" onchange="onBinChange()"></select></div>
-          <div class="frow"><span class="flbl">利用者</span><select id="f-user"></select></div>
+          <div class="frow"><span class="flbl">利用者</span><select id="f-user" onchange="onUserSelectChange()"></select></div>
+          <div id="f-user-info" style="display:none;margin:6px 14px 0;padding:8px 12px;background:#F8F6FF;border-left:3px solid var(--purple);border-radius:6px;font-size:11px;line-height:1.5;color:#555"></div>
         </div>
         <div class="fsec">
           <span class="tog-label">出欠</span>
@@ -2396,6 +2397,57 @@ window.renderStartHistory = function() {
     html += '</div>';
   });
   body.innerHTML = html;
+};
+
+// ═══ 利用者選択時：所属表示＋基本送迎プリフィル ═══
+window.onUserSelectChange = function() {
+  const userSel = document.getElementById('f-user');
+  const userName = userSel ? userSel.value : '';
+  const infoDiv = document.getElementById('f-user-info');
+  if (!infoDiv) return;
+  
+  if (!userName) {
+    infoDiv.style.display = 'none';
+    return;
+  }
+  
+  let info = '';
+  
+  // 所属情報
+  if (typeof getUserAffiliation === 'function') {
+    const affs = getUserAffiliation(userName);
+    if (affs.length > 0) {
+      const affStr = affs.map(function(a){ return a.jigyosho + '・' + a.han; }).join(' / ');
+      info += '<div><b style="color:var(--purple)">📍 所属：</b>' + affStr + '</div>';
+    }
+  }
+  
+  // 基本送迎情報（日付から曜日判定）
+  const dateInput = document.getElementById('f-date');
+  const dateStr = dateInput ? dateInput.value : '';
+  if (dateStr && typeof getScheduledTransport === 'function') {
+    try {
+      const sched = getScheduledTransport(userName, dateStr);
+      if (sched) {
+        // ぱぁとなぁ居住者（曜日別）
+        if (sched.am && sched.am.label) {
+          info += '<div><b style="color:var(--purple)">🌅 朝：</b>' + sched.am.label + '</div>';
+          info += '<div><b style="color:var(--purple)">🌆 夕：</b>' + (sched.pm.label || '-') + '</div>';
+        }
+        // 固定パターン（DEFAULT_TRANSPORT）
+        else if (sched.am && sched.am.bin) {
+          info += '<div><b style="color:var(--purple)">🚐 基本送迎：</b>朝[' + sched.am.bin + '→' + sched.am.drop + '] / 夕[' + sched.pm.bin + '→' + sched.pm.drop + ']</div>';
+        }
+      }
+    } catch(e) {}
+  }
+  
+  if (info) {
+    infoDiv.innerHTML = info;
+    infoDiv.style.display = 'block';
+  } else {
+    infoDiv.style.display = 'none';
+  }
 };
 
 window.doSubmit = async function() {
