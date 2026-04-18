@@ -1349,12 +1349,29 @@ window.printDistanceMonthly = function() {
 
 // 共通：印刷ウィンドウを開く
 window.openPrintWindow = function(title, bodyHtml) {
-  const w = window.open('', '_blank', 'width=900,height=700');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title+'</title>');
-  w.document.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:20px;color:#333}h1{font-size:18px}h2{font-size:14px}h3{font-size:13px}table{page-break-inside:auto}tr{page-break-inside:avoid}@media print{@page{size:A4;margin:15mm}}</style>');
-  w.document.write('</head><body>'+bodyHtml+'</body></html>');
-  w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
+  // 既存のiframe削除
+  const old = document.getElementById('print-iframe');
+  if (old) old.remove();
+  // iframeを作成
+  const iframe = document.createElement('iframe');
+  iframe.id = 'print-iframe';
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:600px;border:none;visibility:hidden';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title+'</title>');
+  doc.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:20px;color:#333}h1{font-size:18px;margin:0 0 8px}h2{font-size:14px;margin:12px 0 6px}h3{font-size:13px}table{width:100%;border-collapse:collapse;font-size:11px;page-break-inside:auto}tr{page-break-inside:avoid}td,th{padding:4px;border:1px solid #999}@media print{@page{size:A4;margin:15mm}}</style>');
+  doc.write('</head><body>'+bodyHtml+'</body></html>');
+  doc.close();
+  // 印刷ダイアログを表示
+  setTimeout(function() {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch(e) {
+      showToast('印刷エラー: ' + e.message);
+    }
+  }, 500);
 };
 
 window.doSubmit = async function() {
