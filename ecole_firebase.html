@@ -3183,7 +3183,7 @@ window.doDistanceSubmit = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('d-date').value;
   const car = document.getElementById('d-car').value;
-  const staff = document.getElementById('d-staff').value;
+  const staff = currentStaff;
   const count = parseInt(document.getElementById('d-count').value)||0;
   const start = parseFloat(document.getElementById('d-start').value)||0;
   const end = parseFloat(document.getElementById('d-end').value)||0;
