@@ -2079,7 +2079,8 @@ window.getMealPlan = function(userName, dateStr) {
   const dowName = ['日','月','火','水','木','金','土'][dow];
   
   const plan = { lunch: { eat: false, location: null }, dinner: { eat: false, location: null }, breakfast: { eat: false, location: null } };
-  
+  if (dow === 0 || dow === 1) { return plan; } // 法人休日（日月は全員食事なし）
+    
   // ══ 昼食 ══
   if (isAbsent) {
     // 欠席 → 昼食なし
