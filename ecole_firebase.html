@@ -1562,7 +1562,7 @@ window.showSubMenu = function(type) {
         { icon: '🙅', label: '欠席一覧', action: "goScr('absence')" },
         { icon: '🍱', label: '給食管理', action: "goScr('kyushoku')" },
         { icon: '📋', label: 'マスター一覧', action: "goScr('master')" },
-        { icon: '👥', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
+        { icon: '📝', label: 'すたぁと給食連絡', action: "goScr('kyushoku'); setTimeout(function(){var e=document.getElementById('kyushoku-start-area'); if(e) e.style.display='block';},200)" }, { icon: '👥', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
       ]
     }
   };
