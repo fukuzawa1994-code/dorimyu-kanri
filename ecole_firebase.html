@@ -3892,7 +3892,7 @@ const KYUSHOKU = {
 // ── 給食画面 ──
 function renderKyushoku() {
   const body = document.getElementById('kyushoku-body');
-  const dow = new Date(kyushokuDate + 'T00:00:00').getDay();
+  const dow = new Date(kyushokuDate + 'T00:00:00').getDay(); if (dow === 0 || dow === 1) { document.getElementById('kyushoku-body').innerHTML = '<div style="padding:40px 20px;text-align:center;color:#999;font-size:14px">🏠 本日は法人休日のため給食はありません</div>'; return; }
   let html = '';
   let grandTotal = 0;
   let grandDefault = 0;
