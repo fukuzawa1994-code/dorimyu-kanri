@@ -3981,21 +3981,21 @@ function renderKyushoku() {
   try {
     const pnUsers = (USER_MASTER && USER_MASTER['ぱぁとなぁ']) || {};
     if (typeof window.getMealPlan === 'function') {
-      let dinnerRows = '';
+      let dinnerRowsMap = {'紬男子':'','紬女子':'','ひまわり':''}; let dinnerRows = '';
       let dinnerCount = 0;
       for (const [hanName, users] of Object.entries(pnUsers)) {
         for (const u of users) {
           const plan = window.getMealPlan(u, kyushokuDate);
           if (plan.dinner && plan.dinner.eat && plan.dinner.location === 'ぱぁとなぁ') {
-            dinnerRows += '<div class="krow"><span class="krow-name">' + u + '</span><span class="krow-status">' + hanName + '</span></div>';
+            if (dinnerRowsMap[hanName] !== undefined) dinnerRowsMap[hanName] += '<div class="krow"><span class="krow-name">' + u + '</span></div>';
             dinnerCount++;
           }
         }
       }
-      if (dinnerCount > 0) {
+      if (true) {
         html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（夕食）</div>';
-        if (dinnerCount > 0) {
-          html += '<div class="kcard"><div class="kcard-hd"><span class="kcard-title">🌙 夕食</span><div><span class="kcard-count">' + dinnerCount + '<span>名</span></span></div></div>' + dinnerRows + '</div>';
+        if (true) {
+          const hanColors = {'紬男子':'#0288D1','紬女子':'#E91E63','ひまわり':'#FBC02D'}; ['紬男子','紬女子','ひまわり'].forEach(function(hh){ const rowsHtml = dinnerRowsMap[hh]; if (rowsHtml && rowsHtml.length > 0) { const count = (rowsHtml.match(/class="krow"/g)||[]).length; const c = hanColors[hh]; html += '<div class="kcard" style="border-left:4px solid '+c+'"><div class="kcard-hd"><span class="kcard-title" style="color:'+c+'">🌙 '+hh+'</span><div><span class="kcard-count">' + count + '<span>名</span></span></div></div>' + rowsHtml + '</div>'; } });
         }
         
       }
