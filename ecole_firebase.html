@@ -2052,6 +2052,9 @@ window.getMealLocation = function(targetName, date) {
   if (change) return { changed: true, location: change.location, memo: change.memo };
   return { changed: false, location: null };
 };
+// ═══ 休暇申請 ═══
+window.setVacType = function(el) { document.querySelectorAll('#scr-vacation .tog').forEach(function(t){ t.classList.remove('on'); }); el.classList.add('on'); var hoursRow = document.getElementById('vac-hours-row'); if (hoursRow) hoursRow.style.display = el.textContent.indexOf('時間') >= 0 ? '' : 'none'; };
+window.doVacationSubmit = async function() { if (!checkSession()) return; const date = document.getElementById('vac-date').value; const applicantEl = document.getElementById('vac-applicant'); const applicant = applicantEl ? (applicantEl.value || applicantEl.textContent.trim() || currentStaff) : currentStaff; const typeEl = document.querySelector('#scr-vacation .tog.on'); const vacType = typeEl ? typeEl.textContent.trim() : '全日有給'; const hours = document.getElementById('vac-hours') ? document.getElementById('vac-hours').value : ''; const note = document.getElementById('vac-note') ? document.getElementById('vac-note').value : ''; if (!date) { showToast('日付を入力してください'); return; } try { await addDoc(collection(db, 'logs'), { type: 'vacation', date: date, applicant: applicant, vacType: vacType, hours: hours, note: note, recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now() }); showToast('✓ 休暇申請を送信しました'); if (document.getElementById('vac-note')) document.getElementById('vac-note').value = ''; if (document.getElementById('vac-hours')) document.getElementById('vac-hours').value = ''; } catch(e) { showToast('失敗: ' + e.message); } };
 
 // ═══ 食事計画ロジック（複雑条件対応）═══
 // 戻り値: { lunch: {eat, location}, dinner: {eat, location}, breakfast: {eat, location} }
