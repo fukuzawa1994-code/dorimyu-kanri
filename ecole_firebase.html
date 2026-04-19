@@ -2040,7 +2040,7 @@ window.submitMealChange = async function(targetName, isStaff) {
     showToast('✓ 給食変更を申請しました');
     document.getElementById('meal-change-modal').remove();
     // 給食画面を再描画
-    if (typeof renderKyushokuPanel === 'function') renderKyushokuPanel();
+    if (typeof renderKyushoku === 'function') renderKyushoku();
   } catch(e) {
     showToast('失敗: ' + e.message);
   }
