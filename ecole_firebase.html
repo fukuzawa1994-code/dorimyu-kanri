@@ -1117,7 +1117,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     </div>
   </div>
 
-    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div><div id="backup-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">バックアップ（MASTER / USER_MASTER スナップショット）</div><div class="fsec"><div class="frow"><span class="flbl">説明（任意）</span><input type="text" id="backup-description" placeholder="手動バックアップ" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:200px"/></div><button class="sbtn" onclick="manualSaveBackup()">現状をバックアップ</button></div><div id="backup-list-body" style="margin-top:8px"></div></div></div></div>
+    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div><div id="backup-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">バックアップ（MASTER / USER_MASTER スナップショット）</div><div class="fsec"><div class="frow"><span class="flbl">説明（任意）</span><input type="text" id="backup-description" placeholder="手動バックアップ" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:200px"/></div><button class="sbtn" onclick="manualSaveBackup()">現状をバックアップ</button></div><div id="backup-list-body" style="margin-top:8px"></div></div><div id="import-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">適正送迎マスター インポート</div><div class="fsec"><div class="frow"><span class="flbl">JSON ファイル</span><label for="import-file" style="cursor:pointer;padding:8px 14px;background:var(--fill-chip);color:var(--purple);border-radius:12px;font-size:13px;font-weight:600">ファイルを選択</label><input type="file" id="import-file" accept=".json,application/json" style="display:none"/><span id="import-filename" style="font-size:11px;color:var(--text-sub);flex:1;text-align:right;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div><div id="import-preview" style="padding:14px 18px;font-size:13px;color:var(--text-sub)">JSON ファイルを選択してください</div><button class="sbtn" id="import-start-btn" onclick="startImport()" disabled style="opacity:0.5">インポート</button></div></div></div></div>
     <div class="scr" id="scr-vacation"><div class="fp"><div class="ksec-hd">休暇申請</div><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div><div class="vac-cta-fixed"><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
@@ -1427,7 +1427,7 @@ window.goScr = function(s) {
     if (typeof renderStartHistory === 'function') renderStartHistory();
     if (typeof renderStartMonth === 'function') renderStartMonth();
   }
-  if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); }
+  if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); if (typeof initImportSection === 'function') initImportSection(); }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
@@ -1892,6 +1892,146 @@ window.initBackupSection = function() {
   if (currentUser && currentUser.role >= 3) {
     sec.style.display = 'block';
     renderBackupList();
+  } else {
+    sec.style.display = 'none';
+  }
+};
+
+// ═══ 適正送迎マスター インポート機構（#32a-2） ═══
+// ファイル選択 → JSON 検証 → プレビュー表示 → 2段 confirm
+// 実際の MASTER 反映は #32a-3 で実装（ここでは stub）
+
+let _importedMaster = null;
+
+window.validateImportedMaster = function(data) {
+  const errors = [];
+  if (typeof data !== 'object' || data === null) errors.push('JSON がオブジェクトではありません');
+  else {
+    if (!data.routes || typeof data.routes !== 'object') errors.push('routes キーが不正またはありません');
+    if (!data.meta || typeof data.meta !== 'object') errors.push('meta キーが不正またはありません');
+    if (data.routes && typeof data.routes === 'object') {
+      const routeKeys = Object.keys(data.routes);
+      if (routeKeys.length === 0) errors.push('routes が空です');
+      for (const rk of routeKeys) {
+        const rv = data.routes[rk];
+        if (typeof rv !== 'object' || rv === null) { errors.push('routes.' + rk + ' がオブジェクトではありません'); break; }
+      }
+    }
+  }
+  return { valid: errors.length === 0, errors: errors };
+};
+
+function computeImportStats(data) {
+  let userCount = 0, asaRecords = 0, yuRecords = 0;
+  const destCount = {};
+  for (const route in data.routes) {
+    const rusers = data.routes[route];
+    for (const u in rusers) {
+      userCount++;
+      for (const period of ['朝','夕']) {
+        const p = rusers[u][period];
+        if (!p) continue;
+        if (period === '朝') asaRecords++; else yuRecords++;
+        const byDay = p.byDay || {};
+        for (const day of ['日','月','火','水','木','金','土']) {
+          const c = byDay[day];
+          if (c && c.category === '乗る' && c.destination) {
+            destCount[c.destination] = (destCount[c.destination] || 0) + 1;
+          }
+        }
+      }
+    }
+  }
+  return {
+    routeCount: Object.keys(data.routes).length,
+    userCount: userCount,
+    asaRecords: asaRecords,
+    yuRecords: yuRecords,
+    destCount: destCount,
+    warnCount: (data.meta && Array.isArray(data.meta.warnings)) ? data.meta.warnings.length : 0
+  };
+}
+
+function renderImportPreview(data, validation) {
+  const preview = document.getElementById('import-preview');
+  const btn = document.getElementById('import-start-btn');
+  if (!preview || !btn) return;
+  if (!data) {
+    const msg = validation && validation.errors && validation.errors.length
+      ? ('<div style="color:#FF3B30;font-weight:600;margin-bottom:4px">検証失敗</div><div style="color:#FF3B30;font-size:12px">' + validation.errors.join('<br>') + '</div>')
+      : 'JSON ファイルを選択してください';
+    preview.innerHTML = msg;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    return;
+  }
+  const s = computeImportStats(data);
+  const destList = Object.entries(s.destCount).sort(function(a,b){ return b[1]-a[1]; }).map(function(e){ return e[0] + ':' + e[1]; }).join(' / ');
+  preview.innerHTML =
+    '<div style="color:var(--text);font-weight:600;margin-bottom:8px;font-size:14px">プレビュー</div>' +
+    '<div style="margin-bottom:3px">便 <b>' + s.routeCount + '</b> / 利用者 <b>' + s.userCount + '</b> 名</div>' +
+    '<div style="margin-bottom:3px">朝レコード <b>' + s.asaRecords + '</b> / 夕レコード <b>' + s.yuRecords + '</b></div>' +
+    '<div style="margin-bottom:3px">行き先分布: ' + (destList || '(なし)') + '</div>' +
+    '<div style="margin-bottom:3px">警告ログ: ' + s.warnCount + ' 件</div>' +
+    (data.meta && data.meta.baseMonth ? '<div style="color:#8E8E93;margin-top:6px;font-size:11px">baseMonth: ' + data.meta.baseMonth + ' / source: ' + (data.meta.source || '') + '</div>' : '');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+
+window.onImportFileChange = async function(input) {
+  const nameEl = document.getElementById('import-filename');
+  const file = input.files && input.files[0];
+  if (!file) { _importedMaster = null; renderImportPreview(null, null); if (nameEl) nameEl.textContent = ''; return; }
+  if (nameEl) nameEl.textContent = file.name;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const validation = validateImportedMaster(data);
+    if (!validation.valid) { _importedMaster = null; renderImportPreview(null, validation); return; }
+    _importedMaster = data;
+    renderImportPreview(data, validation);
+  } catch (e) {
+    _importedMaster = null;
+    renderImportPreview(null, { valid: false, errors: ['JSON パース失敗: ' + (e.message || e)] });
+  }
+};
+
+window.startImport = async function() {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 3) { showToast('インポート権限がありません（管理者のみ）'); return; }
+  if (!_importedMaster) { showToast('JSON が読み込まれていません'); return; }
+  const s = computeImportStats(_importedMaster);
+  // 1段目: プレビュー確認
+  const msg1 = '以下の内容でインポートします:\n\n'
+    + '便: ' + s.routeCount + '\n'
+    + '利用者: ' + s.userCount + ' 名\n'
+    + '朝レコード: ' + s.asaRecords + '\n'
+    + '夕レコード: ' + s.yuRecords + '\n\n'
+    + '続行しますか？';
+  if (!confirm(msg1)) return;
+  // 2段目: destructive 最終確認
+  const msg2 = '【最終確認】\n\n'
+    + 'インポートすると MASTER.routes[bin].detail が上書きされます。\n'
+    + '元に戻すにはバックアップからの復元が必要です。\n\n'
+    + '本当にインポートしますか？';
+  if (!confirm(msg2)) return;
+  // TODO #32a-3: await applyImportedMaster(_importedMaster);
+  //   - 事前に自動バックアップ（saveBackup('インポート前自動')）
+  //   - MASTER.routes[bin].detail に書き込み（Firestore 永続化方針は #32a-3 で決定）
+  //   - 失敗時ロールバック
+  showToast('インポート反映は #32a-3 で実装予定です（UI は動作しています）');
+};
+
+window.initImportSection = function() {
+  const sec = document.getElementById('import-section');
+  if (!sec) return;
+  if (currentUser && currentUser.role >= 3) {
+    sec.style.display = 'block';
+    const input = document.getElementById('import-file');
+    if (input && !input._wired) {
+      input.addEventListener('change', function(){ onImportFileChange(this); });
+      input._wired = true;
+    }
   } else {
     sec.style.display = 'none';
   }
