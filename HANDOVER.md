@@ -245,11 +245,9 @@ tabId: 987398420
 - **伊藤憲 → 伊藤憲孝**（b8dff18）：USER_MASTER・SOGAKU_MASTER・KYUSHOKU の 5 箇所を一括修正
 - **パン缶から福井亮右 削除**（b8dff18）：基本休み扱い、不定期利用のため
 
-## 📋 現時点の残タスク（2026-04-19 時点・優先度順）
+## 📋 現時点の残タスク（2026-04-20 時点・優先度順）
 
 ### 🔴 優先（機能バグ・未実装）
-- **#5 給食場所変更を職員にも対応**：openMealChangeModal は isStaff 引数を既に受け取れるので呼び出し側の追加で済む想定
-- **A-1〜5 欠席画面に食事UI追加（大型）**：昼/夕それぞれ「奏楽／童里夢／ぱぁとなぁ／たんぽぽ／エコール／食べない」を選択可に。renderAbsence（L3714）と getMealPlan（L2062）の連携
 - **ぱぁとなぁ 出欠UI 追加**：ホーム戻り・夕食あり／なし・帰省 を選択できるUI
 - **すたぁと給食を給食画面に埋め込み**：現状は「その他」メニューから別画面。給食画面に統合
 
@@ -259,7 +257,7 @@ tabId: 987398420
 - **アルコールチェック対象を STAFF_MASTER 連動化**：現状 ALCOHOL_STAFF は手動リスト
 
 ### 🟢 大規模
-- **食事複雑条件の運用確認**：奏楽休み → ぱぁとなぁ夕食あり 等のケース
+- **食事複雑条件の運用確認**：奏楽休み → ぱぁとなぁ夕食あり 等のケース。**A-1〜5 で欠席ログに mealLunch/mealDinner の明示指定が保存可能になり getMealPlan / aggregateMeals / renderAbsence には反映されるが、給食画面 `renderKyushoku` は独自ロジックのため override 非反映（要運用確認→必要なら別タスクで renderKyushoku を getMealPlan 経由に統合）**
 - **基本送迎の曜日別対応強化**：兼務者 9 名（候補は 2598674 で登録済み、運用未検証）
 - **大量データ対策**：logs 取得を直近 30 日に限定（現状は全件 onSnapshot、将来的にパフォーマンス懸念）
 
@@ -331,13 +329,65 @@ totalActual
 
 ### 📋 残タスク（2026-04-20 時点）
 
-- 🔴 A-1〜5 欠席画面に食事UI追加（大型）
 - 🔴 ぱぁとなぁ 出欠UI 追加
 - 🔴 すたぁと給食を給食画面に埋め込み
 - 🟡 購入申請 **月カレンダー表示**（大改修本体の残件）
 - 🟡 職員マスター管理画面 UI
 - 🟡 アルコールチェック対象を STAFF_MASTER 連動化
-- 🟢 食事複雑条件の運用確認 / 基本送迎の曜日別強化 / 大量データ対策
+- 🟢 食事複雑条件の運用確認（renderKyushoku を getMealPlan 経由に統合するか要判断）/ 基本送迎の曜日別強化 / 大量データ対策
+
+---
+
+## 🆕 2026-04-20 追加セッション成果（欠席画面 食事UI・5コミット）
+
+### ✅ A-1〜5 欠席画面に食事UI追加 完了
+
+「昼食・夕食それぞれに場所を明示指定できる」大型タスクを 5 コミットに分割して実装。
+
+- **70d84f1** A-1/5: `scr-form` に 昼食/夕食 7択セクションを追加（display:none）
+- **8829c5c** A-2/5: fState / togSet / resetTogs を mealLunch・mealDinner 対応
+- **c91ce7a** A-3/5: セクション表示切替（abs≠出席 で切替）と Firestore 保存対応（案B: '自動' は保存しない）
+- **9ac0994** A-4/5: `getMealPlan` に absLog.mealLunch / mealDinner override を追加（後方互換あり）
+- **26ede29** A-5/5: `renderAbsence` に 昼→◯◯ 夕→◯◯ の表示を追加
+
+### 🎯 仕様
+
+- **UI**: 入力画面 `scr-form` で `abs !== '出席'` のとき、従来の「給食あり/なし」セクションを隠し、「昼食」「夕食」それぞれに 7 択トグルを表示
+- **7択**: 自動 / 童里夢 / 奏楽 / ぱぁとなぁ / たんぽぽ / エコール / 食べない
+- **デフォルト**: 「自動」（= getMealPlan の既存ロジックで判定）
+- **保存**: `fState.mealLunch/mealDinner` が `'自動'` 以外のときのみ Firestore の log に `mealLunch` / `mealDinner` フィールドとして保存（案B）
+- **判定の優先順位**: `absLog` の明示指定 > `meal_change` 申請 > primary 事業所による自動
+
+### 🔧 新しい Firestore ログ形式
+
+欠席・遅刻・早退のログに以下が追加される可能性あり（指定時のみ）:
+```
+mealLunch?: '童里夢' | '奏楽' | 'ぱぁとなぁ' | 'たんぽぽ' | 'エコール' | '食べない'
+mealDinner?: 同上
+```
+未指定なら従来と同じ（自動判定 fall back）。旧ログは自動扱いで完全後方互換。
+
+### 📊 反映箇所と対象外
+
+| 対象 | 反映 |
+|---|---|
+| `getMealPlan` | ✅ override 反映 |
+| `aggregateMeals`（給食画面の集計数） | ✅ getMealPlan 経由で反映 |
+| `renderAbsence`（欠席一覧） | ✅ カード行に「昼→◯◯ 夕→◯◯」を表示 |
+| `renderKyushoku`（給食画面の明細） | ❌ 独自ロジックで `logs.find(...)` を直接参照しているため非反映 |
+
+→ renderKyushoku の統合は 🟢 大規模「食事複雑条件の運用確認」に内包し、運用で問題出たら別タスクで対応。
+
+### 🔑 主要キー位置（最新コミット 26ede29 時点）
+
+- HTML `#f-meal-abs-sec`（scr-form 内、display:none 初期）: L265-
+- `let fState = { ..., mealLunch:'自動', mealDinner:'自動' }`: L732
+- `function resetTogs`（mealLunch/mealDinner 対応）: L1110
+- `window.togSet`（sonVals/sabVals の配列 include 判定）: L1119
+- `function updateFormBlocks`（abs≠出席 でセクション切替）: L1139
+- `function doSubmit`（'自動' 以外のみ entry に保存）: L2609-2613
+- `window.getMealPlan`（absLog.mealLunch/mealDinner を最優先で反映）: L2105-
+- `function renderAbsence`（mealParts 表示）: L3993-
 
 ### ✅ 2026-04-20 追加で閉じたタスク
 
