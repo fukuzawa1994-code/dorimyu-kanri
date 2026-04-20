@@ -470,16 +470,12 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   opacity: 0.15;
 }
 .creed-line {
-  color: #fff;
+  color: #FFFFFF;
   font-weight: 800;
   font-size: 46px;
   letter-spacing: 0.08em;
   line-height: 1.45;
-  background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.92) 55%, rgba(220,220,255,0.88) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.30), 0 0 36px rgba(255,255,255,0.08);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.35), 0 0 40px rgba(200,210,255,0.18);
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.6s cubic-bezier(0.215, 0.61, 0.355, 1), transform 0.6s cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -487,7 +483,8 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .creed-line.show { opacity: 1; transform: translateY(0); }
 .creed-line[data-step="3"] {
   font-size: 48px;
-  text-shadow: 0 2px 14px rgba(0,0,0,0.35), 0 0 56px rgba(255,255,255,0.14);
+  color: #F8F8FF;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.40), 0 0 60px rgba(200,210,255,0.28);
   transition: opacity 0.9s cubic-bezier(0.215, 0.61, 0.355, 1), transform 0.9s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 .intro-brand {
