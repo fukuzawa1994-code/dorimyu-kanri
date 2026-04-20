@@ -147,7 +147,9 @@ html, body {
 .ni.on::after { content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--purple); }
 .ndot { width: 8px; height: 8px; background: var(--coral); border-radius: 50%; position: absolute; top: 10px; right: calc(50% - 18px); border: 2px solid #fff; display: none; }
 .fab {
-  position: absolute; bottom: 100px; right: 20px;
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+  right: 20px;
   width: 60px; height: 60px;
   background: linear-gradient(135deg, #5148C0, #6159D6);
   border-radius: 50%;
@@ -158,9 +160,33 @@ html, body {
   z-index: 60;
   box-shadow: 0 10px 24px rgba(91,79,216,0.22);
   transition: transform 0.15s cubic-bezier(0.215, 0.61, 0.355, 1), box-shadow 0.15s cubic-bezier(0.215, 0.61, 0.355, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 .fab [data-lucide] { width: 22px; height: 22px; stroke-width: 1.25; color: currentColor; }
 .fab:active { transform: scale(0.98); box-shadow: 0 6px 16px rgba(91,79,216,0.20); }
+
+/* FAB 長押しラベル（500ms ホールドで表示） */
+.fab-label {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 148px);
+  right: 20px;
+  background: rgba(17,17,17,0.92);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 70;
+  white-space: nowrap;
+}
+.fab-label.show { opacity: 1; transform: translateY(0); }
 .scr { display: none; }
 .scr.on { display: block; }
 .fp { padding: 14px; }
@@ -1068,7 +1094,8 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
     <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div></div></div>
     <div class="scr" id="scr-vacation"><div class="fp"><div class="ksec-hd">休暇申請</div><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div></div>
-  <button class="fab" id="fab" onclick="goForm()"><i data-lucide="plus"></i></button>
+  <button class="fab" id="fab"><i data-lucide="plus"></i></button>
+  <div class="fab-label" id="fab-label"></div>
 
   <div class="bnav">
     <div class="ni on" id="ni-list" onclick="goScr('list')">
@@ -1142,6 +1169,49 @@ window.refreshIcons = function() {
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 };
 document.addEventListener('DOMContentLoaded', function() { window.refreshIcons(); });
+
+// ── FAB 長押しラベル（500ms ホールドで画面別テキスト表示） ──
+document.addEventListener('DOMContentLoaded', function() {
+  const fab = document.getElementById('fab');
+  const label = document.getElementById('fab-label');
+  if (!fab || !label) return;
+  const fabLabels = { case: '新規記録', purchase: '新規申請', kyushoku: '人数編集' };
+  let longPressTimer = null;
+  let isLongPress = false;
+
+  function showLabel() {
+    label.textContent = fabLabels[currentScr] || '追加';
+    label.classList.add('show');
+  }
+  function hideLabel() {
+    label.classList.remove('show');
+  }
+
+  fab.addEventListener('pointerdown', function() {
+    isLongPress = false;
+    longPressTimer = setTimeout(function() {
+      isLongPress = true;
+      showLabel();
+    }, 500);
+  });
+
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function(ev) {
+    fab.addEventListener(ev, function() {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      hideLabel();
+    });
+  });
+
+  fab.addEventListener('click', function(e) {
+    if (isLongPress) {
+      e.preventDefault();
+      e.stopPropagation();
+      isLongPress = false;
+      return;
+    }
+    if (typeof goForm === 'function') goForm();
+  });
+});
 
 // ── グローバル変数 ──
 function today() {
