@@ -358,14 +358,39 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .metric-unit { font-size: 13px; color: var(--text-sub); margin-left: 4px; font-weight: 500; }
 .kcard-count { font-size: 34px; font-weight: 700; color: var(--purple); line-height: 1; letter-spacing: -0.02em; }
 .kcard-count span { font-size: 13px; color: var(--text-sub); font-weight: 500; margin-left: 4px; }
-/* ぱぁとなぁグループカード（Apple 連絡先風、上部に細い紫アクセント） */
-.kcard-paatonaa { border-top: 2px solid transparent; }
-.kcard-paatonaa .kcard-hd { padding: 20px 24px 14px; background: var(--surface); border-bottom: none; }
-.kcard-paatonaa .kcard-title { font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
-.kcard-paatonaa .kcard-count { font-size: 28px; color: var(--purple); }
-.kcard-paatonaa .kcard-count span { font-size: 12px; color: var(--text-sub); font-weight: 500; }
-.kcard-paatonaa .krow { padding: 12px 24px; border-bottom: 0.5px solid rgba(60,60,67,0.04); }
-.kcard-paatonaa .krow:last-child { border-bottom: none; padding-bottom: 18px; }
+/* ぱぁとなぁグループカード（Apple 連絡先/Wallet 風） */
+.kcard-paatonaa { background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFF 100%); }
+.kcard-paatonaa .kcard-hd {
+  padding: 20px 24px;
+  background: rgba(91,79,216,0.04);
+  border-bottom: none;
+  align-items: flex-start;
+}
+.kcard-paatonaa .kcard-title {
+  font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;
+}
+.kcard-paatonaa .kcard-count {
+  display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1;
+  font-size: 36px; font-weight: 700; color: var(--purple); letter-spacing: -0.02em;
+}
+.kcard-paatonaa .kcard-count span {
+  font-size: 12px; color: var(--text-sub); font-weight: 500; margin: 2px 0 0 0;
+}
+.kcard-paatonaa .krow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 24px;
+  border-bottom: none;
+}
+.kcard-paatonaa .krow::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(60,60,67,0.25);
+  flex-shrink: 0;
+}
+.kcard-paatonaa .krow-status { margin-left: auto; }
+.kcard-paatonaa .krow:first-child { padding-top: 14px; }
+.kcard-paatonaa .krow:last-child { padding-bottom: 18px; }
 .krow { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 0.5px solid var(--separator); }
 .krow:last-child { border-bottom: none; }
 .krow.abs { opacity: .4; }
@@ -4835,13 +4860,11 @@ function renderKyushoku() {
       if (true) {
         html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（夕食）</div>';
         if (true) {
-          const hanColors = {'紬男子':'#A89BF3','紬女子':'#5B4FD8','ひまわり':'#3D2FB0'};
           ['紬男子','紬女子','ひまわり'].forEach(function(hh){
             const rowsHtml = dinnerRowsMap[hh];
             if (rowsHtml && rowsHtml.length > 0) {
               const count = (rowsHtml.match(/class="krow"/g)||[]).length;
-              const c = hanColors[hh];
-              html += '<div class="kcard kcard-paatonaa" style="border-top-color:'+c+'">'
+              html += '<div class="kcard kcard-paatonaa">'
                 + '<div class="kcard-hd">'
                 + '<span class="kcard-title">'+hh+'</span>'
                 + '<div><span class="kcard-count">' + count + '<span>名</span></span></div>'
