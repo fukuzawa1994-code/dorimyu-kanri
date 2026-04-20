@@ -3463,21 +3463,39 @@ function initPurchaseFormListeners() {
 window.submitPurchase1 = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('p-date').value;
-  const purpose = document.getElementById('p-purpose').value.trim();
   const cats = [...document.querySelectorAll('#p-category-wrap .tog.son')].map(t => t.dataset.v);
-  const items = [...document.querySelectorAll('.p-item-row')].map(row => ({
-    name: row.querySelector('.p-item-name').value.trim(),
-    price: row.querySelector('.p-item-price').value,
-    tax: row.querySelector('.tog.son') ? row.querySelector('.tog.son').dataset.v : ''
-  })).filter(i => i.name);
 
-  if (!date || !purpose || items.length===0 || cats.length===0) {
-    showToast('日付・目的・カテゴリ・品目を入力してください'); return;
+  const rows = [...document.querySelectorAll('#p-items-wrap .p-item-row')];
+  const items = [];
+  let invalidMsg = '';
+  for (const row of rows) {
+    const name = row.querySelector('.p-item-name').value.trim();
+    if (!name) continue;
+    const qty = parseInt(row.querySelector('.p-item-qty').value) || 0;
+    const unitPrice = parseInt(row.querySelector('.p-item-unit').value);
+    const taxEl = row.querySelector('.p-tax.son');
+    const usageEl = row.querySelector('.p-usage.son');
+    const purpose = row.querySelector('.p-item-purpose').value.trim();
+    if (qty < 1) { invalidMsg = `「${name}」の数量は1以上にしてください`; break; }
+    if (isNaN(unitPrice) || unitPrice < 0) { invalidMsg = `「${name}」の単価を0以上で入力してください`; break; }
+    if (!taxEl) { invalidMsg = `「${name}」の税を選んでください`; break; }
+    if (!usageEl) { invalidMsg = `「${name}」の用途を選んでください`; break; }
+    items.push({ name, qty, unitPrice, tax: taxEl.dataset.v, usage: usageEl.dataset.v, purpose });
   }
+  if (invalidMsg) { showToast(invalidMsg); return; }
 
-  const totalPrice = items.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+  if (!date) { showToast('購入予定日を入力してください'); return; }
+  if (cats.length === 0) { showToast('福祉事業活動・就労生産活動を1つ以上選んでください'); return; }
+  if (items.length === 0) { showToast('品目を1つ以上入力してください'); return; }
+
+  const subtotal = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+  const totalPrice = items.reduce((s, i) => {
+    const rate = i.tax === '8%' ? 0.08 : 0.10;
+    return s + Math.round(i.qty * i.unitPrice * (1 + rate));
+  }, 0);
   const approverEl = document.getElementById('p-approver');
   const approver = approverEl ? approverEl.value : '';
+
   const rec = {
     type: 'purchase',
     step: 1,
@@ -3487,16 +3505,56 @@ window.submitPurchase1 = async function() {
     date,
     categories: cats,
     items,
+    itemsV2: true,
+    subtotal,
     totalPrice,
-    purpose,
     createdAt: Date.now(),
     approval1: null,
     approval2: null
   };
 
-  const ref = await addDoc(collection(db, 'purchases'), rec);
-  showToast('打診申請を提出しました');
-  setPurchaseTab('list');
+  try {
+    await addDoc(collection(db, 'purchases'), rec);
+    showToast('打診申請を提出しました');
+    resetPurchaseForm();
+    setPurchaseTab('list');
+  } catch (e) {
+    showToast('送信に失敗しました');
+    console.error(e);
+  }
+}
+
+function renderPurchaseItemsSummary(p) {
+  const items = p.items || [];
+  if (p.itemsV2) {
+    const rows = items.map(i => {
+      const qty = parseInt(i.qty) || 0;
+      const unit = parseInt(i.unitPrice) || 0;
+      const rate = i.tax === '8%' ? 0.08 : 0.10;
+      const lineTotal = Math.round(qty * unit * (1 + rate));
+      const purposeRow = i.purpose ? `<tr><td colspan="6" style="padding:0 4px 4px;font-size:10px;color:var(--gray-dark)">└ ${i.purpose}</td></tr>` : '';
+      return `<tr>
+        <td style="padding:3px 4px">${i.name || ''}</td>
+        <td style="padding:3px 4px;text-align:right">${qty}</td>
+        <td style="padding:3px 4px;text-align:right">${unit.toLocaleString()}</td>
+        <td style="padding:3px 4px;text-align:center">${i.tax || ''}</td>
+        <td style="padding:3px 4px;text-align:center">${i.usage || ''}</td>
+        <td style="padding:3px 4px;text-align:right">${lineTotal.toLocaleString()}</td>
+      </tr>${purposeRow}`;
+    }).join('');
+    return `<table style="width:100%;font-size:11px;border-collapse:collapse;margin-bottom:4px">
+      <thead><tr style="color:var(--gray-dark);border-bottom:0.5px solid var(--border)">
+        <th style="padding:3px 4px;text-align:left">品名</th>
+        <th style="padding:3px 4px;text-align:right">数量</th>
+        <th style="padding:3px 4px;text-align:right">単価</th>
+        <th style="padding:3px 4px;text-align:center">税</th>
+        <th style="padding:3px 4px;text-align:center">用途</th>
+        <th style="padding:3px 4px;text-align:right">税込</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+  return `<div style="font-size:13px;margin-bottom:4px">${items.map(i => `${i.name} ${i.price ? parseInt(i.price).toLocaleString() + '円' : ''}`).join('<br>')}</div>`;
 }
 
 window.renderPurchaseList = function() {
@@ -3516,9 +3574,9 @@ window.renderPurchaseList = function() {
           <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px">${p.status}（${p.step===1?'打診':'本申請'}）</span>
         </div>
         <div style="font-size:12px;color:var(--gray-dark);margin-bottom:4px">${(p.categories||[]).join('・')}</div>
-        <div style="font-size:13px;margin-bottom:4px">${(p.items||[]).map(i=>`${i.name} ${i.price?parseInt(i.price).toLocaleString()+'円':''}`).join('<br>')}</div>
-        <div style="font-size:12px;color:var(--gray-dark)">合計 <strong>${(p.totalPrice||0).toLocaleString()}円</strong></div>
-        <div style="font-size:11px;color:var(--gray-dark);margin-top:4px">${p.purpose}</div>
+        ${renderPurchaseItemsSummary(p)}
+        <div style="font-size:12px;color:var(--gray-dark)">${p.itemsV2 ? `税抜 <strong>${(p.subtotal||0).toLocaleString()}円</strong> / 税込 <strong>${(p.totalPrice||0).toLocaleString()}円</strong>` : `合計 <strong>${(p.totalPrice||0).toLocaleString()}円</strong>`}</div>
+        ${!p.itemsV2 && p.purpose ? `<div style="font-size:11px;color:var(--gray-dark);margin-top:4px">${p.purpose}</div>` : ''}
         ${p.approval1 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:4px">✓ 打診承認: ${p.approval1.by} ${new Date(p.approval1.at).toLocaleDateString()}</div>` : ''}
         ${p.approval2 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:2px">✓ 本申請承認: ${p.approval2.by} ${new Date(p.approval2.at).toLocaleDateString()}</div>` : ''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -3555,24 +3613,34 @@ window.startStep2 = function(id) {
     document.getElementById('ptab-list').classList.remove('on');
     document.getElementById('ptab-new').classList.add('on');
     
+    const editRows = p.itemsV2
+      ? (p.items||[]).map((item,i) => `
+          <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
+            <div class="frow"><span class="flbl">${item.name}（数量${item.qty||1} / ${item.tax||'10%'} / ${item.usage||''}）</span></div>
+            <div class="frow"><span class="flbl">実際の単価</span><input type="number" id="step2-unit-${i}" value="${item.unitPrice||0}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
+          </div>`).join('')
+      : (p.items||[]).map((item,i) => `
+          <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
+            <div class="frow"><span class="flbl">${item.name}</span></div>
+            <div class="frow"><span class="flbl">実際の金額</span><input type="number" id="step2-price-${i}" value="${item.price||0}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
+          </div>`).join('');
+
     const step2html = `<div class="ksec-hd">本申請（2回目）- ${p.applicant} / ${p.date}</div>
       <div style="background:var(--green-light);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px">
         <div>打診承認済: ${p.approval1 ? p.approval1.by : ''}</div>
         <div style="margin-top:4px">${(p.items||[]).map(i=>i.name).join('、')}</div>
       </div>
+      <div class="ksec-hd">打診時の内容</div>
+      <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:12px">${renderPurchaseItemsSummary(p)}</div>
       <div class="ksec-hd">実際の金額（修正可）</div>
-      ${(p.items||[]).map((item,i) => `
-      <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
-        <div class="frow"><span class="flbl">${item.name}</span></div>
-        <div class="frow"><span class="flbl">実際の金額</span><input type="number" id="step2-price-${i}" value="${item.price}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
-      </div>`).join('')}
+      ${editRows}
       <div class="ksec-hd" style="margin-top:12px">レシート写真</div>
       <div style="margin-bottom:12px">
         <input type="file" id="step2-receipt" accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
         <button class="sbtn" onclick="document.getElementById('step2-receipt').click()">📷 カメラで撮影</button>
         <img id="receipt-preview" style="display:none;width:100%;border-radius:10px;margin-top:8px"/>
       </div>
-      <button class="sbtn" style="width:100%" onclick="submitPurchase2('${id}',${JSON.stringify(p.items).replace(/'/g,"\'")})"  >本申請を提出</button>`;
+      <button class="sbtn" style="width:100%" onclick="submitPurchase2('${id}')">本申請を提出</button>`;
     
     document.getElementById('purchase-new-area').innerHTML = step2html;
   });
@@ -3590,28 +3658,49 @@ window.previewReceipt = function(input) {
   }
 }
 
-window.submitPurchase2 = async function(id, origItems) {
-  const items = origItems.map((item, i) => ({
-    ...item,
-    actualPrice: parseInt(document.getElementById('step2-price-'+i).value)||0
-  }));
-  const totalActual = items.reduce((s,i) => s+(i.actualPrice||0), 0);
-  
-  // レシート画像をBase64で保存
+window.submitPurchase2 = async function(id) {
+  const snap = await getDoc(doc(db, 'purchases', id));
+  const p = snap.data();
+  const origItems = p.items || [];
+  const isV2 = !!p.itemsV2;
+
+  let items, totalActual, subtotalActual = null;
+  if (isV2) {
+    items = origItems.map((item, i) => {
+      const newUnit = parseInt(document.getElementById('step2-unit-'+i).value) || 0;
+      const qty = parseInt(item.qty) || 1;
+      const rate = item.tax === '8%' ? 0.08 : 0.10;
+      const lineSub = qty * newUnit;
+      const lineTotal = Math.round(lineSub * (1 + rate));
+      return { ...item, actualUnitPrice: newUnit, actualLineSub: lineSub, actualLineTotal: lineTotal };
+    });
+    subtotalActual = items.reduce((s, i) => s + (i.actualLineSub || 0), 0);
+    totalActual = items.reduce((s, i) => s + (i.actualLineTotal || 0), 0);
+  } else {
+    items = origItems.map((item, i) => ({
+      ...item,
+      actualPrice: parseInt(document.getElementById('step2-price-'+i).value) || 0
+    }));
+    totalActual = items.reduce((s, i) => s + (i.actualPrice || 0), 0);
+  }
+
   let receiptData = null;
   const fileInput = document.getElementById('step2-receipt');
   if (fileInput && fileInput.files[0]) {
     receiptData = document.getElementById('receipt-preview').src;
   }
 
-  await updateDoc(doc(db, 'purchases', id), {
+  const update = {
     step: 2,
     status: '本申請中',
     items2: items,
     totalActual,
     receipt: receiptData,
     step2At: Date.now()
-  });
+  };
+  if (subtotalActual !== null) update.subtotalActual = subtotalActual;
+
+  await updateDoc(doc(db, 'purchases', id), update);
   showToast('本申請を提出しました');
   setPurchaseTab('list');
 }
