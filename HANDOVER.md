@@ -1,6 +1,6 @@
 # エコール送迎管理アプリ 引き継ぎ資料
 
-最終更新: 2026-04-19
+最終更新: 2026-04-20
 
 ## 🔑 プロジェクト基本情報
 
@@ -254,7 +254,7 @@ tabId: 987398420
 - **すたぁと給食を給食画面に埋め込み**：現状は「その他」メニューから別画面。給食画面に統合
 
 ### 🟡 中規模
-- **購入申請 大改修**：5 品目対応・税計算・用途・購入目的・自動計算・月カレンダー表示
+- **購入申請 月カレンダー表示**：大改修本体は 2026-04-20 に完了（下記セクション参照）。残るのは月別カレンダーでの申請可視化のみ
 - **職員マスター管理画面 UI**：現状は renderMasterList が閲覧専用
 - **アルコールチェック対象を STAFF_MASTER 連動化**：現状 ALCOHOL_STAFF は手動リスト
 
@@ -262,3 +262,80 @@ tabId: 987398420
 - **食事複雑条件の運用確認**：奏楽休み → ぱぁとなぁ夕食あり 等のケース
 - **基本送迎の曜日別対応強化**：兼務者 9 名（候補は 2598674 で登録済み、運用未検証）
 - **大量データ対策**：logs 取得を直近 30 日に限定（現状は全件 onSnapshot、将来的にパフォーマンス懸念）
+
+---
+
+## 🆕 2026-04-20 セッション成果（購入申請大改修・4コミット）
+
+### ✅ 購入申請 大改修 完了
+
+HANDOVER「中規模」に積まれていた **購入申請 大改修** の本体を完了。ひとつの大きな変更を 4 コミットに分割し、各コミット前に差分確認を取る方式で段階的に実装。
+
+- **d6bb770** #1/3: HTMLフォーム改修（最大5品目化・税/用途分離・合計表示）
+- **e1c7820** #2/3: 品目追加/削除・自動計算・フォームリセット機能
+- **b11a8bf** #3/3: submitPurchase1/2 とリスト/step2 を新形式へ対応（後方互換あり）
+- **6d23e95** #4: 用途を複数選択可能に変更
+
+### 🎯 改修内容
+
+1. **品目 最大5つ**：＋品目追加 / 🗑 削除ボタン、先頭行を cloneNode で複製（`#p-add-item-btn` / `renumberPurchaseItems`）
+2. **6項目**：品名 / 数量 / 単価 / 税(8%|10%) / 用途 / 購入目的（任意・品目ごと）
+3. **用途は複数選択可**（`#4` で変更）：事業費・事務費・製造・販売・仕入・消耗・器具（データ形式 `usage: string[]`）
+4. **自動計算**：`#p-items-wrap` の input イベント委譲で `recalcPurchaseTotal` 発火、税抜/税込合計をリアルタイム表示
+5. **バリデーション**：行ごとに具体的なエラートースト（「品目Xの税を選んでください」等）
+6. **送信成功後リセットバグ修正**：`resetPurchaseForm()` を成功時に呼ぶ
+7. **承認画面（step2）刷新**：打診時の内容を表で表示、実際の単価のみ編集可、数量/税/用途はロック表示
+8. **後方互換**：旧 `items:[{name,price,tax}]` データも list/step2 両方で従来通り表示（`p.itemsV2` フラグで分岐）
+9. **onclick の JSON 埋め込み撤去**：`submitPurchase2` の引数を `(id, origItems)` → `(id)` に変更、Firestore 再取得方式に
+
+### 🔧 Firestore データ形式（purchases コレクション）
+
+**新形式（`itemsV2: true`）**:
+```
+items: [{ name, qty, unitPrice, tax: '8%'|'10%', usage: string[], purpose }]
+subtotal         // 税抜合計
+totalPrice       // 税込合計
+// 本申請後:
+items2: [{..., actualUnitPrice, actualLineSub, actualLineTotal }]
+subtotalActual
+totalActual
+```
+
+**旧形式**（そのまま残り、読み取りは従来通り動作）:
+```
+items: [{ name, price, tax }]
+totalPrice       // 単純合計
+purpose          // 全体目的
+// 本申請後:
+items2: [{..., actualPrice }]
+totalActual
+```
+
+### 🔑 主要関数の行番号（最新コミット 6d23e95 時点）
+
+- `window.togglePTax` / `window.togglePUsage`: L3351- / L3359-（用途は単独トグル化済）
+- `window.addPurchaseItem` / `window.removePurchaseItem`: L3363- / L3380-
+- `function renumberPurchaseItems` / `recalcPurchaseTotal` / `resetPurchaseForm` / `initPurchaseFormListeners`: L3390- / L3415- / L3436- / L3455-
+- `window.submitPurchase1`: L3460-
+- `function renderPurchaseItemsSummary`: L3525-
+- `window.renderPurchaseList`: L3560-
+- `window.startStep2`: L3605-
+- `window.submitPurchase2`: L3661-（引数変更 `(id)`）
+- HTML `#p-items-wrap`: L585-、`#p-add-item-btn` / `#p-total-area`: L609- / L611-
+
+### ⚠️ 作業中の気づき
+
+- `submitPurchase2` の旧実装は `onclick="...,JSON.stringify(items)..."` で HTML 属性内 JSON の `"` がクォート破損を起こす潜在バグあり（旧仕様では稀にしか踏まれなかった）。`(id)` 単独渡しに変更して解消。
+- `.replace(/'/g,"\'")` のような no-op 置換コードが旧 step2html に残っていた（本コミットで撤去）。
+- commit 1 / 2 単独状態では `submitPurchase1` が旧形式のまま（`#p-purpose` / `.p-item-price` 参照）なので申請ボタンは壊れる。1〜3 は必ずセットで push する必要あり（今回は 1〜4 まとめて push）。
+
+### 📋 残タスク（2026-04-20 時点）
+
+- 🔴 #5 給食場所変更を職員にも対応
+- 🔴 A-1〜5 欠席画面に食事UI追加（大型）
+- 🔴 ぱぁとなぁ 出欠UI 追加
+- 🔴 すたぁと給食を給食画面に埋め込み
+- 🟡 購入申請 **月カレンダー表示**（大改修本体の残件）
+- 🟡 職員マスター管理画面 UI
+- 🟡 アルコールチェック対象を STAFF_MASTER 連動化
+- 🟢 食事複雑条件の運用確認 / 基本送迎の曜日別強化 / 大量データ対策
