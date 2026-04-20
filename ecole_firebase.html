@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>École 送迎管理</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   /* メインカラー（iOS風 暗め紫） */
@@ -516,6 +517,12 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   letter-spacing: -0.01em;
 }
 .intro-form-cta:active { transform: scale(0.98); }
+
+/* Lucide アイコン基本スタイル */
+[data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: currentColor; flex-shrink: 0; display: inline-block; vertical-align: -3px; }
+.action-sheet-icon [data-lucide] { width: 24px; height: 24px; vertical-align: middle; }
+.tog-label [data-lucide], .ksec-hd [data-lucide], .sec [data-lucide] { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
+[data-lucide] + span, [data-lucide] + b { margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -572,8 +579,8 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
         <button class="cal-nav" onclick="calMove(1)">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer">🖨️ 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)">📄 月次PDF</button></div>
-      <div id="list-mode-toggle" style="display:flex;gap:4px;padding:4px 12px 0"><button id="lmode-bin" onclick="setListMode('bin')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700">🚐 便ベース</button><button id="lmode-aff" onclick="setListMode('aff')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer">🏢 所属ベース</button></div>
+      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0"><button onclick="printList()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sub);cursor:pointer"><i data-lucide="printer"></i> 印刷</button><button class="sbtn" onclick="printTransportListMonthly()" style="font-size:11px;padding:5px 10px;margin-left:4px;background:#fff;color:var(--purple);border:0.5px solid var(--purple)"><i data-lucide="file-text"></i> 月次PDF</button></div>
+      <div id="list-mode-toggle" style="display:flex;gap:4px;padding:4px 12px 0"><button id="lmode-bin" onclick="setListMode('bin')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:6px;cursor:pointer;font-weight:700"><i data-lucide="bus"></i> 便ベース</button><button id="lmode-aff" onclick="setListMode('aff')" style="flex:1;padding:6px 8px;font-size:11px;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:6px;cursor:pointer"><i data-lucide="building-2"></i> 所属ベース</button></div>
       <div class="phase-tabs" id="phase-tabs">
         <div class="ptab on" id="ptab-am" onclick="setPhase('朝')">朝 送迎</div>
         <div class="ptab" id="ptab-pm" onclick="setPhase('夕')">夕 送迎</div>
@@ -667,7 +674,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
     <div class="scr" id="scr-case">
       <div class="phase-tabs" style="padding:10px 14px 0">
-        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px;font-weight:700">📄 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:#666;min-width:28px">月</span><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/></div><div style="display:flex;gap:6px;margin-bottom:8px"><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="all" checked style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-all" style="padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700">👥 班全員</div></label><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="one" style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-one" style="padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px">👤 1人だけ</div></label></div><div id="case-print-user-area" style="display:none;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">利用者を選択</span><select id="case-print-user" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">選択してください</option></select></div><button class="sbtn" onclick="printCaseMonthly()" style="width:100%;padding:10px;font-size:13px;font-weight:700">📄 PDF出力</button></div>
+        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px;font-weight:700"><i data-lucide="file-text"></i> 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:#666;min-width:28px">月</span><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/></div><div style="display:flex;gap:6px;margin-bottom:8px"><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="all" checked style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-all" style="padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700"><i data-lucide="users"></i> 班全員</div></label><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="one" style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-one" style="padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px"><i data-lucide="user"></i> 1人だけ</div></label></div><div id="case-print-user-area" style="display:none;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">利用者を選択</span><select id="case-print-user" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">選択してください</option></select></div><button class="sbtn" onclick="printCaseMonthly()" style="width:100%;padding:10px;font-size:13px;font-weight:700"><i data-lucide="file-text"></i> PDF出力</button></div>
         <div class="ptab" id="ctab-summary" onclick="setCaseTab('summary')">まとめ</div>
       </div>
 
@@ -783,14 +790,14 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
         </div>
         <button class="sbtn" onclick="doDistanceSubmit()">送信する</button>
       </div>
-      <div style="padding:0 14px 4px;display:flex;gap:6px"><button class="sbtn ghost" onclick="exportCSV('distance')" style="margin-top:0;font-size:12px">📥 距離CSV</button></div>
+      <div style="padding:0 14px 4px;display:flex;gap:6px"><button class="sbtn ghost" onclick="exportCSV('distance')" style="margin-top:0;font-size:12px"><i data-lucide="download"></i> 距離CSV</button></div>
       <div class="ksec-hd" style="margin-top:8px">今日の記録</div>
       <div id="distance-body"></div>
       </div><!-- end distance-input-area -->
       <div id="distance-summary-area" style="display:none">
         <div class="fp" style="padding-bottom:0">
           <div class="fsec">
-            <div class="frow"><span class="flbl">集計月</span><input type="month" id="d-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderDistanceSummary()"/></div><div class="frow" style="border-top:0.5px solid var(--border);padding-top:10px;margin-top:8px"><span class="flbl">📄 PDF出力月</span><input type="month" id="d-pdf-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div style="padding:0 14px"><button onclick="printDistanceMonthly()" style="width:100%;padding:10px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px">📄 PDF出力（ブラウザ印刷→PDFとして保存）</button></div>
+            <div class="frow"><span class="flbl">集計月</span><input type="month" id="d-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right" onchange="renderDistanceSummary()"/></div><div class="frow" style="border-top:0.5px solid var(--border);padding-top:10px;margin-top:8px"><span class="flbl"><i data-lucide="file-text"></i> PDF出力月</span><input type="month" id="d-pdf-month" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div style="padding:0 14px"><button onclick="printDistanceMonthly()" style="width:100%;padding:10px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px"><i data-lucide="file-text"></i> PDF出力（ブラウザ印刷→PDFとして保存）</button></div>
           </div>
         </div>
         <div id="distance-summary-body"></div>
@@ -849,7 +856,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
         </div>
         <div id="alc-month-body" style="padding:0 14px 80px"></div>
         <div style="padding:0 14px 12px">
-          <button onclick="printAlcoholMonthly()" style="width:100%;padding:10px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📄 月次PDF出力</button>
+          <button onclick="printAlcoholMonthly()" style="width:100%;padding:10px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer"><i data-lucide="file-text"></i> 月次PDF出力</button>
         </div>
       </div>
     </div>
@@ -857,7 +864,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-master">
       <div style="padding:10px 14px 80px">
         <div style="background:#E3F2FD;border:0.5px solid #2196F3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:#0D47A1">
-          💡 現在登録されているマスターデータの一覧です（閲覧専用）
+          <i data-lucide="lightbulb"></i> 現在登録されているマスターデータの一覧です（閲覧専用）
         </div>
         <div id="master-body"></div>
       </div>
@@ -890,7 +897,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
       <!-- 申請フォーム -->
       <div class="fp">
         <div class="fsec">
-          <span class="tog-label">🍱 すたぁと給食連絡（レストランへ通知）</span>
+          <span class="tog-label"><i data-lucide="utensils"></i>すたぁと給食連絡（レストランへ通知）</span>
           <div class="frow"><span class="flbl">日付</span><input type="date" id="start-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>
           <div class="frow"><span class="flbl">利用者数</span><input type="number" id="start-users" min="0" value="0" style="font-size:18px;font-weight:700;border:none;background:transparent;color:var(--purple);outline:none;text-align:right;width:80px"/>名</div>
           <div class="frow"><span class="flbl">職員数</span><input type="number" id="start-staff" min="0" value="0" style="font-size:18px;font-weight:700;border:none;background:transparent;color:var(--purple);outline:none;text-align:right;width:80px"/>名</div>
@@ -902,7 +909,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
       <!-- 月カレンダー 一括入力 -->
       <div style="padding:14px;padding-bottom:80px">
         <div class="fsec">
-          <span class="tog-label">📅 月単位 一括入力（変更のある日だけ保存）</span>
+          <span class="tog-label"><i data-lucide="calendar"></i>月単位 一括入力（変更のある日だけ保存）</span>
           <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0">
             <button class="cal-nav" onclick="startMonthMove(-1)">‹</button>
             <span id="start-month-label" style="font-weight:700;font-size:14px;color:var(--purple)"></span>
@@ -910,14 +917,14 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
           </div>
           <div id="start-month-rows"></div>
         </div>
-        <button class="sbtn" onclick="doStartBulkSave()" style="width:100%;padding:12px;margin-top:8px">💾 変更のある日だけ保存</button>
+        <button class="sbtn" onclick="doStartBulkSave()" style="width:100%;padding:12px;margin-top:8px"><i data-lucide="save"></i> 変更のある日だけ保存</button>
         <div id="start-dirty-count" style="font-size:11px;color:var(--gray-dark);text-align:center;margin-top:4px"></div>
       </div>
     </div>
 
     <div class="scr" id="scr-hist">
       <div class="search-wrap"><input type="text" placeholder="名前・便で検索..." oninput="filterHist(this.value)" id="hist-search"/></div>
-      <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px">📄 送迎変更記録 月次PDF</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="tr-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printTransportMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div><div id="hist-body"></div>
+      <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px"><i data-lucide="file-text"></i> 送迎変更記録 月次PDF</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="tr-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printTransportMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div><div id="hist-body"></div>
     </div>
     <div class="scr" id="scr-purchase">
       <!-- 申請一覧タブ -->
@@ -961,7 +968,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
             <div class="p-item-row" style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                 <span class="p-item-label" style="font-size:11px;font-weight:700;color:var(--gray-dark)">品目1</span>
-                <button type="button" class="p-item-del" onclick="removePurchaseItem(this)" style="background:var(--red-light);color:var(--red-dark);border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 削除</button>
+                <button type="button" class="p-item-del" onclick="removePurchaseItem(this)" style="background:var(--red-light);color:var(--red-dark);border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer"><i data-lucide="trash-2"></i> 削除</button>
               </div>
               <div class="frow"><span class="flbl">品名</span><input type="text" class="p-item-name" placeholder="例：コピー用紙" style="font-size:12px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:160px"/></div>
               <div class="frow"><span class="flbl">数量</span><input type="number" class="p-item-qty" value="1" min="1" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:70px"/></div>
@@ -1071,6 +1078,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// ── Lucide アイコン描画ヘルパ ──
+window.refreshIcons = function() {
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+};
+document.addEventListener('DOMContentLoaded', function() { window.refreshIcons(); });
 
 // ── グローバル変数 ──
 function today() {
