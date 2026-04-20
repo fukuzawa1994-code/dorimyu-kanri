@@ -729,7 +729,7 @@ let logs = [];
 let currentScr = 'list';
 let readNotif = JSON.parse(localStorage.getItem('ecole_read') || '[]');
 let sheetCtx = {};
-let fState = { abs: '出席', kyushoku: 'あり', am: '利用する', pm: '利用する' };
+let fState = { abs: '出席', kyushoku: 'あり', am: '利用する', pm: '利用する', mealLunch: '自動', mealDinner: '自動' };
 
 const scrTitles = {
   list: '送迎一覧', form: '連絡入力', notif: '通知', hist: '履歴',
@@ -1101,16 +1101,16 @@ function initForm(prefillUser, prefillBin) {
   const userSel = document.getElementById('f-user');
   const users = getUsersForBin(bin);
   userSel.innerHTML = users.map(u => `<option${u===prefillUser?' selected':''}>${u}</option>`).join('');
-  fState = { abs:'出席', am:'利用する', pm:'利用する' };
+  fState = { abs:'出席', am:'利用する', pm:'利用する', mealLunch:'自動', mealDinner:'自動' };
   resetTogs();
   updateFormBlocks();
   document.getElementById('f-note').value = '';
 }
 
 function resetTogs() {
-  ['abs','am','pm','kyushoku'].forEach(grp => {
+  ['abs','am','pm','kyushoku','mealLunch','mealDinner'].forEach(grp => {
     document.querySelectorAll(`#tg-${grp} .tog`).forEach(t => {
-      const def = grp==='abs' ? '出席' : grp==='kyushoku' ? 'あり' : '利用する';
+      const def = grp==='abs' ? '出席' : grp==='kyushoku' ? 'あり' : (grp==='mealLunch' || grp==='mealDinner') ? '自動' : '利用する';
       t.className = 'tog' + (t.dataset.v===def ? ' son' : '');
     });
   });
@@ -1120,7 +1120,9 @@ window.togSet = function(grp, el) {
   fState[grp] = el.dataset.v;
   el.closest('.togrow').querySelectorAll('.tog').forEach(t => t.className='tog');
   const v = el.dataset.v;
-  el.classList.add(v==='出席'||v==='利用する'||v==='あり' ? 'son' : v==='欠席'||v==='なし' ? 'sab' : 'sno');
+  const sonVals = ['出席','利用する','あり','自動','童里夢','奏楽','ぱぁとなぁ','たんぽぽ','エコール'];
+  const sabVals = ['欠席','なし','食べない'];
+  el.classList.add(sonVals.includes(v) ? 'son' : sabVals.includes(v) ? 'sab' : 'sno');
   updateFormBlocks();
   if (grp==='abs') updateNoteLabel();
 }
