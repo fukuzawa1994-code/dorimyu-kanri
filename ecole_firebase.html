@@ -2125,7 +2125,12 @@ window.getMealPlan = function(userName, dateStr) {
   if (dow === 0 || dow === 1) { return plan; } // 法人休日（日月は全員食事なし）
     
   // ══ 昼食 ══
-  if (isAbsent) {
+  if (isAbsent && absLog.mealLunch) {
+    // 欠席系の明示指定を最優先
+    plan.lunch = absLog.mealLunch === '食べない'
+      ? { eat: false, location: null }
+      : { eat: true, location: absLog.mealLunch };
+  } else if (isAbsent) {
     // 欠席 → 昼食なし
     plan.lunch = { eat: false, location: null };
   } else if (mealChg) {
@@ -2135,8 +2140,13 @@ window.getMealPlan = function(userName, dateStr) {
     plan.lunch = { eat: true, location: primaryJigyosho };
   }
   
-  // ══ 夕食（ぱぁとなぁ居住者のみ）══
-  if (isPaatonaaRes) {
+  // ══ 夕食 ══
+  if (isAbsent && absLog.mealDinner) {
+    // 欠席系の明示指定を最優先（誰でも反映、ぱぁとなぁ居住者以外でもOK）
+    plan.dinner = absLog.mealDinner === '食べない'
+      ? { eat: false, location: null }
+      : { eat: true, location: absLog.mealDinner };
+  } else if (isPaatonaaRes) {
     // 土日は? → 土曜夕食は自宅帰り、日曜は不明（一旦ありにしとく）
     if (dow === 6) {
       // 土曜：自宅へ帰る → ぱぁとなぁ夕食なし
