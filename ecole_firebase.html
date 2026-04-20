@@ -269,16 +269,16 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 }
 .action-sheet-title {
   text-align: center;
-  font-size: 15px; font-weight: 600;
-  color: var(--text-sub);
-  padding: 20px 20px 18px;
+  font-size: 14px; font-weight: 600;
+  color: #8E8E93;
+  padding: 22px 20px 26px;
   letter-spacing: 0.02em;
 }
 .action-sheet-item {
   display: flex; align-items: center; gap: 18px;
   padding: 0 24px;
-  min-height: 72px;
-  font-size: 22px; font-weight: 600;
+  min-height: 78px;
+  font-size: 20px; font-weight: 600;
   color: #111111;
   cursor: pointer;
   position: relative;
@@ -291,13 +291,14 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   left: 64px;
   right: 0;
   height: 0.5px;
-  background: rgba(60,60,67,0.12);
+  background: rgba(60,60,67,0.06);
 }
-.action-sheet-item:active { background: rgba(60,60,67,0.08); }
-.action-sheet-icon { font-size: 22px; width: 28px; text-align: center; }
+.action-sheet-item:active { background: rgba(60,60,67,0.06); }
+.action-sheet-icon { font-size: 20px; width: 24px; text-align: center; color: #6E6E73; }
+.action-sheet-icon [data-lucide] { width: 20px; height: 20px; stroke-width: 1.5; vertical-align: middle; }
 .action-sheet-label { flex: 1; }
 .action-sheet-cancel {
-  background: rgba(255,255,255,0.96);
+  background: rgba(255,255,255,0.92);
   backdrop-filter: saturate(180%) blur(30px);
   -webkit-backdrop-filter: saturate(180%) blur(30px);
   border-radius: 20px;
@@ -305,14 +306,14 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   padding: 0 20px;
   display: flex; align-items: center; justify-content: center;
   text-align: center;
-  font-size: 22px; font-weight: 700;
+  font-size: 20px; font-weight: 700;
   color: var(--purple);
   cursor: pointer;
   transform: translateY(110%);
   transition: transform 0.32s cubic-bezier(0.215, 0.61, 0.355, 1) 0.04s, background 0.12s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 .action-sheet-bg.on .action-sheet-cancel { transform: translateY(0); }
-.action-sheet-cancel:active { background: rgba(60,60,67,0.08); }
+.action-sheet-cancel:active { background: rgba(60,60,67,0.06); }
 
 .toast { position: absolute; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #1a1a2e; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 200; opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -520,7 +521,6 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
 /* Lucide アイコン基本スタイル */
 [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: currentColor; flex-shrink: 0; display: inline-block; vertical-align: -3px; }
-.action-sheet-icon [data-lucide] { width: 24px; height: 24px; vertical-align: middle; }
 .tog-label [data-lucide], .ksec-hd [data-lucide], .sec [data-lucide] { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
 [data-lucide] + span, [data-lucide] + b { margin-left: 4px; }
 </style>
