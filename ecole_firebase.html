@@ -4587,8 +4587,24 @@ window.renderCaseSummary = function() {
     </div>`).join('') +
     `<div id="ai-result-area" style="margin:8px 12px"></div>`;
   btn.style.display = 'block';
-  btn.textContent = 'AIでまとめる（常体変換）';
   btn.disabled = false;
+
+  // 既存の保存済み AI 要約を表示（あれば）
+  const existingSummary = logs.find(function(l){ return l.type === 'case_summary' && l.user === user && l.date === date; });
+  if (existingSummary && existingSummary.summary) {
+    const resultArea = document.getElementById('ai-result-area');
+    if (resultArea) {
+      const ts = existingSummary.generatedAt || existingSummary.createdAt;
+      const tsLabel = ts ? new Date(ts).toLocaleString('ja-JP', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+      resultArea.innerHTML = '<div style="background:#EEEBFA;border:0.5px solid #5B4FD8;border-radius:10px;padding:14px;margin-top:8px">'
+        + '<div style="font-size:11px;font-weight:700;color:#5B4FD8;margin-bottom:8px">✓ 保存済み AI要約' + (tsLabel ? ' — ' + tsLabel : '') + '</div>'
+        + '<div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + (existingSummary.summary || '') + '</div>'
+        + '</div>';
+    }
+    btn.textContent = 'もう一度まとめる';
+  } else {
+    btn.textContent = 'AIでまとめる（常体変換）';
+  }
 }
 
 window.aiSummarizeCase = async function() {
@@ -4629,6 +4645,26 @@ window.aiSummarizeCase = async function() {
     // コピペボタンなし版
     resultArea.innerHTML = '<div style="background:#EEEBFA;border:0.5px solid #5B4FD8;border-radius:10px;padding:14px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#5B4FD8;margin-bottom:8px">✓ AIまとめ完了</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
     btn.textContent = 'もう一度まとめる'; btn.disabled = false;
+    // Firestore へ永続化（(user, date) で上書き保存、次回 PDF 出力時に利用）
+    try {
+      const existingSummaries = logs.filter(function(l){ return l.type === 'case_summary' && l.user === user && l.date === date; });
+      for (const ex of existingSummaries) {
+        await deleteDoc(doc(db, 'logs', ex.id));
+      }
+      await addDoc(collection(db, 'logs'), {
+        type: 'case_summary',
+        user: user,
+        date: date,
+        summary: result,
+        generatedAt: Date.now(),
+        generatedBy: currentStaff,
+        createdAt: Date.now()
+      });
+      showToast('AI要約を保存しました（次回 PDF 出力に反映）');
+    } catch (saveErr) {
+      console.warn('case_summary 保存失敗:', saveErr);
+      showToast('AI要約は表示されましたが保存に失敗しました');
+    }
   } catch(e) {
     console.error(e);
     showToast('AI処理失敗: ' + e.message);
