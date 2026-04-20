@@ -3340,16 +3340,124 @@ window.setPurchaseTab = function(tab) {
   if (tab==='new') {
     document.getElementById('p-applicant').textContent = currentStaff || '未設定';
     document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
+    initPurchaseFormListeners();
+    renumberPurchaseItems();
+    recalcPurchaseTotal();
   }
 }
 
 window.togglePCat = function(el) { el.classList.toggle('son'); }
+
 window.togglePTax = function(el) {
-  const wrap = el.closest('.p-item-row');
-  wrap.querySelectorAll('.tog[data-v]').forEach(t => {
-    if (['8%','10%','事業費','事務費','製造','販売','仕入','消耗','器具'].includes(t.dataset.v)) t.classList.remove('son');
-  });
+  const row = el.closest('.p-item-row');
+  if (!row) return;
+  row.querySelectorAll('.p-tax').forEach(t => t.classList.remove('son'));
   el.classList.add('son');
+  recalcPurchaseTotal();
+}
+
+window.togglePUsage = function(el) {
+  const row = el.closest('.p-item-row');
+  if (!row) return;
+  row.querySelectorAll('.p-usage').forEach(t => t.classList.remove('son'));
+  el.classList.add('son');
+}
+
+window.addPurchaseItem = function() {
+  const wrap = document.getElementById('p-items-wrap');
+  if (!wrap) return;
+  const rows = wrap.querySelectorAll('.p-item-row');
+  if (rows.length >= 5) return;
+  const clone = rows[0].cloneNode(true);
+  clone.querySelector('.p-item-name').value = '';
+  clone.querySelector('.p-item-qty').value = 1;
+  clone.querySelector('.p-item-unit').value = 0;
+  clone.querySelector('.p-item-purpose').value = '';
+  clone.querySelectorAll('.p-tax').forEach(t => t.classList.toggle('son', t.dataset.v === '10%'));
+  clone.querySelectorAll('.p-usage').forEach(t => t.classList.remove('son'));
+  wrap.appendChild(clone);
+  renumberPurchaseItems();
+  recalcPurchaseTotal();
+}
+
+window.removePurchaseItem = function(btn) {
+  const wrap = document.getElementById('p-items-wrap');
+  if (!wrap) return;
+  const rows = wrap.querySelectorAll('.p-item-row');
+  if (rows.length <= 1) return;
+  btn.closest('.p-item-row').remove();
+  renumberPurchaseItems();
+  recalcPurchaseTotal();
+}
+
+function renumberPurchaseItems() {
+  const wrap = document.getElementById('p-items-wrap');
+  if (!wrap) return;
+  const rows = wrap.querySelectorAll('.p-item-row');
+  const onlyOne = rows.length <= 1;
+  rows.forEach((row, i) => {
+    const label = row.querySelector('.p-item-label');
+    if (label) label.textContent = '品目' + (i + 1);
+    const del = row.querySelector('.p-item-del');
+    if (del) {
+      del.disabled = onlyOne;
+      del.style.opacity = onlyOne ? '0.35' : '1';
+      del.style.cursor = onlyOne ? 'not-allowed' : 'pointer';
+    }
+  });
+  const addBtn = document.getElementById('p-add-item-btn');
+  if (addBtn) {
+    const full = rows.length >= 5;
+    addBtn.disabled = full;
+    addBtn.style.opacity = full ? '0.45' : '1';
+    addBtn.style.cursor = full ? 'not-allowed' : 'pointer';
+    addBtn.textContent = full ? '品目は最大5つまでです' : '＋品目追加';
+  }
+}
+
+function recalcPurchaseTotal() {
+  const rows = document.querySelectorAll('#p-items-wrap .p-item-row');
+  let sub = 0, total = 0;
+  rows.forEach(row => {
+    const qty = parseFloat(row.querySelector('.p-item-qty')?.value) || 0;
+    const unit = parseFloat(row.querySelector('.p-item-unit')?.value) || 0;
+    const taxEl = row.querySelector('.p-tax.son');
+    const rate = taxEl && taxEl.dataset.v === '8%' ? 0.08 : 0.10;
+    const lineSub = qty * unit;
+    sub += lineSub;
+    total += Math.round(lineSub * (1 + rate));
+  });
+  const subEl = document.getElementById('p-subtotal');
+  const totEl = document.getElementById('p-total');
+  if (subEl) subEl.textContent = Math.round(sub).toLocaleString();
+  if (totEl) totEl.textContent = total.toLocaleString();
+}
+
+function resetPurchaseForm() {
+  const wrap = document.getElementById('p-items-wrap');
+  if (!wrap) return;
+  const rows = wrap.querySelectorAll('.p-item-row');
+  for (let i = rows.length - 1; i > 0; i--) rows[i].remove();
+  const first = wrap.querySelector('.p-item-row');
+  if (first) {
+    first.querySelector('.p-item-name').value = '';
+    first.querySelector('.p-item-qty').value = 1;
+    first.querySelector('.p-item-unit').value = 0;
+    first.querySelector('.p-item-purpose').value = '';
+    first.querySelectorAll('.p-tax').forEach(t => t.classList.toggle('son', t.dataset.v === '10%'));
+    first.querySelectorAll('.p-usage').forEach(t => t.classList.remove('son'));
+  }
+  document.querySelectorAll('#p-category-wrap .tog.son').forEach(t => t.classList.remove('son'));
+  renumberPurchaseItems();
+  recalcPurchaseTotal();
+}
+window.resetPurchaseForm = resetPurchaseForm;
+
+function initPurchaseFormListeners() {
+  const wrap = document.getElementById('p-items-wrap');
+  if (!wrap || wrap.dataset.listenerAttached === '1') return;
+  wrap.addEventListener('input', recalcPurchaseTotal);
+  wrap.dataset.listenerAttached = '1';
 }
 
 window.submitPurchase1 = async function() {
