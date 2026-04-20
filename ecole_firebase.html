@@ -354,6 +354,14 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .metric-unit { font-size: 13px; color: var(--text-sub); margin-left: 4px; font-weight: 500; }
 .kcard-count { font-size: 34px; font-weight: 700; color: var(--purple); line-height: 1; letter-spacing: -0.02em; }
 .kcard-count span { font-size: 13px; color: var(--text-sub); font-weight: 500; margin-left: 4px; }
+/* ぱぁとなぁグループカード（Apple 連絡先風、上部に細い紫アクセント） */
+.kcard-paatonaa { border-top: 2px solid transparent; }
+.kcard-paatonaa .kcard-hd { padding: 20px 24px 14px; background: var(--surface); border-bottom: none; }
+.kcard-paatonaa .kcard-title { font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.kcard-paatonaa .kcard-count { font-size: 28px; color: var(--purple); }
+.kcard-paatonaa .kcard-count span { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+.kcard-paatonaa .krow { padding: 12px 24px; border-bottom: 0.5px solid rgba(60,60,67,0.04); }
+.kcard-paatonaa .krow:last-child { border-bottom: none; padding-bottom: 18px; }
 .krow { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 0.5px solid var(--separator); }
 .krow:last-child { border-bottom: none; }
 .krow.abs { opacity: .4; }
@@ -4815,18 +4823,14 @@ function renderKyushoku() {
         html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（夕食）</div>';
         if (true) {
           const hanColors = {'紬男子':'#A89BF3','紬女子':'#5B4FD8','ひまわり':'#3D2FB0'};
-          const hanShort = {'紬男子':'紬男','紬女子':'紬女','ひまわり':'ひま'};
           ['紬男子','紬女子','ひまわり'].forEach(function(hh){
             const rowsHtml = dinnerRowsMap[hh];
             if (rowsHtml && rowsHtml.length > 0) {
               const count = (rowsHtml.match(/class="krow"/g)||[]).length;
               const c = hanColors[hh];
-              const short = hanShort[hh];
-              html += '<div class="kcard" style="border-left:4px solid '+c+'">'
+              html += '<div class="kcard kcard-paatonaa" style="border-top-color:'+c+'">'
                 + '<div class="kcard-hd">'
-                + '<span class="kcard-title" style="color:'+c+';display:inline-flex;align-items:center;gap:8px"><i data-lucide="moon"></i> '+hh
-                + '<span style="background:'+c+';color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.02em">'+short+'</span>'
-                + '</span>'
+                + '<span class="kcard-title">'+hh+'</span>'
                 + '<div><span class="kcard-count">' + count + '<span>名</span></span></div>'
                 + '</div>' + rowsHtml + '</div>';
             }
