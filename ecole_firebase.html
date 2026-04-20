@@ -12,7 +12,13 @@
   /* メインカラー（iOS風 暗め紫） */
   --purple: #5B4FD8;
   --purple-light: #EEEBFA;
+  --purple-2: #8B7FE8;
   --purple-dark: #4A3FBF;
+
+  /* データ識別用 3 段階紫（事業所/班 等） */
+  --ident-1: #A89BF3;
+  --ident-2: #5B4FD8;
+  --ident-3: #3D2FB0;
 
   /* 背景系（iOS systemGroupedBackground 系） */
   --bg: #F5F5F7;
@@ -21,24 +27,24 @@
   --fill-chip: #F2F2F7;
 
   /* テキスト（iOS label 階層） */
-  --text: #000000;
+  --text: #111111;
   --text-sub: #8E8E93;
-  --text-mute: #C7C7CC;
+  --text-mute: #8E8E93;
   --chip-text: #6E6E73;
 
   /* 仕切り線（カード内の薄い区切り用、カード自体は枠線なし） */
   --border: rgba(60,60,67,0.10);
   --separator: rgba(60,60,67,0.08);
 
-  /* セマンティックカラー（iOS system colors。背景フィル廃止→左バー/小アイコン限定で使用） */
+  /* セマンティックカラー（Phase2で紫統一。--red-*/--coral は destructive/error 用に残置） */
   --red-light: #FFE5E4;
   --red-dark: #FF3B30;
-  --amber-light: #FFF4E5;
-  --amber-dark: #FF9500;
-  --blue-light: #E5F1FF;
-  --blue-dark: #007AFF;
-  --green-light: #E8F8EC;
-  --green-dark: #34C759;
+  --amber-light: var(--purple-light);
+  --amber-dark: var(--purple);
+  --blue-light: var(--purple-light);
+  --blue-dark: var(--purple-dark);
+  --green-light: var(--purple-light);
+  --green-dark: var(--purple);
   --gray-light: #E5E5EA;
   --gray-dark: #6E6E73;
   --coral: #FF3B30;
@@ -113,8 +119,8 @@ html, body {
 .pname { font-size: 13px; color: var(--text); }
 .psub { font-size: 10px; color: var(--text-sub); margin-top: 1px; }
 .stag { font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 500; white-space: nowrap; }
-.tok { background: var(--green-light); color: var(--green-dark); }
-.tno { background: var(--red-light); color: var(--red-dark); }
+.tok { background: var(--purple-light); color: var(--purple); }
+.tno { background: var(--fill-chip); color: var(--text-sub); }
 .tabs { background: var(--gray-light); color: var(--gray-dark); }
 .bnav {
   position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
@@ -300,7 +306,7 @@ textarea:focus { border-color: var(--purple); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-sub); font-size: 13px; }
 .empty { text-align: center; padding: 48px 24px; color: var(--text-sub); font-size: 14px; }
-.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #1D9E75; display: inline-block; margin-left: 6px; vertical-align: middle; }
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-sub); display: inline-block; margin-left: 6px; vertical-align: middle; }
 
 .phase-tabs { display: flex; gap: 4px; padding: 4px; background: var(--fill-chip); margin: 12px 16px 0; border-radius: var(--radius-chip); }
 .ptab { flex: 1; text-align: center; padding: 10px 12px; border-radius: calc(var(--radius-chip) - 4px); font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--chip-text); border: none; transition: all .15s; }
@@ -350,8 +356,8 @@ textarea:focus { border-color: var(--purple); }
 .abs-detail { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
 .abs-tag { font-size: 11px; padding: 3px 10px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
 .abs-tag.欠席 { background: var(--gray-light); color: var(--gray-dark); }
-.abs-tag.遅刻 { background: var(--amber-light); color: var(--amber-dark); }
-.abs-tag.早退 { background: var(--blue-light); color: var(--blue-dark); }
+.abs-tag.遅刻 { background: var(--purple-light); color: var(--purple); }
+.abs-tag.早退 { background: rgba(91,79,216,0.08); color: var(--purple-dark); }
 .abs-summary { margin: 8px 12px; display: flex; gap: 8px; }
 .abs-chip { flex: 1; text-align: center; padding: 10px 6px; border-radius: var(--radius-sm); border: 0.5px solid var(--border); }
 .abs-chip-num { font-size: 22px; font-weight: 700; color: var(--text); }
@@ -1130,7 +1136,7 @@ const MASTER = {
       pmOnly: []
     },
     'マイクロ': {
-      color: '#81C784',
+      color: '#7C6FE8',
       users: ['土屋佳世','国澤磨世','尾崎元哉','隅田潤','彦坂珠枝','彦坂純奈','遠山梓','坂井夏恋','荒津美智子','伊藤憲孝','吉村史帆里','菅沼陽','権田和紀','大木晴充','小久保俊哉','奥平日出男','市古麻美','川野洋文'],
       pmOnly: []
     },
@@ -1577,7 +1583,7 @@ window.renderAdminPanel = function() {
     return;
   }
   const roleLabels = {3:'管理者', 2:'上司', 1:'一般'};
-  const roleColors = {3:'#E57373', 2:'#FFB74D', 1:'#81C784'};
+  const roleColors = {3:'#FF3B30', 2:'#6E6E73', 1:'#8E8E93'};
   
   // 事業所別にグループ化
   const byJigyosho = {};
@@ -1620,7 +1626,7 @@ window.printList = function() {
   const title = 'École 送迎一覧　' + fmtDate(date);
   let body = '';
   ['朝','夕'].forEach(function(time) {
-    body += '<h2 style="background:#483D8B;color:#fff;padding:8px 12px;margin:16px 0 8px;border-radius:6px">' + time + ' 送迎</h2>';
+    body += '<h2 style="background:#5B4FD8;color:#fff;padding:8px 12px;margin:16px 0 8px;border-radius:6px">' + time + ' 送迎</h2>';
     for (const [binName, binInfo] of Object.entries(MASTER.routes)) {
       const dow = new Date(date+'T00:00:00').getDay();
       const allUsers = binInfo.users.concat(time==='夕' && binInfo.pmOnly ? binInfo.pmOnly : []);
@@ -1639,7 +1645,7 @@ window.printList = function() {
         if (status === '乗車') list.push(u);
       }
       if (list.length) {
-        body += '<div style="margin:6px 0 12px;padding:6px 10px;border-left:4px solid #483D8B"><b>' + binName + '（' + list.length + '名）</b>：' + list.join('・') + '</div>';
+        body += '<div style="margin:6px 0 12px;padding:6px 10px;border-left:4px solid #5B4FD8"><b>' + binName + '（' + list.length + '名）</b>：' + list.join('・') + '</div>';
       }
     }
   });
@@ -1686,8 +1692,8 @@ window.printCaseMonthlyAll = function(month) {
     if (!users.length) return;
     const pageBreak = hanIdx > 0 ? 'page-break-before:always;' : '';
     body += '<div style="' + pageBreak + '">';
-    body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #483D8B;padding-bottom:6px;margin-bottom:10px">';
-    body += '<h1 style="margin:0;font-size:18px;color:#483D8B">R' + (year-2018) + '年度' + mm + '月ケース記録【' + han + '】</h1>';
+    body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #5B4FD8;padding-bottom:6px;margin-bottom:10px">';
+    body += '<h1 style="margin:0;font-size:18px;color:#5B4FD8">R' + (year-2018) + '年度' + mm + '月ケース記録【' + han + '】</h1>';
     body += '<div style="font-size:10px;color:#666">作成：' + currentStaff + '</div>';
     body += '</div>';
     body += '<table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed">';
@@ -1732,8 +1738,8 @@ window.printCaseMonthlyOne = function(month, user) {
   const dows = ['日','月','火','水','木','金','土'];
   
   let body = '<div style="padding:10px 0">';
-  body += '<div style="border-bottom:2px solid #483D8B;padding-bottom:6px;margin-bottom:14px">';
-  body += '<h1 style="margin:0;font-size:20px;color:#483D8B">ケース記録　月次レポート</h1>';
+  body += '<div style="border-bottom:2px solid #5B4FD8;padding-bottom:6px;margin-bottom:14px">';
+  body += '<h1 style="margin:0;font-size:20px;color:#5B4FD8">ケース記録　月次レポート</h1>';
   body += '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#666">';
   body += '<div>期間：R' + (year-2018) + '年度' + mm + '月　／　記録件数：' + userLogs.length + '件</div>';
   body += '<div>作成：' + currentStaff + '</div>';
@@ -1788,7 +1794,7 @@ window.printTransportListMonthly = function() {
     const dow = new Date(dateStr+'T00:00:00').getDay();
     const dowStr = ['日','月','火','水','木','金','土'][dow];
     if (dow === 0) continue;
-    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px;font-size:13px">' + mm + '/' + d + '（' + dowStr + '）</h2>';
+    body += '<h2 style="background:#5B4FD8;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px;font-size:13px">' + mm + '/' + d + '（' + dowStr + '）</h2>';
     ['朝','夕'].forEach(function(time) {
       body += '<div style="font-size:11px;font-weight:700;margin:6px 0 3px">' + time + '送迎</div>';
       for (const [binName, binInfo] of Object.entries(MASTER.routes)) {
@@ -1868,7 +1874,7 @@ window.printDistanceMonthly = function() {
   let body = '<h1 style="text-align:center">走行距離月報</h1>';
   body += '<p style="text-align:center">期間：' + month + '　／　合計：' + grandTotal + ' km</p>';
   Object.keys(byCar).sort().forEach(function(car) {
-    body += '<h2 style="background:#483D8B;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px">' + car + '：' + byCar[car].total + ' km</h2>';
+    body += '<h2 style="background:#5B4FD8;color:#fff;padding:6px 10px;margin:12px 0 6px;border-radius:4px">' + car + '：' + byCar[car].total + ' km</h2>';
     body += '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#EEE"><th style="border:1px solid #999;padding:4px">用途</th><th style="border:1px solid #999;padding:4px;width:100px">距離</th></tr>';
     Object.keys(byCar[car].details).sort().forEach(function(key) {
       body += '<tr><td style="border:1px solid #999;padding:4px">' + key + '</td><td style="border:1px solid #999;padding:4px;text-align:right">' + byCar[car].details[key] + ' km</td></tr>';
@@ -2187,10 +2193,10 @@ window.renderAlcoholInput = function() {
       const rec = todayLogs[s];
       const done = rec && (rec.am !== '' || rec.pm !== '');
       const c = avColor(s);
-      html += '<div style="display:flex;align-items:center;padding:6px 10px;background:' + (done?'#E8F5E9':'#FFF3E0') + ';border-radius:8px;margin-bottom:4px;font-size:12px">';
+      html += '<div style="display:flex;align-items:center;padding:6px 10px;background:' + (done?'#EEEBFA':'#F2F2F7') + ';border-radius:8px;margin-bottom:4px;font-size:12px">';
       html += '<div class="av" style="background:' + c[0] + ';color:' + c[1] + ';width:24px;height:24px;font-size:10px">' + s.slice(0,2) + '</div>';
       html += '<span style="margin-left:8px;flex:1;font-weight:600">' + s + '</span>';
-      if (done) html += '<span style="color:#2E7D32">✓ 朝' + (rec.am||'-') + ' / 夕' + (rec.pm||'-') + '</span>';
+      if (done) html += '<span style="color:#5B4FD8">✓ 朝' + (rec.am||'-') + ' / 夕' + (rec.pm||'-') + '</span>';
       else html += '<span style="color:#E65100">未記録</span>';
       html += '</div>';
     });
@@ -2651,8 +2657,8 @@ window.renderMasterList = function() {
   html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🍱 給食マスター</div>';
   if (typeof KYUSHOKU !== 'undefined') {
     for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
-      html += '<div style="background:#E8F5E9;border-radius:8px;padding:10px;margin-bottom:6px">';
-      html += '<div style="font-weight:700;color:#2E7D32;margin-bottom:6px">🍙 ' + jigyosho + '</div>';
+      html += '<div style="background:#EEEBFA;border-radius:8px;padding:10px;margin-bottom:6px">';
+      html += '<div style="font-weight:700;color:#5B4FD8;margin-bottom:6px">🍙 ' + jigyosho + '</div>';
       for (const [han, data] of Object.entries(hans)) {
         const conditional = Object.entries(data.conditional || {});
         const totalNames = data.users.length + conditional.length;
@@ -2676,7 +2682,7 @@ window.renderMasterList = function() {
     for (const [group, data] of Object.entries(STAFF_KYUSHOKU)) {
       const conditional = Object.entries(data.conditional || {});
       const totalNames = data.users.length + conditional.length;
-      html += '<div style="background:#FFF3E0;border-radius:8px;padding:10px;margin-bottom:6px">';
+      html += '<div style="background:#F2F2F7;border-radius:8px;padding:10px;margin-bottom:6px">';
       html += '<div style="font-weight:700;color:#E65100;margin-bottom:4px">👤 ' + group + '（' + totalNames + '名）</div>';
       html += '<div style="margin-left:10px;font-size:11px;color:#555;margin-bottom:4px">常勤：' + data.users.join('・') + '</div>';
       conditional.forEach(function([name, arr]) {
@@ -2694,7 +2700,7 @@ window.renderMasterList = function() {
   html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">📍 給食場所の選択肢</div>';
   if (typeof MEAL_LOCATIONS !== 'undefined') {
     html += '<div style="background:#E1F5FE;border-radius:8px;padding:10px">';
-    html += MEAL_LOCATIONS.map(function(l){ return '<span style="display:inline-block;background:#fff;border:0.5px solid #0288D1;padding:4px 10px;border-radius:14px;font-size:12px;margin:3px;color:#01579B;font-weight:700">' + l + '</span>'; }).join('');
+    html += MEAL_LOCATIONS.map(function(l){ return '<span style="display:inline-block;background:#fff;border:0.5px solid #5B4FD8;padding:4px 10px;border-radius:14px;font-size:12px;margin:3px;color:#4A3FBF;font-weight:700">' + l + '</span>'; }).join('');
     html += '</div>';
   }
   html += '</div>';
@@ -2985,7 +2991,7 @@ window.renderListByAffiliation = function() {
     return;
   }
   var phase = currentPhase;
-  var colors = {"童里夢":"#483D8B","奏楽":"#F39C12","ぱぁとなぁ":"#E91E63"};
+  var colors = {"童里夢":"#A89BF3","奏楽":"#5B4FD8","ぱぁとなぁ":"#3D2FB0"};
   var h = "";
   for (var jig in USER_MASTER) {
     var hans = USER_MASTER[jig];
@@ -4346,7 +4352,7 @@ window.aiSummarizeCase = async function() {
     if (!data.candidates || !data.candidates[0]) throw new Error('候補なし');
     const result = data.candidates[0].content.parts[0].text;
     // コピペボタンなし版
-    resultArea.innerHTML = '<div style="background:#E8F5E9;border:0.5px solid #81C784;border-radius:10px;padding:14px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#2E7D32;margin-bottom:8px">✓ AIまとめ完了</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
+    resultArea.innerHTML = '<div style="background:#EEEBFA;border:0.5px solid #5B4FD8;border-radius:10px;padding:14px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#5B4FD8;margin-bottom:8px">✓ AIまとめ完了</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap">' + result + '</div></div>';
     btn.textContent = 'もう一度まとめる'; btn.disabled = false;
   } catch(e) {
     console.error(e);
@@ -4696,7 +4702,7 @@ function renderKyushoku() {
         // 給食場所変更があるかチェック
         const mealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name && !l.isStaff);
         const statusText = isAbs ? '欠席' : (mealChg ? '→' + mealChg.location : '給食あり');
-        const statusColor = isAbs ? '' : mealChg ? 'color:#F57C00;font-weight:700;' : '';
+        const statusColor = isAbs ? '' : mealChg ? 'color:#5B4FD8;font-weight:700;' : '';
         rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
           <span class="krow-name" style="flex:1">${name}</span>
           <span class="krow-status" style="${statusColor}">${statusText}</span>
@@ -4737,7 +4743,7 @@ function renderKyushoku() {
       // 職員の給食場所変更チェック
       const staffMealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name && l.isStaff === true);
       const staffStatus = isAbs ? (ls&&ls.absType?ls.absType:'欠席') : (staffMealChg ? '→' + staffMealChg.location : '給食あり');
-      const staffColor = isAbs ? '' : staffMealChg ? 'color:#F57C00;font-weight:700;' : '';
+      const staffColor = isAbs ? '' : staffMealChg ? 'color:#5B4FD8;font-weight:700;' : '';
       rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
         <span class="krow-name" style="flex:1">${name}</span>
         <span class="krow-status" style="${staffColor}">${staffStatus}</span>
@@ -4773,7 +4779,23 @@ function renderKyushoku() {
       if (true) {
         html += '<div class="ksec-hd" style="margin-top:16px">ぱぁとなぁ（夕食）</div>';
         if (true) {
-          const hanColors = {'紬男子':'#0288D1','紬女子':'#E91E63','ひまわり':'#FBC02D'}; ['紬男子','紬女子','ひまわり'].forEach(function(hh){ const rowsHtml = dinnerRowsMap[hh]; if (rowsHtml && rowsHtml.length > 0) { const count = (rowsHtml.match(/class="krow"/g)||[]).length; const c = hanColors[hh]; html += '<div class="kcard" style="border-left:4px solid '+c+'"><div class="kcard-hd"><span class="kcard-title" style="color:'+c+'">🌙 '+hh+'</span><div><span class="kcard-count">' + count + '<span>名</span></span></div></div>' + rowsHtml + '</div>'; } });
+          const hanColors = {'紬男子':'#A89BF3','紬女子':'#5B4FD8','ひまわり':'#3D2FB0'};
+          const hanShort = {'紬男子':'紬男','紬女子':'紬女','ひまわり':'ひま'};
+          ['紬男子','紬女子','ひまわり'].forEach(function(hh){
+            const rowsHtml = dinnerRowsMap[hh];
+            if (rowsHtml && rowsHtml.length > 0) {
+              const count = (rowsHtml.match(/class="krow"/g)||[]).length;
+              const c = hanColors[hh];
+              const short = hanShort[hh];
+              html += '<div class="kcard" style="border-left:4px solid '+c+'">'
+                + '<div class="kcard-hd">'
+                + '<span class="kcard-title" style="color:'+c+';display:inline-flex;align-items:center;gap:8px">🌙 '+hh
+                + '<span style="background:'+c+';color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.02em">'+short+'</span>'
+                + '</span>'
+                + '<div><span class="kcard-count">' + count + '<span>名</span></span></div>'
+                + '</div>' + rowsHtml + '</div>';
+            }
+          });
         }
         
       }
