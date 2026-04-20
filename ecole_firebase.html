@@ -3357,10 +3357,7 @@ window.togglePTax = function(el) {
 }
 
 window.togglePUsage = function(el) {
-  const row = el.closest('.p-item-row');
-  if (!row) return;
-  row.querySelectorAll('.p-usage').forEach(t => t.classList.remove('son'));
-  el.classList.add('son');
+  el.classList.toggle('son');
 }
 
 window.addPurchaseItem = function() {
@@ -3474,13 +3471,14 @@ window.submitPurchase1 = async function() {
     const qty = parseInt(row.querySelector('.p-item-qty').value) || 0;
     const unitPrice = parseInt(row.querySelector('.p-item-unit').value);
     const taxEl = row.querySelector('.p-tax.son');
-    const usageEl = row.querySelector('.p-usage.son');
+    const usageEls = row.querySelectorAll('.p-usage.son');
     const purpose = row.querySelector('.p-item-purpose').value.trim();
     if (qty < 1) { invalidMsg = `「${name}」の数量は1以上にしてください`; break; }
     if (isNaN(unitPrice) || unitPrice < 0) { invalidMsg = `「${name}」の単価を0以上で入力してください`; break; }
     if (!taxEl) { invalidMsg = `「${name}」の税を選んでください`; break; }
-    if (!usageEl) { invalidMsg = `「${name}」の用途を選んでください`; break; }
-    items.push({ name, qty, unitPrice, tax: taxEl.dataset.v, usage: usageEl.dataset.v, purpose });
+    if (usageEls.length === 0) { invalidMsg = `「${name}」の用途を1つ以上選んでください`; break; }
+    const usage = [...usageEls].map(e => e.dataset.v);
+    items.push({ name, qty, unitPrice, tax: taxEl.dataset.v, usage, purpose });
   }
   if (invalidMsg) { showToast(invalidMsg); return; }
 
@@ -3538,7 +3536,7 @@ function renderPurchaseItemsSummary(p) {
         <td style="padding:3px 4px;text-align:right">${qty}</td>
         <td style="padding:3px 4px;text-align:right">${unit.toLocaleString()}</td>
         <td style="padding:3px 4px;text-align:center">${i.tax || ''}</td>
-        <td style="padding:3px 4px;text-align:center">${i.usage || ''}</td>
+        <td style="padding:3px 4px;text-align:center">${Array.isArray(i.usage) ? i.usage.join('・') : (i.usage || '')}</td>
         <td style="padding:3px 4px;text-align:right">${lineTotal.toLocaleString()}</td>
       </tr>${purposeRow}`;
     }).join('');
@@ -3616,7 +3614,7 @@ window.startStep2 = function(id) {
     const editRows = p.itemsV2
       ? (p.items||[]).map((item,i) => `
           <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
-            <div class="frow"><span class="flbl">${item.name}（数量${item.qty||1} / ${item.tax||'10%'} / ${item.usage||''}）</span></div>
+            <div class="frow"><span class="flbl">${item.name}（数量${item.qty||1} / ${item.tax||'10%'} / ${Array.isArray(item.usage) ? item.usage.join('・') : (item.usage||'')}）</span></div>
             <div class="frow"><span class="flbl">実際の単価</span><input type="number" id="step2-unit-${i}" value="${item.unitPrice||0}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
           </div>`).join('')
       : (p.items||[]).map((item,i) => `
