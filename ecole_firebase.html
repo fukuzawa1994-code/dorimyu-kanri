@@ -2422,7 +2422,8 @@ window.doStartSubmit = async function() {
     await addDoc(collection(db, 'logs'), {
       type: 'start_kyushoku', date: date,
       users: users, staff: staff, nextLunch: next, memo: memo,
-      recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now()
+      recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now(),
+      isNew: true
     });
     showToast('✓ レストランに連絡しました');
     // フォームクリア
@@ -2579,7 +2580,8 @@ window.doStartBulkSave = async function() {
         await addDoc(collection(db, 'logs'), {
           type: 'start_kyushoku', date: date,
           users: u, staff: s, nextLunch: n, memo: m,
-          recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now()
+          recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now(),
+          isNew: true
         });
         saved++;
       }
@@ -2774,10 +2776,17 @@ window.doSubmit = async function() {
 // ── 通知 ──
 function renderNotif() {
   const body = document.getElementById('notif-body');
-  const notifLogs = logs.filter(l => l.user && l.bin && !l.type);
+  const notifLogs = logs.filter(l => (l.user && l.bin && !l.type) || l.type === 'start_kyushoku');
   if (!notifLogs.length) { body.innerHTML = '<div class="empty">通知はありません</div>'; return; }
   body.innerHTML = notifLogs.slice(0,40).map(l => {
     const isNew = l.isNew && !readNotif.includes(l.id);
+    if (l.type === 'start_kyushoku') {
+      return `<div class="hrow">
+        <div class="${isNew?'nnew':'nold'}">${l.ts||''}${isNew?' · 新着':''}</div>
+        <div class="hname">🍱 すたぁと給食連絡（${l.date||''}）</div>
+        <div class="hdet">利用者${l.users||0}名 · 職員${l.staff||0}名 · 翌日昼${l.nextLunch||0}名${l.memo?' ／ '+l.memo:''}</div>
+      </div>`;
+    }
     const absText = l.abs ? '終日欠席' : l.am==='利用しない' ? '朝：利用しない' : '朝夕：乗車';
     return `<div class="hrow">
       <div class="${isNew?'nnew':'nold'}">${l.ts||''}${isNew?' · 新着':''}</div>
