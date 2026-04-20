@@ -2043,7 +2043,7 @@ window.submitMealChange = async function(targetName, isStaff) {
   
   try {
     // 同じ人・同じ日の既存の給食変更申請を削除（上書き）
-    const existing = logs.filter(function(l){ return l.type==='meal_change' && l.date===date && l.target===targetName; });
+    const existing = logs.filter(function(l){ return l.type==='meal_change' && l.date===date && l.target===targetName && (!!l.isStaff === !!isStaff); });
     for (const ex of existing) {
       await deleteDoc(doc(db, 'logs', ex.id));
     }
@@ -2087,7 +2087,7 @@ window.getMealPlan = function(userName, dateStr) {
   const absType = absLog ? (absLog.absType || '欠席') : null;
   
   // 給食場所変更申請
-  const mealChg = logs.find(function(l){ return l.type==='meal_change' && l.date===dateStr && l.target===userName; });
+  const mealChg = logs.find(function(l){ return l.type==='meal_change' && l.date===dateStr && l.target===userName && !l.isStaff; });
   
   // 日付情報
   const d = new Date(dateStr+'T00:00:00');
@@ -4127,7 +4127,7 @@ function renderKyushoku() {
         const isAbs = ls ? (ls.abs || ls.kyushoku==='なし') : false;
         if (!isAbs) count++;
         // 給食場所変更があるかチェック
-        const mealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name);
+        const mealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name && !l.isStaff);
         const statusText = isAbs ? '欠席' : (mealChg ? '→' + mealChg.location : '給食あり');
         const statusColor = isAbs ? '' : mealChg ? 'color:#F57C00;font-weight:700;' : '';
         rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
@@ -4168,7 +4168,7 @@ function renderKyushoku() {
       const isAbs = ls ? (ls.abs || ls.kyushoku==='なし') : false;
       if (!isAbs) count++;
       // 職員の給食場所変更チェック
-      const staffMealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name);
+      const staffMealChg = logs.find(l => l.type==='meal_change' && l.date===kyushokuDate && l.target===name && l.isStaff === true);
       const staffStatus = isAbs ? (ls&&ls.absType?ls.absType:'欠席') : (staffMealChg ? '→' + staffMealChg.location : '給食あり');
       const staffColor = isAbs ? '' : staffMealChg ? 'color:#F57C00;font-weight:700;' : '';
       rows += `<div class="krow${isAbs?' abs':''}" style="display:flex;align-items:center;gap:6px">
