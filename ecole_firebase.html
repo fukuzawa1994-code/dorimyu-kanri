@@ -1977,18 +1977,20 @@ window.printCaseMonthlyOne = function(month, user) {
     }
   });
 
-  // 承認欄（維持）
-  body += '<table style="width:100%;border-collapse:collapse;margin-top:34px;font-size:11px;page-break-inside:avoid"><tr>';
+  // 承認欄（page-break 対策 強化版: div wrapper + break-inside + clear）
+  body += '<div style="margin-top:40px;page-break-inside:avoid;break-inside:avoid;clear:both;display:block;width:100%">';
+  body += '<table style="width:100%;border-collapse:collapse;font-size:11px;page-break-inside:avoid;break-inside:avoid"><tbody style="page-break-inside:avoid;break-inside:avoid"><tr style="page-break-inside:avoid;break-inside:avoid">';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">記録者</td>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">主任</td>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">サービス管理責任者</td>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">管理者</td>';
-  body += '</tr><tr>';
+  body += '</tr><tr style="page-break-inside:avoid;break-inside:avoid">';
   body += '<td style="border:1px solid #666;padding:18px">　</td>';
   body += '<td style="border:1px solid #666;padding:18px">　</td>';
   body += '<td style="border:1px solid #666;padding:18px">　</td>';
   body += '<td style="border:1px solid #666;padding:18px">　</td>';
-  body += '</tr></table>';
+  body += '</tr></tbody></table>';
+  body += '</div>';
   body += '</div>';
   openPrintWindow('ケース記録月報 '+user+' '+month, body);
 };
@@ -2121,7 +2123,7 @@ window.openPrintWindow = function(title, bodyHtml) {
   const doc = iframe.contentDocument || iframe.contentWindow.document;
   doc.open();
   doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title+'</title>');
-  doc.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:10mm;color:#333;margin:0}h1{font-size:16px;margin:0 0 6px}h2{font-size:13px;margin:8px 0 4px}table{width:100%;border-collapse:collapse;page-break-inside:auto}tr{page-break-inside:avoid}td,th{padding:3px;border:1px solid #666;vertical-align:top}@media print{@page{size:A4 landscape;margin:10mm}}</style>');
+  doc.write('<style>body{font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;padding:10mm;color:#333;margin:0}h1{font-size:16px;margin:0 0 6px}h2{font-size:13px;margin:8px 0 4px}table{width:100%;border-collapse:collapse;page-break-inside:auto;break-inside:auto}tr{page-break-inside:avoid;break-inside:avoid}td,th{padding:3px;border:1px solid #666;vertical-align:top}@media print{@page{size:A4 landscape;margin:10mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>');
   doc.write('</head><body>'+bodyHtml+'</body></html>');
   doc.close();
   setTimeout(function() {
