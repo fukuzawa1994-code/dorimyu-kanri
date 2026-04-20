@@ -556,10 +556,19 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
         </div>
         <button class="sbtn" onclick="doStartSubmit()" style="width:100%;padding:14px;margin-top:8px">レストランに連絡する</button>
       </div>
-      <!-- 一覧表示 -->
-      <div style="padding:10px 14px 80px">
-        <div style="font-size:12px;font-weight:700;color:var(--purple);margin:14px 0 8px">📋 過去の申請履歴</div>
-        <div id="start-history-body"></div>
+      <!-- 月カレンダー 一括入力 -->
+      <div style="padding:14px;padding-bottom:80px">
+        <div class="fsec">
+          <span class="tog-label">📅 月単位 一括入力（変更のある日だけ保存）</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0">
+            <button class="cal-nav" onclick="startMonthMove(-1)">‹</button>
+            <span id="start-month-label" style="font-weight:700;font-size:14px;color:var(--purple)"></span>
+            <button class="cal-nav" onclick="startMonthMove(1)">›</button>
+          </div>
+          <div id="start-month-rows"></div>
+        </div>
+        <button class="sbtn" onclick="doStartBulkSave()" style="width:100%;padding:12px;margin-top:8px">💾 変更のある日だけ保存</button>
+        <div id="start-dirty-count" style="font-size:11px;color:var(--gray-dark);text-align:center;margin-top:4px"></div>
       </div>
     </div>
 
