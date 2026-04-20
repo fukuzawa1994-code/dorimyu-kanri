@@ -1281,6 +1281,7 @@ window.goScr = function(s) {
   }
   if (s==='admin') { renderAdminPanel(); }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
+  if (window.refreshIcons) window.refreshIcons();
   updateDot();
 }
 
@@ -1955,22 +1956,22 @@ window.showSubMenu = function(type) {
 
   const menus = {
     'record': { title: '記録メニュー', items: [
-      { icon: '📋', label: 'ケース記録', action: "goScr('case')" },
-      { icon: '📜', label: '変更履歴', action: "goScr('hist')" },
-      { icon: '🛒', label: '購入申請', action: "goScr('purchase')" },
-      { icon: '🏖️', label: '休暇申請', action: "goScr('vacation')" }
+      { icon: 'clipboard-list', label: 'ケース記録', action: "goScr('case')" },
+      { icon: 'scroll-text', label: '変更履歴', action: "goScr('hist')" },
+      { icon: 'shopping-cart', label: '購入申請', action: "goScr('purchase')" },
+      { icon: 'palmtree', label: '休暇申請', action: "goScr('vacation')" }
     ]},
     'vehicle': { title: '車両メニュー', items: [
-      { icon: '📏', label: '走行距離', action: "goScr('distance')" },
-      { icon: '🔧', label: '車両点検', action: "goScr('inspection')" },
-      { icon: '🍺', label: 'アルコールチェック', action: "goScr('alcohol')" }
+      { icon: 'ruler', label: '走行距離', action: "goScr('distance')" },
+      { icon: 'wrench', label: '車両点検', action: "goScr('inspection')" },
+      { icon: 'beer', label: 'アルコールチェック', action: "goScr('alcohol')" }
     ]},
     'other': { title: 'その他', items: [
-      { icon: '🙅', label: '欠席一覧', action: "goScr('absence')" },
-      { icon: '🍱', label: '給食管理', action: "goScr('kyushoku')" },
-      { icon: '📋', label: 'マスター一覧', action: "goScr('master')" },
-      { icon: '📝', label: 'すたぁと給食連絡', action: "goScr('startkyushoku')" },
-      { icon: '👥', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
+      { icon: 'user-x', label: '欠席一覧', action: "goScr('absence')" },
+      { icon: 'utensils', label: '給食管理', action: "goScr('kyushoku')" },
+      { icon: 'list', label: 'マスター一覧', action: "goScr('master')" },
+      { icon: 'file-text', label: 'すたぁと給食連絡', action: "goScr('startkyushoku')" },
+      { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
   const menu = menus[type];
@@ -1987,7 +1988,7 @@ window.showSubMenu = function(type) {
   menu.items.forEach(function(item) {
     if (item.adminOnly && (!currentUser || currentUser.role < 3)) return;
     html += '<div class="action-sheet-item" onclick="document.getElementById(\'submenu-popup\').remove();' + item.action + '">';
-    html += '<span class="action-sheet-icon">' + item.icon + '</span>';
+    html += '<span class="action-sheet-icon"><i data-lucide="' + item.icon + '"></i></span>';
     html += '<span class="action-sheet-label">' + item.label + '</span>';
     html += '</div>';
   });
@@ -2005,6 +2006,7 @@ window.showSubMenu = function(type) {
   });
 
   document.body.appendChild(overlay);
+  if (window.refreshIcons) window.refreshIcons();
   requestAnimationFrame(function() { overlay.classList.add('on'); });
 };
 
@@ -2119,7 +2121,7 @@ window.renderInspectionHistory = function() {
     html += '<div style="padding:3px 10px;background:' + statusColor + ';color:#fff;border-radius:12px;font-size:10px;font-weight:700">' + (ngCount>0?'要対応':warningCount>0?'注意':'良好') + '</div>';
     html += '</div>';
     html += '<div style="font-size:11px;color:#666">走行距離：' + (l.currentKm||'-') + 'km　／　記録者：' + (l.staff||'') + '</div>';
-    html += '<button onclick="event.stopPropagation();printInspection(\'' + l.id + '\')" style="margin-top:6px;padding:4px 10px;font-size:11px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:6px;cursor:pointer">📄 PDF出力</button>';
+    html += '<button onclick="event.stopPropagation();printInspection(\'' + l.id + '\')" style="margin-top:6px;padding:4px 10px;font-size:11px;background:#fff;border:0.5px solid var(--purple);color:var(--purple);border-radius:6px;cursor:pointer"><i data-lucide="file-text"></i> PDF出力</button>';
     html += '</div>';
   });
   body.innerHTML = html;
@@ -2188,7 +2190,7 @@ window.renderAlcoholInput = function() {
   let html = '';
   
   // 説明
-  html += '<div style="background:#FFF9E6;border:0.5px solid #FFC107;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:11px;color:#B7791F"><b>📝 自分のアルコールチェック記録</b><br>送迎業務前（朝）・業務後（夕）の2回、測定値を記入してください</div>';
+  html += '<div style="background:#FFF9E6;border:0.5px solid #FFC107;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:11px;color:#B7791F"><b><i data-lucide="file-text"></i> 自分のアルコールチェック記録</b><br>送迎業務前（朝）・業務後（夕）の2回、測定値を記入してください</div>';
   
   // 自分の名前カード
   html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">';
@@ -2199,8 +2201,8 @@ window.renderAlcoholInput = function() {
   
   // 朝・夕入力
   html += '<div style="display:flex;gap:10px;margin-bottom:12px">';
-  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700">🌅 朝（業務前）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-am" value="' + am + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
-  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700">🌆 夕（業務後）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-pm" value="' + pm + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
+  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700"><i data-lucide="sunrise"></i> 朝（業務前）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-am" value="' + am + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
+  html += '<div style="flex:1"><div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:700"><i data-lucide="sunset"></i> 夕（業務後）</div><input type="number" step="0.01" min="0" max="1" id="alc-me-pm" value="' + pm + '" placeholder="0.00" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;font-size:18px;text-align:center;font-weight:700"/><div style="font-size:10px;color:#888;text-align:right;margin-top:2px">mg/L</div></div>';
   html += '</div>';
   
   // 備考
@@ -2212,7 +2214,7 @@ window.renderAlcoholInput = function() {
   
   // 管理者・上司向け：今日の全員の状況を表示
   if (currentUser && currentUser.role >= 2) {
-    html += '<div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:8px">👥 今日の全員のチェック状況</div>';
+    html += '<div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:8px"><i data-lucide="users"></i> 今日の全員のチェック状況</div>';
     const todayLogs = {};
     logs.filter(function(l){ return l.type==='alcohol' && l.date===date; }).forEach(function(l){ todayLogs[l.staff] = l; });
     ALCOHOL_STAFF.forEach(function(s) {
@@ -2228,8 +2230,9 @@ window.renderAlcoholInput = function() {
     });
     html += '</div>';
   }
-  
+
   body.innerHTML = html;
+  if (window.refreshIcons) window.refreshIcons();
 };
 
 window.doAlcoholSubmit = async function() {
@@ -2404,7 +2407,7 @@ window.openMealChangeModal = function(targetName, isStaff) {
   modal.id = 'meal-change-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px;max-width:400px;width:100%">' +
-    '<h3 style="margin:0 0 12px;font-size:16px">🍱 給食場所変更</h3>' +
+    '<h3 style="margin:0 0 12px;font-size:16px"><i data-lucide="utensils"></i> 給食場所変更</h3>' +
     '<div style="font-size:13px;margin-bottom:14px"><b>' + targetName + '</b>' + (isStaff ? '（職員）' : '（利用者）') + '</div>' +
     '<div style="margin-bottom:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">日付</div>' +
     '<input type="date" id="mc-date" style="width:100%;padding:8px;border:0.5px solid var(--border);border-radius:6px;font-size:13px" value="' + today() + '"/></div>' +
@@ -2419,6 +2422,7 @@ window.openMealChangeModal = function(targetName, isStaff) {
     '<button onclick="submitMealChange(\'' + targetName + '\',' + isStaff + ')" style="flex:1;padding:10px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">申請</button>' +
     '</div></div>';
   document.body.appendChild(modal);
+  if (window.refreshIcons) window.refreshIcons();
 };
 
 window.submitMealChange = async function(targetName, isStaff) {
@@ -2588,14 +2592,14 @@ window.renderMasterList = function() {
   
   // ① 利用者マスター（USER_MASTER）
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">👥 利用者マスター</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="users"></i> 利用者マスター</div>';
   if (typeof USER_MASTER !== 'undefined') {
     let total = 0;
     const counts = {};
     for (const [jigyosho, hans] of Object.entries(USER_MASTER)) {
       counts[jigyosho] = 0;
       html += '<div style="background:#F8F6FF;border-radius:8px;padding:10px;margin-bottom:6px">';
-      html += '<div style="font-weight:700;color:var(--purple);margin-bottom:6px">📍 ' + jigyosho + '</div>';
+      html += '<div style="font-weight:700;color:var(--purple);margin-bottom:6px"><i data-lucide="map-pin"></i> ' + jigyosho + '</div>';
       for (const [han, users] of Object.entries(hans)) {
         counts[jigyosho] += users.length;
         total += users.length;
@@ -2613,7 +2617,7 @@ window.renderMasterList = function() {
   
   // ② 基本送迎マスター（DEFAULT_TRANSPORT）
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🚌 基本送迎マスター（普段の便）</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="bus"></i> 基本送迎マスター（普段の便）</div>';
   if (typeof DEFAULT_TRANSPORT !== 'undefined') {
     // 便別にグループ化
     const byBin = {};
@@ -2624,7 +2628,7 @@ window.renderMasterList = function() {
     }
     for (const [bin, list] of Object.entries(byBin)) {
       html += '<div style="background:#F0F4FF;border-radius:8px;padding:10px;margin-bottom:6px">';
-      html += '<div style="font-weight:700;color:#3C3489;margin-bottom:6px">🚐 ' + bin + '便（' + list.length + '名）</div>';
+      html += '<div style="font-weight:700;color:#3C3489;margin-bottom:6px"><i data-lucide="bus"></i> ' + bin + '便（' + list.length + '名）</div>';
       html += '<table style="width:100%;font-size:11px;border-collapse:collapse">';
       html += '<thead><tr style="background:#fff;color:#666"><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">利用者</th><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">朝</th><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">夕</th></tr></thead><tbody>';
       list.forEach(function(item) {
@@ -2643,7 +2647,7 @@ window.renderMasterList = function() {
   
   // ③ ぱぁとなぁ曜日別パターン
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🏠 ぱぁとなぁ曜日別パターン</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="home"></i> ぱぁとなぁ曜日別パターン</div>';
   if (typeof PAATONAA_SCHEDULE !== 'undefined') {
     html += '<div style="background:#FFF9E6;border-radius:8px;padding:10px;margin-bottom:6px">';
     html += '<table style="width:100%;font-size:11px;border-collapse:collapse">';
@@ -2662,7 +2666,7 @@ window.renderMasterList = function() {
   
   // ④ 兼務者の送迎パターン候補
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🔀 兼務者の送迎パターン候補</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="arrow-left-right"></i> 兼務者の送迎パターン候補</div>';
   if (typeof TRANSPORT_PATTERNS !== 'undefined') {
     for (const [user, patterns] of Object.entries(TRANSPORT_PATTERNS)) {
       html += '<div style="background:#FFF0F5;border-radius:8px;padding:10px;margin-bottom:6px">';
@@ -2680,11 +2684,11 @@ window.renderMasterList = function() {
   
   // ⑤ 給食マスター（KYUSHOKU）
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🍱 給食マスター</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="utensils"></i> 給食マスター</div>';
   if (typeof KYUSHOKU !== 'undefined') {
     for (const [jigyosho, hans] of Object.entries(KYUSHOKU)) {
       html += '<div style="background:#EEEBFA;border-radius:8px;padding:10px;margin-bottom:6px">';
-      html += '<div style="font-weight:700;color:#5B4FD8;margin-bottom:6px">🍙 ' + jigyosho + '</div>';
+      html += '<div style="font-weight:700;color:#5B4FD8;margin-bottom:6px"><i data-lucide="utensils"></i> ' + jigyosho + '</div>';
       for (const [han, data] of Object.entries(hans)) {
         const conditional = Object.entries(data.conditional || {});
         const totalNames = data.users.length + conditional.length;
@@ -2703,13 +2707,13 @@ window.renderMasterList = function() {
   
   // ⑥ 職員給食マスター
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">👔 職員給食マスター</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="user-check"></i> 職員給食マスター</div>';
   if (typeof STAFF_KYUSHOKU !== 'undefined') {
     for (const [group, data] of Object.entries(STAFF_KYUSHOKU)) {
       const conditional = Object.entries(data.conditional || {});
       const totalNames = data.users.length + conditional.length;
       html += '<div style="background:#F2F2F7;border-radius:8px;padding:10px;margin-bottom:6px">';
-      html += '<div style="font-weight:700;color:#E65100;margin-bottom:4px">👤 ' + group + '（' + totalNames + '名）</div>';
+      html += '<div style="font-weight:700;color:#E65100;margin-bottom:4px"><i data-lucide="user"></i> ' + group + '（' + totalNames + '名）</div>';
       html += '<div style="margin-left:10px;font-size:11px;color:#555;margin-bottom:4px">常勤：' + data.users.join('・') + '</div>';
       conditional.forEach(function([name, arr]) {
         const dowMap = ['日','月','火','水','木','金','土'];
@@ -2723,7 +2727,7 @@ window.renderMasterList = function() {
   
   // ⑦ 給食場所の選択肢
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">📍 給食場所の選択肢</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="map-pin"></i> 給食場所の選択肢</div>';
   if (typeof MEAL_LOCATIONS !== 'undefined') {
     html += '<div style="background:#E1F5FE;border-radius:8px;padding:10px">';
     html += MEAL_LOCATIONS.map(function(l){ return '<span style="display:inline-block;background:#fff;border:0.5px solid #5B4FD8;padding:4px 10px;border-radius:14px;font-size:12px;margin:3px;color:#4A3FBF;font-weight:700">' + l + '</span>'; }).join('');
@@ -2733,7 +2737,7 @@ window.renderMasterList = function() {
   
   // ⑧ アルコールチェック対象
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)">🍺 アルコールチェック対象（送迎担当職員）</div>';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="beer"></i> アルコールチェック対象（送迎担当職員）</div>';
   if (typeof ALCOHOL_STAFF !== 'undefined') {
     html += '<div style="background:#FCE4EC;border-radius:8px;padding:10px">';
     html += '<div style="font-size:11px;color:#555">' + ALCOHOL_STAFF.join('・') + '</div>';
@@ -2741,8 +2745,9 @@ window.renderMasterList = function() {
     html += '</div>';
   }
   html += '</div>';
-  
+
   body.innerHTML = html;
+  if (window.refreshIcons) window.refreshIcons();
 };
 
 // ═══ すたぁと給食連絡 ═══
@@ -2809,7 +2814,7 @@ window.renderStartHistory = function() {
     html += '<span>職員 <b style="color:var(--text)">' + (l.staff||0) + '</b>名</span>';
     html += '<span>翌日昼 <b style="color:var(--text)">' + (l.nextLunch||0) + '</b>名</span>';
     html += '</div>';
-    if (l.memo) html += '<div style="font-size:11px;color:#888;margin-top:4px">📝 ' + l.memo + '</div>';
+    if (l.memo) html += '<div style="font-size:11px;color:#888;margin-top:4px"><i data-lucide="file-text"></i> ' + l.memo + '</div>';
     html += '<div style="font-size:10px;color:#aaa;margin-top:4px">記録者: ' + (l.recordedBy||'-') + '</div>';
     html += '</div>';
   });
@@ -2957,7 +2962,7 @@ window.onUserSelectChange = function() {
     const affs = getUserAffiliation(userName);
     if (affs.length > 0) {
       const affStr = affs.map(function(a){ return a.jigyosho + '・' + a.han; }).join(' / ');
-      info += '<div><b style="color:var(--purple)">📍 所属：</b>' + affStr + '</div>';
+      info += '<div><b style="color:var(--purple)"><i data-lucide="map-pin"></i> 所属：</b>' + affStr + '</div>';
     }
   }
   
@@ -2970,12 +2975,12 @@ window.onUserSelectChange = function() {
       if (sched) {
         // ぱぁとなぁ居住者（曜日別）
         if (sched.am && sched.am.label) {
-          info += '<div><b style="color:var(--purple)">🌅 朝：</b>' + sched.am.label + '</div>';
-          info += '<div><b style="color:var(--purple)">🌆 夕：</b>' + (sched.pm.label || '-') + '</div>';
+          info += '<div><b style="color:var(--purple)"><i data-lucide="sunrise"></i> 朝：</b>' + sched.am.label + '</div>';
+          info += '<div><b style="color:var(--purple)"><i data-lucide="sunset"></i> 夕：</b>' + (sched.pm.label || '-') + '</div>';
         }
         // 固定パターン（DEFAULT_TRANSPORT）
         else if (sched.am && sched.am.bin) {
-          info += '<div><b style="color:var(--purple)">🚐 基本送迎：</b>朝[' + sched.am.bin + '→' + sched.am.drop + '] / 夕[' + sched.pm.bin + '→' + sched.pm.drop + ']</div>';
+          info += '<div><b style="color:var(--purple)"><i data-lucide="bus"></i> 基本送迎：</b>朝[' + sched.am.bin + '→' + sched.am.drop + '] / 夕[' + sched.pm.bin + '→' + sched.pm.drop + ']</div>';
         }
       }
     } catch(e) {}
@@ -2984,6 +2989,7 @@ window.onUserSelectChange = function() {
   if (info) {
     infoDiv.innerHTML = info;
     infoDiv.style.display = 'block';
+    if (window.refreshIcons) window.refreshIcons();
   } else {
     infoDiv.style.display = 'none';
   }
@@ -3127,7 +3133,7 @@ function renderNotif() {
     if (l.type === 'start_kyushoku') {
       return `<div class="hrow">
         <div class="${isNew?'nnew':'nold'}">${l.ts||''}${isNew?' · 新着':''}</div>
-        <div class="hname">🍱 すたぁと給食連絡（${l.date||''}）</div>
+        <div class="hname"><i data-lucide="utensils"></i> すたぁと給食連絡（${l.date||''}）</div>
         <div class="hdet">利用者${l.users||0}名 · 職員${l.staff||0}名 · 翌日昼${l.nextLunch||0}名${l.memo?' ／ '+l.memo:''}</div>
       </div>`;
     }
@@ -3668,9 +3674,10 @@ window.showUserMenu = function() {
   menu.id = 'user-menu-popup';
   menu.style.cssText = 'position:fixed;top:50px;right:8px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;min-width:160px';
   menu.innerHTML = '<div style="padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;font-weight:700">'+currentStaff+'<span style="font-size:11px;font-weight:400;color:#888;margin-left:8px">'+roleLabel+'</span></div>'+
-    '<div onclick="document.getElementById(\'user-menu-popup\').remove();document.getElementById(\'pw-dialog\').style.display=\'flex\'" style="padding:10px 16px;font-size:13px;cursor:pointer">🔑 パスワード変更</div>'+
-    '<div onclick="window.doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee">🚪 ログアウト</div>';
+    '<div onclick="document.getElementById(\'user-menu-popup\').remove();document.getElementById(\'pw-dialog\').style.display=\'flex\'" style="padding:10px 16px;font-size:13px;cursor:pointer"><i data-lucide="key"></i> パスワード変更</div>'+
+    '<div onclick="window.doLogout()" style="padding:10px 16px;font-size:13px;cursor:pointer;color:#e53e3e;border-top:1px solid #eee"><i data-lucide="log-out"></i> ログアウト</div>';
   document.body.appendChild(menu);
+  if (window.refreshIcons) window.refreshIcons();
   setTimeout(() => {
     function rm(e) { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', rm); } }
     document.addEventListener('click', rm);
@@ -4173,12 +4180,13 @@ window.renderPurchaseList = function() {
         ${p.approval1 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:4px">✓ 打診承認: ${p.approval1.by} ${new Date(p.approval1.at).toLocaleDateString()}</div>` : ''}
         ${p.approval2 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:2px">✓ 本申請承認: ${p.approval2.by} ${new Date(p.approval2.at).toLocaleDateString()}</div>` : ''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          ${canApprove ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承認 🔏</button>
+          ${canApprove ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承認 <i data-lucide="check-circle-2"></i></button>
           <button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">却下</button>` : ''}
           ${canStep2 ? `<button class="sbtn" style="flex:1" onclick="startStep2('${p.id}')">本申請へ進む →</button>` : ''}
         </div>
       </div>`;
     }).join('');
+    if (window.refreshIcons) window.refreshIcons();
   });
 }
 
@@ -4187,7 +4195,7 @@ window.approvePurchase = async function(id, step) {
     status: '承認済',
     ['approval'+step]: { by: currentStaff, at: Date.now() }
   });
-  showToast('承認しました 🔏');
+  showToast('承認しました');
   renderPurchaseList();
 }
 
@@ -4230,12 +4238,13 @@ window.startStep2 = function(id) {
       <div class="ksec-hd" style="margin-top:12px">レシート写真</div>
       <div style="margin-bottom:12px">
         <input type="file" id="step2-receipt" accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
-        <button class="sbtn" onclick="document.getElementById('step2-receipt').click()">📷 カメラで撮影</button>
+        <button class="sbtn" onclick="document.getElementById('step2-receipt').click()"><i data-lucide="camera"></i> カメラで撮影</button>
         <img id="receipt-preview" style="display:none;width:100%;border-radius:10px;margin-top:8px"/>
       </div>
       <button class="sbtn" style="width:100%" onclick="submitPurchase2('${id}')">本申請を提出</button>`;
     
     document.getElementById('purchase-new-area').innerHTML = step2html;
+    if (window.refreshIcons) window.refreshIcons();
   });
 }
 
@@ -4702,7 +4711,7 @@ const KYUSHOKU = {
 // ── 給食画面 ──
 function renderKyushoku() {
   const body = document.getElementById('kyushoku-body');
-  const dow = new Date(kyushokuDate + 'T00:00:00').getDay(); if (dow === 0 || dow === 1) { document.getElementById('kyushoku-body').innerHTML = '<div style="padding:40px 20px;text-align:center;color:#999;font-size:14px">🏠 本日は法人休日のため給食はありません</div>'; return; }
+  const dow = new Date(kyushokuDate + 'T00:00:00').getDay(); if (dow === 0 || dow === 1) { document.getElementById('kyushoku-body').innerHTML = '<div style="padding:40px 20px;text-align:center;color:#999;font-size:14px"><i data-lucide="home"></i> 本日は法人休日のため給食はありません</div>'; if (window.refreshIcons) window.refreshIcons(); return; }
   let html = '';
   let grandTotal = 0;
   let grandDefault = 0;
@@ -4815,7 +4824,7 @@ function renderKyushoku() {
               const short = hanShort[hh];
               html += '<div class="kcard" style="border-left:4px solid '+c+'">'
                 + '<div class="kcard-hd">'
-                + '<span class="kcard-title" style="color:'+c+';display:inline-flex;align-items:center;gap:8px">🌙 '+hh
+                + '<span class="kcard-title" style="color:'+c+';display:inline-flex;align-items:center;gap:8px"><i data-lucide="moon"></i> '+hh
                 + '<span style="background:'+c+';color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.02em">'+short+'</span>'
                 + '</span>'
                 + '<div><span class="kcard-count">' + count + '<span>名</span></span></div>'
@@ -4829,6 +4838,7 @@ function renderKyushoku() {
   } catch(e) { console.error('ぱぁとなぁ集計エラー:', e); }
 
   body.innerHTML = html;
+  if (window.refreshIcons) window.refreshIcons();
 }
 
 // ── トースト ──
