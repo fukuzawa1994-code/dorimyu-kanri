@@ -921,6 +921,7 @@ window.goScr = function(s) {
     const dateInput = document.getElementById('start-date');
     if (dateInput && !dateInput.value) dateInput.value = today();
     if (typeof renderStartHistory === 'function') renderStartHistory();
+    if (typeof renderStartMonth === 'function') renderStartMonth();
   }
   if (s==='admin') { renderAdminPanel(); }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
@@ -2468,6 +2469,127 @@ window.renderStartHistory = function() {
     html += '</div>';
   });
   body.innerHTML = html;
+};
+
+// ═══ すたぁと給食連絡 月単位 一括入力 ═══
+let startMonthYear = null;
+let startMonthMonth = null;
+
+window.startMonthMove = function(dir) {
+  if (startMonthYear === null) {
+    const t = new Date();
+    startMonthYear = t.getFullYear(); startMonthMonth = t.getMonth() + 1;
+  }
+  const dirtyRows = document.querySelectorAll('#start-month-rows .start-day-row[data-dirty="1"]');
+  if (dirtyRows.length > 0) {
+    if (!confirm('未保存の変更が ' + dirtyRows.length + ' 件あります。月を切り替えると破棄されます。よろしいですか？')) return;
+  }
+  startMonthMonth += dir;
+  if (startMonthMonth < 1) { startMonthMonth = 12; startMonthYear--; }
+  if (startMonthMonth > 12) { startMonthMonth = 1; startMonthYear++; }
+  renderStartMonth();
+};
+
+window.renderStartMonth = function() {
+  if (startMonthYear === null) {
+    const t = new Date();
+    startMonthYear = t.getFullYear(); startMonthMonth = t.getMonth() + 1;
+  }
+  const label = document.getElementById('start-month-label');
+  const rowsEl = document.getElementById('start-month-rows');
+  if (!label || !rowsEl) return;
+  label.textContent = startMonthYear + '年' + startMonthMonth + '月';
+
+  const dowNames = ['日','月','火','水','木','金','土'];
+  const lastDay = new Date(startMonthYear, startMonthMonth, 0).getDate();
+  const monthPrefix = startMonthYear + '-' + String(startMonthMonth).padStart(2, '0');
+  const byDate = {};
+  logs.forEach(function(l){
+    if (l.type === 'start_kyushoku' && typeof l.date === 'string' && l.date.indexOf(monthPrefix) === 0) {
+      byDate[l.date] = l;
+    }
+  });
+
+  let html = '';
+  for (let d = 1; d <= lastDay; d++) {
+    const ds = monthPrefix + '-' + String(d).padStart(2, '0');
+    const dow = new Date(ds + 'T00:00:00').getDay();
+    if (dow === 0 || dow === 1) continue; // 日月は法人休日でスキップ
+    const rec = byDate[ds] || {};
+    const u = rec.users || 0;
+    const s = rec.staff || 0;
+    const n = rec.nextLunch || 0;
+    const m = rec.memo || '';
+    const mEsc = m.replace(/"/g, '&quot;');
+    html += '<div class="start-day-row" data-date="' + ds + '" data-dirty="0"'
+      + ' data-init-users="' + u + '" data-init-staff="' + s + '" data-init-next="' + n + '" data-init-memo="' + mEsc + '"'
+      + ' style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap">'
+      + '<div style="flex:0 0 70px;font-size:12px;font-weight:700;color:var(--text)">' + String(startMonthMonth).padStart(2,'0') + '/' + String(d).padStart(2,'0') + '(' + dowNames[dow] + ')</div>'
+      + '<label style="font-size:11px;color:var(--gray-dark)">利 <input type="number" class="sd-users" min="0" value="' + u + '" oninput="onStartDayInput(this)" style="width:48px;text-align:right;font-size:13px;border:0.5px solid var(--border);border-radius:4px;padding:2px 4px"/></label>'
+      + '<label style="font-size:11px;color:var(--gray-dark)">職 <input type="number" class="sd-staff" min="0" value="' + s + '" oninput="onStartDayInput(this)" style="width:48px;text-align:right;font-size:13px;border:0.5px solid var(--border);border-radius:4px;padding:2px 4px"/></label>'
+      + '<label style="font-size:11px;color:var(--gray-dark)">翌 <input type="number" class="sd-next" min="0" value="' + n + '" oninput="onStartDayInput(this)" style="width:48px;text-align:right;font-size:13px;border:0.5px solid var(--border);border-radius:4px;padding:2px 4px"/></label>'
+      + '<input type="text" class="sd-memo" value="' + mEsc + '" placeholder="備考" oninput="onStartDayInput(this)" style="flex:1;min-width:100px;font-size:12px;border:0.5px solid var(--border);border-radius:4px;padding:2px 6px"/>'
+      + '</div>';
+  }
+  rowsEl.innerHTML = html;
+  updateStartDirtyCount();
+};
+
+window.onStartDayInput = function(el) {
+  const row = el.closest('.start-day-row');
+  if (!row) return;
+  const u = parseInt(row.querySelector('.sd-users').value) || 0;
+  const s = parseInt(row.querySelector('.sd-staff').value) || 0;
+  const n = parseInt(row.querySelector('.sd-next').value) || 0;
+  const m = row.querySelector('.sd-memo').value;
+  const iu = parseInt(row.dataset.initUsers) || 0;
+  const is = parseInt(row.dataset.initStaff) || 0;
+  const iN = parseInt(row.dataset.initNext) || 0;
+  const im = row.dataset.initMemo || '';
+  const dirty = (u !== iu || s !== is || n !== iN || m !== im);
+  row.dataset.dirty = dirty ? '1' : '0';
+  updateStartDirtyCount();
+};
+
+function updateStartDirtyCount() {
+  const cnt = document.querySelectorAll('#start-month-rows .start-day-row[data-dirty="1"]').length;
+  const el = document.getElementById('start-dirty-count');
+  if (el) el.textContent = cnt === 0 ? '変更なし' : ('変更中: ' + cnt + '日分');
+}
+
+window.doStartBulkSave = async function() {
+  if (!checkSession()) return;
+  const dirtyRows = [...document.querySelectorAll('#start-month-rows .start-day-row[data-dirty="1"]')];
+  if (dirtyRows.length === 0) { showToast('変更がありません'); return; }
+  if (!confirm(dirtyRows.length + '日分を保存します。よろしいですか？')) return;
+
+  let saved = 0, cleared = 0, failed = 0;
+  for (const row of dirtyRows) {
+    const date = row.dataset.date;
+    const u = parseInt(row.querySelector('.sd-users').value) || 0;
+    const s = parseInt(row.querySelector('.sd-staff').value) || 0;
+    const n = parseInt(row.querySelector('.sd-next').value) || 0;
+    const m = row.querySelector('.sd-memo').value || '';
+    try {
+      const existing = logs.filter(function(l){ return l.type === 'start_kyushoku' && l.date === date; });
+      for (const ex of existing) await deleteDoc(doc(db, 'logs', ex.id));
+      if (u === 0 && s === 0 && n === 0 && m.trim() === '') {
+        cleared++;
+      } else {
+        await addDoc(collection(db, 'logs'), {
+          type: 'start_kyushoku', date: date,
+          users: u, staff: s, nextLunch: n, memo: m,
+          recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now()
+        });
+        saved++;
+      }
+    } catch (e) {
+      failed++;
+      console.error('start_kyushoku save failed:', date, e);
+    }
+  }
+  showToast('✓ 保存' + saved + '日 / クリア' + cleared + '日' + (failed ? ' / 失敗' + failed : ''));
+  setTimeout(function(){ renderStartMonth(); }, 500);
 };
 
 // ═══ 利用者選択時：所属表示＋基本送迎プリフィル ═══
