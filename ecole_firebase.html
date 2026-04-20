@@ -189,7 +189,7 @@ html, body {
 .fab-label.show { opacity: 1; transform: translateY(0); }
 
 /* 休暇申請 下固定 CTA */
-#scr-vacation .fp { padding-bottom: 110px; }
+#scr-vacation .fp { padding-bottom: 140px; }
 #scr-vacation .vac-cta-fixed {
   position: fixed;
   bottom: env(safe-area-inset-bottom, 0px);
@@ -1409,7 +1409,8 @@ window.goScr = function(s) {
   });
   document.getElementById('hd-title').innerHTML = scrTitles[s] + (s==='list'?` <span class="sync-dot" id="sync-dot" style="display:none"></span>`:'');
   document.getElementById('hd-sub').textContent = s==='list' ? fmtDate(selectedDate) : (scrSubs[s]||'');
-  document.getElementById('fab').style.display = s==='form' ? 'none' : 'flex';
+  // FAB は list/notif のみ表示（他画面ではフォーム要素のタップ阻害防止）
+  document.getElementById('fab').style.display = (s==='list' || s==='notif') ? 'flex' : 'none';
   document.getElementById('main-scroll').scrollTop = 0;
   if (s==='list')  renderList();
   if (s==='notif') { renderNotif(); markRead(); }
