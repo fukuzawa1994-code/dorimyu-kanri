@@ -347,6 +347,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   background: rgba(60,60,67,0.06);
 }
 .action-sheet-item:active { background: rgba(60,60,67,0.06); }
+.action-sheet-item.destructive { color: #FF3B30; }
 .action-sheet-icon { font-size: 20px; width: 24px; text-align: center; color: #6E6E73; }
 .action-sheet-icon [data-lucide] { width: 20px; height: 20px; stroke-width: 1.5; vertical-align: middle; }
 .action-sheet-label { flex: 1; }
@@ -4317,7 +4318,7 @@ window.renderPurchaseList = function() {
       return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}${p.approver ? ' → '+p.approver : ''}</span>
-          <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px">${p.status}（${p.step===1?'打診':'本申請'}）</span>
+          <span onclick="openPurchaseStatusSheet('${p.id}')" style="cursor:pointer;font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px;user-select:none;-webkit-user-select:none">${p.status}（${p.step===1?'打診':'本申請'}）</span>
         </div>
         <div style="font-size:12px;color:var(--gray-dark);margin-bottom:4px">${(p.categories||[]).join('・')}</div>
         ${renderPurchaseItemsSummary(p)}
@@ -4335,6 +4336,99 @@ window.renderPurchaseList = function() {
     if (window.refreshIcons) window.refreshIcons();
   });
 }
+
+window.openPurchaseStatusSheet = async function(id) {
+  const existing = document.getElementById('purchase-status-sheet');
+  if (existing) { existing.remove(); return; }
+
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) return;
+  const p = snap.data();
+  const status = p.status;
+
+  const items = [];
+  if (status === '打診中') {
+    const isApplicant = p.applicant === currentStaff;
+    const canApprove = currentUser && currentUser.role >= 2 && currentStaff !== p.applicant
+      && (!p.approver || p.approver === currentStaff || currentUser.role >= 3);
+    if (isApplicant) items.push({ label: '打診取り消し', action: 'cancelPurchase', destructive: true });
+    if (canApprove) {
+      items.push({ label: '承認へ変更', action: 'approveFromSheet' });
+      items.push({ label: '却下', action: 'rejectPurchase', destructive: true });
+    }
+  } else if (status === '承認済') {
+    const canModify = currentUser && currentUser.role >= 2;
+    if (canModify) {
+      items.push({ label: '承認取り消し', action: 'revertPurchaseApproval', destructive: true });
+      items.push({ label: '差し戻し', action: 'sendBackPurchase' });
+      items.push({ label: '却下', action: 'rejectPurchase', destructive: true });
+    }
+  } else {
+    return;
+  }
+
+  if (items.length === 0) { showToast('このステータスを変更する権限がありません'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'purchase-status-sheet';
+  overlay.className = 'action-sheet-bg';
+  const sheet = document.createElement('div');
+  sheet.className = 'action-sheet';
+  let html = '<div class="action-sheet-handle"></div>';
+  html += '<div class="action-sheet-title">ステータス変更</div>';
+  items.forEach(function(item) {
+    const cls = item.destructive ? 'action-sheet-item destructive' : 'action-sheet-item';
+    html += '<div class="' + cls + '" onclick="document.getElementById(\'purchase-status-sheet\').remove();' + item.action + '(\'' + id + '\')">';
+    html += '<span class="action-sheet-label">' + item.label + '</span>';
+    html += '</div>';
+  });
+  sheet.innerHTML = html;
+  overlay.appendChild(sheet);
+
+  const cancel = document.createElement('div');
+  cancel.className = 'action-sheet-cancel';
+  cancel.textContent = 'キャンセル';
+  cancel.onclick = function() { overlay.remove(); };
+  overlay.appendChild(cancel);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function() { overlay.classList.add('on'); });
+};
+
+window.approveFromSheet = function(id) { approvePurchase(id, 1); };
+
+window.cancelPurchase = async function(id) {
+  if (!checkSession()) return;
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) return;
+  const p = snap.data();
+  if (p.applicant !== currentStaff) { showToast('自分の申請のみ取り消せます'); return; }
+  if (!confirm('この打診申請を取り消しますか？')) return;
+  await updateDoc(doc(db, 'purchases', id), { status: '取り消し', cancelledAt: Date.now(), cancelledBy: currentStaff });
+  showToast('取り消しました');
+  renderPurchaseList();
+};
+
+window.revertPurchaseApproval = async function(id) {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 2) { showToast('承認変更の権限がありません'); return; }
+  if (!confirm('承認を取り消して「打診中」に戻しますか？')) return;
+  await updateDoc(doc(db, 'purchases', id), { status: '打診中', approval1: null });
+  showToast('承認を取り消しました');
+  renderPurchaseList();
+};
+
+window.sendBackPurchase = async function(id) {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 2) { showToast('差し戻しの権限がありません'); return; }
+  await updateDoc(doc(db, 'purchases', id), { status: '打診中', approval1: null, sentBackAt: Date.now(), sentBackBy: currentStaff });
+  showToast('差し戻しました');
+  renderPurchaseList();
+};
 
 window.approvePurchase = async function(id, step) {
   await updateDoc(doc(db, 'purchases', id), {
