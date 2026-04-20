@@ -1906,41 +1906,78 @@ window.printCaseMonthlyAll = function(month) {
 window.printCaseMonthlyOne = function(month, user) {
   const userLogs = logs.filter(function(l) { return l.type==='case' && l.user===user && l.date && l.date.startsWith(month); });
   if (!userLogs.length) { showToast(user+'さんの'+month+'の記録なし'); return; }
-  userLogs.sort(function(a,b){ return a.date.localeCompare(b.date); });
+
+  // 日付ごとにグループ化
+  const byDate = {};
+  userLogs.forEach(function(l) {
+    if (!byDate[l.date]) byDate[l.date] = [];
+    byDate[l.date].push(l);
+  });
+  const sortedDates = Object.keys(byDate).sort();
+
+  // 同じ(user, month)の AI 要約を収集
+  const summariesByDate = {};
+  logs.filter(function(l) { return l.type==='case_summary' && l.user===user && l.date && l.date.startsWith(month); }).forEach(function(l) {
+    summariesByDate[l.date] = l;
+  });
+  const hasAnyAI = Object.keys(summariesByDate).some(function(d){ return byDate[d]; });
+
   const ym = month.split('-');
   const year = parseInt(ym[0]), mm = parseInt(ym[1]);
   const dows = ['日','月','火','水','木','金','土'];
-  
+
   let body = '<div style="padding:10px 0">';
-  body += '<div style="border-bottom:2px solid #5B4FD8;padding-bottom:6px;margin-bottom:14px">';
-  body += '<h1 style="margin:0;font-size:20px;color:#5B4FD8">ケース記録　月次レポート</h1>';
-  body += '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#666">';
-  body += '<div>期間：R' + (year-2018) + '年度' + mm + '月　／　記録件数：' + userLogs.length + '件</div>';
-  body += '<div>作成：' + currentStaff + '</div>';
-  body += '</div></div>';
-  body += '<h2 style="font-size:22px;margin:0 0 14px;color:#333">' + user + '　さん</h2>';
-  body += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  body += '<thead><tr style="background:#E8E3F5">';
-  body += '<th style="border:1px solid #666;padding:6px;width:100px">日付</th>';
-  body += '<th style="border:1px solid #666;padding:6px;width:120px">タグ</th>';
-  body += '<th style="border:1px solid #666;padding:6px">内容</th>';
-  body += '<th style="border:1px solid #666;padding:6px;width:80px">記録者</th>';
-  body += '</tr></thead><tbody>';
-  userLogs.forEach(function(l) {
-    const dow = new Date(l.date+'T00:00:00').getDay();
-    const dateLabel = parseInt(l.date.slice(5,7)) + '/' + parseInt(l.date.slice(8,10)) + '<br>(' + dows[dow] + ')';
-    const tags = (l.tags && l.tags.length) ? l.tags.join('・') : '';
-    const content = (l.caseText||'').replace(/\n/g, '<br>');
-    body += '<tr>';
-    body += '<td style="border:1px solid #666;padding:6px;text-align:center;vertical-align:top;font-weight:700">' + dateLabel + '</td>';
-    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;font-size:10px">' + tags + '</td>';
-    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;line-height:1.6">' + content + '</td>';
-    body += '<td style="border:1px solid #666;padding:6px;vertical-align:top;font-size:11px">' + (l.staff||'') + '</td>';
-    body += '</tr>';
+  body += '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(91,79,216,0.5);padding-bottom:8px;margin-bottom:18px">';
+  body += '<div>';
+  body += '<h1 style="margin:0;font-size:20px;color:#5B4FD8;letter-spacing:-0.01em">ケース記録　月次レポート</h1>';
+  body += '<div style="margin-top:6px;font-size:12px;color:#8E8E93">期間：R' + (year-2018) + '年度' + mm + '月　／　記録件数：' + userLogs.length + '件　／　作成：' + currentStaff + '</div>';
+  body += '</div>';
+  if (hasAnyAI) {
+    body += '<div style="font-size:10px;color:#5B4FD8;background:#EEEBFA;padding:4px 10px;border-radius:10px;font-weight:700;letter-spacing:0.02em">AI要約版</div>';
+  }
+  body += '</div>';
+  body += '<h2 style="font-size:22px;margin:0 0 18px;color:#111;letter-spacing:-0.01em">' + user + '　さん</h2>';
+
+  // 日付ごとに report card / raw table を分岐
+  sortedDates.forEach(function(date) {
+    const dow = new Date(date+'T00:00:00').getDay();
+    const dateLabel = parseInt(date.slice(5,7)) + '月' + parseInt(date.slice(8,10)) + '日（' + dows[dow] + '）';
+    const recs = byDate[date];
+    const aiSummary = summariesByDate[date];
+
+    if (aiSummary && aiSummary.summary) {
+      // 報告書レイアウト（AI要約）
+      const safeSummary = (aiSummary.summary || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      body += '<div style="margin-bottom:26px;page-break-inside:avoid">';
+      body += '<div style="font-size:13px;color:#8E8E93;font-weight:600;margin-bottom:10px;letter-spacing:0.02em">' + dateLabel + '</div>';
+      body += '<div style="font-size:16px;line-height:1.9;color:#111;white-space:pre-wrap">' + safeSummary + '</div>';
+      body += '</div>';
+    } else {
+      // 従来の表形式（aiSummary 無い日）
+      body += '<div style="margin-bottom:20px;page-break-inside:avoid">';
+      body += '<div style="font-size:13px;color:#8E8E93;font-weight:600;margin-bottom:8px;letter-spacing:0.02em">' + dateLabel + '</div>';
+      body += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+      body += '<thead><tr style="background:#F2F2F7">';
+      body += '<th style="border:1px solid #CCC;padding:6px;width:120px">タグ</th>';
+      body += '<th style="border:1px solid #CCC;padding:6px">内容</th>';
+      body += '<th style="border:1px solid #CCC;padding:6px;width:80px">記録者</th>';
+      body += '</tr></thead><tbody>';
+      recs.forEach(function(l) {
+        const tags = (l.tags && l.tags.length) ? l.tags.join('・') : '';
+        const content = (l.caseText||'').replace(/\n/g, '<br>');
+        body += '<tr>';
+        body += '<td style="border:1px solid #CCC;padding:6px;vertical-align:top;font-size:10px;color:#6E6E73">' + tags + '</td>';
+        body += '<td style="border:1px solid #CCC;padding:6px;vertical-align:top;line-height:1.6">' + content + '</td>';
+        body += '<td style="border:1px solid #CCC;padding:6px;vertical-align:top;font-size:11px;color:#6E6E73">' + (l.staff||'') + '</td>';
+        body += '</tr>';
+      });
+      body += '</tbody></table>';
+      body += '</div>';
+    }
   });
-  body += '</tbody></table>';
-  // 承認欄
-  body += '<table style="width:100%;border-collapse:collapse;margin-top:30px;font-size:11px"><tr>';
+
+  // 承認欄（維持）
+  body += '<table style="width:100%;border-collapse:collapse;margin-top:34px;font-size:11px;page-break-inside:avoid"><tr>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">記録者</td>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">主任</td>';
   body += '<td style="border:1px solid #666;padding:6px;text-align:center;width:25%">サービス管理責任者</td>';
