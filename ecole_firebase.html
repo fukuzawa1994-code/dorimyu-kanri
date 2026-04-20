@@ -581,28 +581,44 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
             <div class="tog" onclick="togglePCat(this)" data-v="たんぽぽ">たんぽぽ</div>
           </div>
 
-          <div class="ksec-hd">品目（最大3品）</div>
+          <div class="ksec-hd">品目（最大5品）</div>
           <div id="p-items-wrap">
             <div class="p-item-row" style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
-              <div class="frow"><span class="flbl">品名・数量・単価</span><input type="text" class="p-item-name" placeholder="例：コピー用紙 2束×500円" style="font-size:12px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:160px"/></div>
-              <div class="frow"><span class="flbl">税込み金額</span><input type="number" class="p-item-price" placeholder="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark)">円</span></div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-                <span style="font-size:11px;color:var(--gray-dark)">税・使途：</span>
-                <div class="tog" onclick="togglePTax(this)" data-v="8%">8%</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="10%">10%</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="事業費">事業費</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="事務費">事務費</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="製造">製造</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="販売">販売</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="仕入">仕入</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="消耗">消耗</div>
-                <div class="tog" onclick="togglePTax(this)" data-v="器具">器具</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span class="p-item-label" style="font-size:11px;font-weight:700;color:var(--gray-dark)">品目1</span>
+                <button type="button" class="p-item-del" onclick="removePurchaseItem(this)" style="background:var(--red-light);color:var(--red-dark);border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">🗑 削除</button>
+              </div>
+              <div class="frow"><span class="flbl">品名</span><input type="text" class="p-item-name" placeholder="例：コピー用紙" style="font-size:12px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:160px"/></div>
+              <div class="frow"><span class="flbl">数量</span><input type="number" class="p-item-qty" value="1" min="1" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:70px"/></div>
+              <div class="frow"><span class="flbl">単価</span><input type="number" class="p-item-unit" value="0" min="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark)">円</span></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+                <span style="font-size:11px;color:var(--gray-dark)">税：</span>
+                <div class="tog p-tax" onclick="togglePTax(this)" data-v="8%">8%</div>
+                <div class="tog p-tax son" onclick="togglePTax(this)" data-v="10%">10%</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+                <span style="font-size:11px;color:var(--gray-dark)">用途：</span>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="事業費">事業費</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="事務費">事務費</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="製造">製造</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="販売">販売</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="仕入">仕入</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="消耗">消耗</div>
+                <div class="tog p-usage" onclick="togglePUsage(this)" data-v="器具">器具</div>
+              </div>
+              <div style="margin-top:6px">
+                <span style="font-size:11px;color:var(--gray-dark);display:block;margin-bottom:4px">購入目的（任意）</span>
+                <textarea class="p-item-purpose" placeholder="この品目の購入目的（任意）" style="width:100%;min-height:40px;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:12px;box-sizing:border-box"></textarea>
               </div>
             </div>
           </div>
 
-          <div class="frow"><span class="flbl">目的・用途</span></div>
-          <textarea id="p-purpose" placeholder="購入目的を入力..." style="width:100%;min-height:80px;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box;margin-bottom:12px"></textarea>
+          <button type="button" class="sbtn ghost" id="p-add-item-btn" onclick="addPurchaseItem()" style="width:100%;margin-bottom:12px">＋品目追加</button>
+
+          <div id="p-total-area" style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:12px">
+            <div class="frow"><span class="flbl">税抜合計</span><span id="p-subtotal" style="font-size:14px;font-weight:700;color:var(--text)">0</span><span style="font-size:12px;color:var(--gray-dark);margin-left:2px">円</span></div>
+            <div class="frow" style="border-bottom:none"><span class="flbl">税込合計</span><span id="p-total" style="font-size:15px;font-weight:700;color:var(--blue-dark)">0</span><span style="font-size:12px;color:var(--gray-dark);margin-left:2px">円</span></div>
+          </div>
 
           <button class="sbtn" style="width:100%;margin-top:4px" onclick="submitPurchase1()">打診申請を提出</button>
         </div>
