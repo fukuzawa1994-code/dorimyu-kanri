@@ -1117,7 +1117,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     </div>
   </div>
 
-    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div></div></div>
+    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div><div id="backup-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">バックアップ（MASTER / USER_MASTER スナップショット）</div><div class="fsec"><div class="frow"><span class="flbl">説明（任意）</span><input type="text" id="backup-description" placeholder="手動バックアップ" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:200px"/></div><button class="sbtn" onclick="manualSaveBackup()">現状をバックアップ</button></div><div id="backup-list-body" style="margin-top:8px"></div></div></div></div>
     <div class="scr" id="scr-vacation"><div class="fp"><div class="ksec-hd">休暇申請</div><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div><div class="vac-cta-fixed"><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
@@ -1427,7 +1427,7 @@ window.goScr = function(s) {
     if (typeof renderStartHistory === 'function') renderStartHistory();
     if (typeof renderStartMonth === 'function') renderStartMonth();
   }
-  if (s==='admin') { renderAdminPanel(); }
+  if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
@@ -1791,6 +1791,110 @@ window.renderAdminPanel = function() {
   }
   html += '</div>';
   body.innerHTML = html;
+};
+
+// ═══ バックアップ機構（#32a-1） ═══
+// MASTER / USER_MASTER のスナップショットを Firestore backups/ へ保存・復元
+
+window.saveBackup = async function(description) {
+  if (!checkSession()) return null;
+  if (!currentUser || currentUser.role < 3) { showToast('バックアップの権限がありません（管理者のみ）'); return null; }
+  try {
+    const payload = {
+      createdAt: Date.now(),
+      createdBy: currentStaff,
+      description: (description || '').toString().slice(0, 200),
+      data: {
+        master: JSON.parse(JSON.stringify(MASTER)),
+        userMaster: JSON.parse(JSON.stringify(USER_MASTER))
+      }
+    };
+    const ref = await addDoc(collection(db, 'backups'), payload);
+    // Auto-trim: keep latest 10
+    const snap = await getDocs(query(collection(db, 'backups'), orderBy('createdAt', 'desc')));
+    const ids = [];
+    snap.forEach(function(d){ ids.push(d.id); });
+    if (ids.length > 10) {
+      for (let i = 10; i < ids.length; i++) {
+        await deleteDoc(doc(db, 'backups', ids[i]));
+      }
+    }
+    return ref.id;
+  } catch (e) {
+    console.error('saveBackup failed:', e);
+    showToast('バックアップ失敗: ' + (e.message || e));
+    return null;
+  }
+};
+
+window.manualSaveBackup = async function() {
+  const descEl = document.getElementById('backup-description');
+  const desc = descEl ? descEl.value.trim() : '';
+  const id = await saveBackup(desc || '手動バックアップ');
+  if (id) {
+    showToast('バックアップを保存しました');
+    if (descEl) descEl.value = '';
+    renderBackupList();
+  }
+};
+
+window.listBackups = async function() {
+  const snap = await getDocs(query(collection(db, 'backups'), orderBy('createdAt', 'desc')));
+  const list = [];
+  snap.forEach(function(d){ list.push(Object.assign({ id: d.id }, d.data())); });
+  return list;
+};
+
+window.deleteBackup = async function(id) {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 3) { showToast('削除の権限がありません'); return; }
+  if (!confirm('このバックアップを削除しますか？\nこの操作は元に戻せません。')) return;
+  try {
+    await deleteDoc(doc(db, 'backups', id));
+    showToast('削除しました');
+    renderBackupList();
+  } catch (e) {
+    showToast('削除失敗: ' + (e.message || e));
+  }
+};
+
+window.renderBackupList = async function() {
+  const body = document.getElementById('backup-list-body');
+  if (!body) return;
+  body.innerHTML = '<div style="color:#8E8E93;padding:16px;text-align:center;font-size:12px">読み込み中...</div>';
+  try {
+    const list = await listBackups();
+    if (!list.length) {
+      body.innerHTML = '<div style="color:#8E8E93;padding:16px;text-align:center;font-size:12px">バックアップはまだありません</div>';
+      return;
+    }
+    body.innerHTML = list.map(function(b) {
+      const ts = b.createdAt ? new Date(b.createdAt).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+      const desc = b.description || '（説明なし）';
+      const by = b.createdBy || '';
+      const safeDesc = desc.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const safeBy = by.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return '<div style="background:var(--surface);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow-card)">'
+        + '<div style="font-size:11px;color:#8E8E93;margin-bottom:4px">' + ts + ' · ' + safeBy + '</div>'
+        + '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px">' + safeDesc + '</div>'
+        + '<button onclick="deleteBackup(\'' + b.id + '\')" style="height:34px;padding:0 14px;background:var(--fill-chip);color:#FF3B30;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">削除</button>'
+        + '</div>';
+    }).join('');
+  } catch (e) {
+    body.innerHTML = '<div style="color:#FF3B30;padding:16px;font-size:12px">読み込み失敗: ' + (e.message || e) + '</div>';
+  }
+};
+
+// goScr('admin') 時に backup section を role=3 に限り表示
+window.initBackupSection = function() {
+  const sec = document.getElementById('backup-section');
+  if (!sec) return;
+  if (currentUser && currentUser.role >= 3) {
+    sec.style.display = 'block';
+    renderBackupList();
+  } else {
+    sec.style.display = 'none';
+  }
 };
 
 // ═══ 印刷・PDF出力系関数 ═══
