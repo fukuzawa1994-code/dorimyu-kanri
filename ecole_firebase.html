@@ -363,24 +363,169 @@ textarea:focus { border-color: var(--purple); }
 .staff-name { font-size: 14px; font-weight: 600; color: var(--text); }
 .staff-han { font-size: 11px; color: var(--text-sub); }
 .current-user { font-size: 13px; font-weight: 500; color: var(--text); padding: 10px 18px; background: #fff; border-radius: var(--radius-pill); box-shadow: 0 8px 20px rgba(0,0,0,0.06); cursor: pointer; border: none; white-space: nowrap; }
+
+/* ═══ ログイン画面 ブランド演出 ═══ */
+.intro-stage {
+  position: fixed; inset: 0;
+  background: linear-gradient(180deg, #4F46E5, #5B4FD8, #6C63FF);
+  z-index: 99999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+  overflow: hidden;
+}
+.intro-stage.stage-bg-in { opacity: 1; }
+.intro-skip {
+  position: absolute;
+  top: calc(20px + env(safe-area-inset-top, 0));
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 8px 14px;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.215, 0.61, 0.355, 1);
+  pointer-events: none;
+  font-family: inherit;
+}
+.intro-stage.stage-bg-in .intro-skip { opacity: 1; pointer-events: auto; }
+.intro-creed {
+  position: absolute;
+  top: 50%;
+  left: 0; right: 0;
+  transform: translateY(-50%);
+  text-align: center;
+  transition: transform 0.8s cubic-bezier(0.215, 0.61, 0.355, 1), opacity 0.8s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.intro-creed.step-fade {
+  transform: translateY(calc(-50% - 40px));
+  opacity: 0.15;
+}
+.creed-line {
+  color: #fff;
+  font-weight: 300;
+  font-size: 24px;
+  letter-spacing: 0.15em;
+  line-height: 1.8;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.215, 0.61, 0.355, 1), transform 0.6s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.creed-line.show { opacity: 1; transform: translateY(0); }
+.intro-brand {
+  text-align: center;
+  margin-bottom: 36px;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 0.7s cubic-bezier(0.215, 0.61, 0.355, 1), transform 0.7s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.intro-brand.show { opacity: 1; transform: scale(1); }
+.brand-logo {
+  color: #fff;
+  font-weight: 700;
+  font-size: 42px;
+  letter-spacing: 0.04em;
+}
+.brand-sub {
+  color: rgba(255,255,255,0.8);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  margin-top: 10px;
+}
+.intro-form {
+  background: #fff;
+  border-radius: 28px;
+  padding: 24px;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1), transform 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.intro-form.show { opacity: 1; transform: translateY(0); }
+.intro-form-row { margin-bottom: 14px; }
+.intro-form-row label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.intro-form-row input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: var(--fill-input);
+  border-radius: var(--radius-input);
+  padding: 14px 16px;
+  font-size: 16px;
+  color: var(--text);
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.intro-form-row input:focus { border-color: var(--purple); }
+.intro-form-err {
+  color: #e53e3e;
+  font-size: 12px;
+  margin-bottom: 8px;
+  min-height: 16px;
+}
+.intro-form-cta {
+  width: 100%;
+  height: 56px;
+  background: linear-gradient(135deg, #5B4FD8, #6F63FF);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(91,79,216,0.3);
+  transition: transform 0.15s cubic-bezier(0.215, 0.61, 0.355, 1);
+  font-family: inherit;
+  letter-spacing: -0.01em;
+}
+.intro-form-cta:active { transform: scale(0.98); }
 </style>
 </head>
 <body>
-  <!-- ログイン画面 -->
-  <div id="login-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--purple);z-index:99999;flex-direction:column;align-items:center;justify-content:center;padding:24px">
-    <div style="color:#fff;font-size:22px;font-weight:800;margin-bottom:4px">École 送迎管理</div>
-    <div style="color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:32px">ログインしてください</div>
-    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px">
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;color:#666;margin-bottom:4px">名前（ID）</div>
-        <input id="login-name" type="text" placeholder="例：福澤" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box"/>
+  <!-- ログイン画面（ブランド演出付き） -->
+  <div id="login-screen" class="intro-stage" style="display:none">
+    <button id="intro-skip" class="intro-skip" onclick="skipLoginIntro()" title="スキップ">スキップ</button>
+
+    <div id="login-creed" class="intro-creed">
+      <div class="creed-line" data-step="1">共に汗し</div>
+      <div class="creed-line" data-step="2">共に笑い</div>
+      <div class="creed-line" data-step="3">共に語ろう</div>
+    </div>
+
+    <div id="login-brand" class="intro-brand">
+      <div class="brand-logo">童里夢 CORE</div>
+      <div class="brand-sub">社会福祉法人 童里夢 業務ポータル</div>
+    </div>
+
+    <div id="login-form" class="intro-form">
+      <div class="intro-form-row">
+        <label>名前（ID）</label>
+        <input id="login-name" type="text" placeholder="例：福澤"/>
       </div>
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;color:#666;margin-bottom:4px">パスワード</div>
-        <input id="login-pass" type="password" placeholder="パスワードを入力" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;box-sizing:border-box" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <div class="intro-form-row">
+        <label>パスワード</label>
+        <input id="login-pass" type="password" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
-      <div id="login-error" style="color:#e53e3e;font-size:12px;margin-bottom:8px;min-height:16px"></div>
-      <button onclick="doLogin()" style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer">ログイン</button>
+      <div id="login-error" class="intro-form-err"></div>
+      <button class="intro-form-cta" onclick="doLogin()">ログイン</button>
     </div>
   </div>
 
@@ -3401,6 +3546,7 @@ window.doLogin = async function() {
     
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-root').style.display = 'block';
+    localStorage.setItem('dorimyu_intro_shown', '1');
     updateUserBtn();
     err.textContent = '';
     goScr('list');
@@ -3415,11 +3561,72 @@ window.doLogout = function() {
   localStorage.removeItem('ecole_login');
   currentUser = null; currentStaff = '';
   document.getElementById('app-root').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-name').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-error').textContent = '';
+  runLoginIntro();
 };
+
+// ═══ ログイン画面 ブランド演出 ═══
+let _introTimers = [];
+function _clearIntroTimers() {
+  _introTimers.forEach(function(id){ clearTimeout(id); });
+  _introTimers = [];
+}
+
+window.runLoginIntro = function() {
+  const stage = document.getElementById('login-screen');
+  if (!stage) return;
+  stage.style.display = 'flex';
+  stage.classList.remove('stage-bg-in');
+  const creed = document.getElementById('login-creed');
+  const brand = document.getElementById('login-brand');
+  const form = document.getElementById('login-form');
+  creed.classList.remove('step-fade');
+  creed.querySelectorAll('.creed-line').forEach(function(el){ el.classList.remove('show'); });
+  brand.classList.remove('show');
+  form.classList.remove('show');
+  _clearIntroTimers();
+
+  const short = !!localStorage.getItem('dorimyu_intro_shown');
+  _introTimers.push(setTimeout(function(){ stage.classList.add('stage-bg-in'); }, 0));
+
+  if (short) {
+    _introTimers.push(setTimeout(function(){ brand.classList.add('show'); }, 300));
+    _introTimers.push(setTimeout(function(){ form.classList.add('show'); }, 500));
+    return;
+  }
+
+  _introTimers.push(setTimeout(function(){ creed.querySelector('[data-step="1"]').classList.add('show'); }, 400));
+  _introTimers.push(setTimeout(function(){ creed.querySelector('[data-step="2"]').classList.add('show'); }, 1000));
+  _introTimers.push(setTimeout(function(){ creed.querySelector('[data-step="3"]').classList.add('show'); }, 1600));
+  _introTimers.push(setTimeout(function(){ creed.classList.add('step-fade'); }, 2400));
+  _introTimers.push(setTimeout(function(){ brand.classList.add('show'); }, 2600));
+  _introTimers.push(setTimeout(function(){ form.classList.add('show'); }, 3300));
+};
+
+window.skipLoginIntro = function() {
+  _clearIntroTimers();
+  const stage = document.getElementById('login-screen');
+  if (!stage) return;
+  stage.classList.add('stage-bg-in');
+  const creed = document.getElementById('login-creed');
+  creed.querySelectorAll('.creed-line').forEach(function(el){ el.classList.add('show'); });
+  creed.classList.add('step-fade');
+  document.getElementById('login-brand').classList.add('show');
+  document.getElementById('login-form').classList.add('show');
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+  const stage = document.getElementById('login-screen');
+  if (!stage) return;
+  stage.addEventListener('click', function(e) {
+    if (e.target.closest('#login-form')) return;
+    if (!document.getElementById('login-form').classList.contains('show')) {
+      skipLoginIntro();
+    }
+  });
+});
 
 window.showUserMenu = function() {
   const existing = document.getElementById('user-menu-popup');
@@ -4411,8 +4618,8 @@ function initLogin() {
   }
   // 古いlocalStorage情報を削除
   localStorage.removeItem('ecole_login');
-  document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app-root').style.display = 'none';
+  runLoginIntro();
 }
 
 window.selectStaff = function(name) {
@@ -4423,7 +4630,7 @@ window.selectStaff = function(name) {
 }
 
 window.showLogin = function() {
-  document.getElementById('login-screen').style.display = 'flex';
+  runLoginIntro();
 }
 
 function updateUserBtn() {
