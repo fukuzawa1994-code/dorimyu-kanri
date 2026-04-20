@@ -783,7 +783,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
     <div class="scr" id="scr-case">
       <div class="phase-tabs" style="padding:10px 14px 0">
-        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px;font-weight:700"><i data-lucide="file-text"></i> 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:#666;min-width:28px">月</span><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/></div><div style="display:flex;gap:6px;margin-bottom:8px"><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="all" checked style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-all" style="padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700"><i data-lucide="users"></i> 班全員</div></label><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="one" style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-one" style="padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px"><i data-lucide="user"></i> 1人だけ</div></label></div><div id="case-print-user-area" style="display:none;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">利用者を選択</span><select id="case-print-user" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">選択してください</option></select></div><button class="sbtn" onclick="printCaseMonthly()" style="width:100%;padding:10px;font-size:13px;font-weight:700"><i data-lucide="file-text"></i> PDF出力</button></div>
+        <div class="ptab on" id="ctab-input" onclick="setCaseTab('input')">入力</div><div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin:8px 14px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px;font-weight:700"><i data-lucide="file-text"></i> 月次PDF出力</div><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:#666;min-width:28px">月</span><input type="month" id="case-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/></div><div style="display:flex;gap:6px;margin-bottom:8px"><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="all" checked style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-all" style="padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700"><i data-lucide="users"></i> 班全員</div></label><label style="flex:1;cursor:pointer"><input type="radio" name="case-print-mode" value="one" style="display:none" onchange="onCasePrintModeChange()"><div id="cpm-one" style="padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px"><i data-lucide="user"></i> 1人だけ</div></label></div><div id="case-print-han-area" style="display:block;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">班を選択</span><select id="case-print-han" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">全班</option></select></div><div id="case-print-user-area" style="display:none;margin-bottom:8px"><span style="font-size:11px;color:#666;display:block;margin-bottom:4px">利用者を選択</span><select id="case-print-user" style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"><option value="">選択してください</option></select></div><button class="sbtn" onclick="printCaseMonthly()" style="width:100%;padding:10px;font-size:13px;font-weight:700"><i data-lucide="file-text"></i> PDF出力</button></div>
         <div class="ptab" id="ctab-summary" onclick="setCaseTab('summary')">まとめ</div>
       </div>
 
@@ -1841,13 +1841,17 @@ window.printCaseMonthly = function() {
     if (!user) { showToast('利用者を選択してください'); return; }
     printCaseMonthlyOne(month, user);
   } else {
-    printCaseMonthlyAll(month);
+    const hanEl = document.getElementById('case-print-han');
+    const han = hanEl ? hanEl.value : '';
+    printCaseMonthlyAll(month, han || null);
   }
 };
 
-window.printCaseMonthlyAll = function(month) {
+window.printCaseMonthlyAll = function(month, hanFilter) {
   const dorimiyomu = KYUSHOKU['童里夢'] || {};
-  const hanList = Object.keys(dorimiyomu);
+  const allHans = Object.keys(dorimiyomu);
+  const hanList = hanFilter ? (allHans.includes(hanFilter) ? [hanFilter] : []) : allHans;
+  if (!hanList.length) { showToast('班が見つかりません'); return; }
   const ym = month.split('-');
   const year = parseInt(ym[0]), mm = parseInt(ym[1]);
   const lastDay = new Date(year, mm, 0).getDate();
@@ -2541,14 +2545,27 @@ window.onCasePrintModeChange = function() {
   const allBtn = document.getElementById('cpm-all');
   const oneBtn = document.getElementById('cpm-one');
   const userArea = document.getElementById('case-print-user-area');
+  const hanArea = document.getElementById('case-print-han-area');
   if (mode === 'all') {
     allBtn.style.cssText = 'padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700';
     oneBtn.style.cssText = 'padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px';
     userArea.style.display = 'none';
+    if (hanArea) hanArea.style.display = 'block';
+    // 班セレクトを populate
+    const hanSel = document.getElementById('case-print-han');
+    if (hanSel && hanSel.options.length <= 1) {
+      let h = '<option value="">全班</option>';
+      const dorimiyomu = KYUSHOKU['童里夢'] || {};
+      for (const han of Object.keys(dorimiyomu)) {
+        h += '<option value="'+han+'">'+han+'</option>';
+      }
+      hanSel.innerHTML = h;
+    }
   } else {
     oneBtn.style.cssText = 'padding:8px;text-align:center;border:1.5px solid var(--purple);background:var(--purple);color:#fff;border-radius:8px;font-size:12px;font-weight:700';
     allBtn.style.cssText = 'padding:8px;text-align:center;border:0.5px solid var(--border);background:#fff;color:#666;border-radius:8px;font-size:12px';
     userArea.style.display = 'block';
+    if (hanArea) hanArea.style.display = 'none';
     // 利用者リスト生成（童里夢・班別）
     const sel = document.getElementById('case-print-user');
     if (sel && sel.options.length <= 1) {
@@ -4063,6 +4080,16 @@ function initCaseForm() {
   const today = new Date();
   const ds = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('c-date').value = ds;
+  // PDF 出力の班セレクトを初期化（scr-case 表示時に確実に populate）
+  const hanSel = document.getElementById('case-print-han');
+  if (hanSel && hanSel.options.length <= 1) {
+    let hh = '<option value="">全班</option>';
+    const dorimiyomu = KYUSHOKU['童里夢'] || {};
+    for (const han of Object.keys(dorimiyomu)) {
+      hh += '<option value="'+han+'">'+han+'</option>';
+    }
+    hanSel.innerHTML = hh;
+  }
   // 利用者リストを事業所・班でグループ表示
   const sel = document.getElementById('c-user');
   let html = '';
