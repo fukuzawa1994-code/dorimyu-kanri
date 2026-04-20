@@ -60,7 +60,7 @@
   --radius-pill: 999px;
 
   /* 影 */
-  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-card: 0 2px 8px rgba(15,23,42,0.04), 0 12px 32px rgba(15,23,42,0.06);
   --shadow-cta: 0 12px 30px rgba(91,79,216,0.25);
   --shadow-pill: 0 2px 8px rgba(0,0,0,0.04);
   --shadow-sheet: 0 -8px 30px rgba(0,0,0,0.10);
@@ -96,15 +96,17 @@ html, body {
 .header-top { display: flex; align-items: center; min-height: 34px; }
 .header-top .hd-role { font-size: 11px; color: var(--text-mute); flex: 1; font-weight: 500; }
 .header h1 { font-size: 28px; font-weight: 700; text-align: center; letter-spacing: -0.02em; margin-top: 8px; color: var(--text); }
-.header p { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 2px; }
+.header h1::after { content: ''; display: block; width: 40px; height: 2px; margin: 4px auto 0; background: linear-gradient(90deg, transparent, rgba(91,79,216,0.5), transparent); }
+.header p { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 4px; }
 .date-strip { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; scrollbar-width: none; border-bottom: 0.5px solid var(--border); background: var(--surface); flex-shrink: 0; }
 .date-strip::-webkit-scrollbar { display: none; }
 .dchip { flex-shrink: 0; padding: 8px 14px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 500; cursor: pointer; border: none; color: var(--chip-text); background: var(--fill-chip); transition: all .15s; }
 .dchip.on { background: linear-gradient(135deg, #5B4FD8, #6A5CF6); color: #fff; box-shadow: 0 6px 16px rgba(91,79,216,0.28); }
 .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 80px; scrollbar-width: none; }
 .scroll::-webkit-scrollbar { display: none; }
-.sec { font-size: 17px; font-weight: 700; color: var(--text); padding: 40px 20px 12px; letter-spacing: -0.01em; }
-.rcard { margin: 12px 16px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); }
+.sec { font-size: 17px; font-weight: 700; color: var(--text); padding: 44px 22px 14px; letter-spacing: -0.01em; position: relative; }
+.sec::after { content: ''; display: block; width: 40px; height: 2px; margin: 8px 0 0; background: linear-gradient(90deg, transparent, rgba(91,79,216,0.5), transparent); }
+.rcard { margin: 14px 18px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .rcard-hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 0.5px solid var(--separator); }
 .rdot { width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
 .rname { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -142,28 +144,29 @@ html, body {
 .ni span { font-size: 11px; color: #8E8E93; font-weight: 500; letter-spacing: -0.01em; }
 .ni.on svg { stroke: var(--purple); stroke-width: 2; }
 .ni.on span { color: var(--purple); font-weight: 600; }
+.ni.on::after { content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--purple); }
 .ndot { width: 8px; height: 8px; background: var(--coral); border-radius: 50%; position: absolute; top: 10px; right: calc(50% - 18px); border: 2px solid #fff; display: none; }
 .fab {
-  position: absolute; bottom: 96px; right: 16px;
-  width: 56px; height: 56px;
+  position: absolute; bottom: 104px; right: 24px;
+  width: 64px; height: 64px;
   background: linear-gradient(135deg, #5B4FD8, #6C63FF);
   border-radius: 50%;
   border: none;
   color: #fff;
-  font-size: 28px; font-weight: 300;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   z-index: 60;
-  box-shadow: 0 12px 30px rgba(91,79,216,0.35);
-  transition: all 0.15s ease;
+  box-shadow: 0 16px 36px rgba(91,79,216,0.30);
+  transition: transform 0.15s cubic-bezier(0.215, 0.61, 0.355, 1), box-shadow 0.15s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
-.fab:active { transform: scale(0.93); box-shadow: 0 8px 18px rgba(91,79,216,0.3); }
+.fab [data-lucide] { width: 28px; height: 28px; stroke-width: 1.5; color: currentColor; }
+.fab:active { transform: scale(0.98); box-shadow: 0 10px 24px rgba(91,79,216,0.28); }
 .scr { display: none; }
 .scr.on { display: block; }
 .fp { padding: 14px; }
-.fsec { margin-bottom: 16px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); }
+.fsec { margin-bottom: 20px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .tog-label { font-size: 13px; font-weight: 600; color: var(--text); padding: 18px 20px 10px; display: block; letter-spacing: 0; }
-.frow { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 0.5px solid var(--separator); gap: 10px; min-height: 52px; }
+.frow { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 0.5px solid var(--separator); gap: 10px; min-height: 56px; }
 .frow:last-child { border-bottom: none; }
 .flbl { font-size: 15px; color: var(--text); flex-shrink: 0; font-weight: 500; }
 .frow select, .frow input[type=date], .frow input[type=text], .frow input[type=number] { font-size: 17px; font-weight: 500; border: none; background: transparent; color: var(--text); outline: none; text-align: right; font-family: inherit; }
@@ -217,7 +220,7 @@ html, body {
 .cta-fixed .sbtn { pointer-events: auto; max-width: 100%; margin-top: 0; }
 textarea { width: 100%; font-size: 15px; border: none; background: var(--fill-input); color: var(--text); outline: none; resize: none; min-height: 72px; font-family: inherit; padding: 12px 16px; border-radius: var(--radius-input); transition: outline-color .15s; box-sizing: border-box; }
 textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
-.hrow { margin: 10px 16px; background: var(--surface); border: none; border-radius: var(--radius-card); padding: 16px 20px; cursor: pointer; box-shadow: var(--shadow-card); }
+.hrow { margin: 12px 18px; background: var(--surface); border: none; border-radius: var(--radius-card); padding: 18px 22px; cursor: pointer; box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .hrow:active { background: var(--bg); }
 .hdate { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
 .hname { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -256,7 +259,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   border-radius: 32px 32px 0 0;
   overflow: hidden;
   transform: translateY(110%);
-  transition: transform 0.32s cubic-bezier(0.215, 0.61, 0.355, 1);
+  transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1);
   margin-bottom: 8px;
   box-shadow: 0 -12px 40px rgba(0,0,0,0.12);
 }
@@ -310,7 +313,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   color: var(--purple);
   cursor: pointer;
   transform: translateY(110%);
-  transition: transform 0.32s cubic-bezier(0.215, 0.61, 0.355, 1) 0.04s, background 0.12s cubic-bezier(0.215, 0.61, 0.355, 1);
+  transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1) 0.04s, background 0.12s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 .action-sheet-bg.on .action-sheet-cancel { transform: translateY(0); }
 .action-sheet-cancel:active { background: rgba(60,60,67,0.06); }
@@ -346,8 +349,9 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .cal-day.on.sun-col, .cal-day.on.sat-col { color: #fff; }
 .cal-day.other-month { color: var(--border); }
 
-.ksec-hd { font-size: 17px; font-weight: 700; color: var(--text); padding: 40px 20px 12px; letter-spacing: -0.01em; }
-.kcard { margin: 12px 16px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); }
+.ksec-hd { font-size: 17px; font-weight: 700; color: var(--text); padding: 44px 22px 14px; letter-spacing: -0.01em; position: relative; }
+.ksec-hd::after { content: ''; display: block; width: 40px; height: 2px; margin: 8px 0 0; background: linear-gradient(90deg, transparent, rgba(91,79,216,0.5), transparent); }
+.kcard { margin: 14px 18px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .kcard-hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: var(--surface); border-bottom: 0.5px solid var(--separator); }
 .kcard-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .metric-value { font-size: 34px; font-weight: 700; color: var(--purple); line-height: 1; letter-spacing: -0.02em; }
@@ -372,7 +376,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .ktotal-num { font-size: 28px; font-weight: 700; }
 
 .abs-empty { text-align: center; padding: 32px 24px; color: var(--text-sub); font-size: 14px; }
-.abs-card { margin: 12px 16px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); }
+.abs-card { margin: 14px 18px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .abs-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 0.5px solid var(--separator); }
 .abs-row:last-child { border-bottom: none; }
 .abs-name { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -526,6 +530,15 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   letter-spacing: -0.01em;
 }
 .intro-form-cta:active { transform: scale(0.98); }
+
+/* カード出現アニメーション */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* タップフィードバック（:active スケール 0.98 統一） */
+.dchip:active, .tog:active, .ptab:active { transform: scale(0.98); }
 
 /* Lucide アイコン基本スタイル */
 [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: currentColor; flex-shrink: 0; display: inline-block; vertical-align: -3px; }
@@ -1018,7 +1031,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
     <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">班</span><input type="text" id="admin-new-han" placeholder="例：雑貨" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div></div></div>
     <div class="scr" id="scr-vacation"><div class="fp"><div class="ksec-hd">休暇申請</div><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div></div>
-  <button class="fab" id="fab" onclick="goForm()">＋</button>
+  <button class="fab" id="fab" onclick="goForm()"><i data-lucide="plus"></i></button>
 
   <div class="bnav">
     <div class="ni on" id="ni-list" onclick="goScr('list')">
