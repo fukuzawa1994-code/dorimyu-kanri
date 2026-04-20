@@ -1156,7 +1156,10 @@ function updateFormBlocks() {
     document.getElementById('f-pm-dropoff-row').style.display = fState.pm==='利用しない' ? 'none' : 'flex';
   }
   const ksec = document.getElementById('f-kyushoku-sec');
-  if (ksec) ksec.style.display = 'block';
+  const absNotPresent = fState.abs !== '出席';
+  if (ksec) ksec.style.display = absNotPresent ? 'none' : 'block';
+  const mealAbsSec = document.getElementById('f-meal-abs-sec');
+  if (mealAbsSec) mealAbsSec.style.display = absNotPresent ? 'block' : 'none';
 }
 
 window.renderGhPanel = function() {
@@ -2603,6 +2606,12 @@ window.doSubmit = async function() {
     isNew: true,
     createdAt: serverTimestamp()
   };
+
+  // 欠席・遅刻・早退のときのみ mealLunch / mealDinner を保存（'自動' は保存しない = auto 判定 fall back）
+  if (fState.abs !== '出席') {
+    if (fState.mealLunch && fState.mealLunch !== '自動') entry.mealLunch = fState.mealLunch;
+    if (fState.mealDinner && fState.mealDinner !== '自動') entry.mealDinner = fState.mealDinner;
+  }
 
   try {
     await addDoc(collection(db, 'logs'), entry);
