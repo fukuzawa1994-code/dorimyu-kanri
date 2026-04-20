@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#3C3489">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>École 送迎管理</title>
@@ -75,10 +75,21 @@ html, body {
   font-feature-settings: "palt";
 }
 #app { max-width: 430px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }
-.header { background: var(--purple); color: #fff; flex-shrink: 0; }
-.header-inner { padding: 14px 16px 16px; }
-.header h1 { font-size: 18px; font-weight: 600; }
-.header p { font-size: 12px; opacity: .7; margin-top: 3px; }
+.header {
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  color: var(--text);
+  flex-shrink: 0;
+  border-bottom: 0.5px solid var(--separator);
+  position: relative;
+  z-index: 10;
+}
+.header-inner { padding: 18px 16px 14px; position: relative; }
+.header-top { display: flex; align-items: center; min-height: 34px; }
+.header-top .hd-role { font-size: 12px; color: var(--text-sub); flex: 1; }
+.header h1 { font-size: 28px; font-weight: 700; text-align: center; letter-spacing: -0.02em; margin-top: 4px; color: var(--text); }
+.header p { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 2px; }
 .date-strip { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; scrollbar-width: none; border-bottom: 0.5px solid var(--border); background: var(--surface); flex-shrink: 0; }
 .date-strip::-webkit-scrollbar { display: none; }
 .dchip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; border: 0.5px solid var(--border); color: var(--text-sub); background: var(--bg); transition: all .15s; }
@@ -218,7 +229,7 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 .staff-item:active { background: var(--bg); }
 .staff-name { font-size: 14px; font-weight: 600; color: var(--text); }
 .staff-han { font-size: 11px; color: var(--text-sub); }
-.current-user { font-size: 11px; color: rgba(255,255,255,.8); padding: 4px 10px; background: rgba(255,255,255,.15); border-radius: 10px; cursor: pointer; }
+.current-user { font-size: 12px; font-weight: 500; color: var(--text); padding: 6px 12px; background: #fff; border-radius: var(--radius-pill); box-shadow: var(--shadow-pill); cursor: pointer; border: 0.5px solid var(--separator); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -247,11 +258,11 @@ textarea { width: 100%; font-size: 13px; border: none; background: transparent; 
 
   <div class="header">
     <div class="header-inner">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:10px;color:rgba(255,255,255,0.7)" id="hd-role"></div>
-        <h1 id="hd-title">送迎一覧 <span class="sync-dot" id="sync-dot" style="display:none"></span></h1>
+      <div class="header-top">
+        <div class="hd-role" id="hd-role"></div>
         <span class="current-user" id="hd-staff" onclick="showUserMenu()" title="メニュー"></span>
       </div>
+      <h1 id="hd-title">送迎一覧 <span class="sync-dot" id="sync-dot" style="display:none"></span></h1>
       <p id="hd-sub"></p>
     </div>
   </div>
