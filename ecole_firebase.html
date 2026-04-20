@@ -3996,11 +3996,15 @@ function renderAbsence() {
   for (const l of absLogs) {
     const type = l.absType || '欠席';
     const kyushoku = l.kyushoku ? `給食${l.kyushoku}` : '';
+    const mealParts = [];
+    if (l.mealLunch) mealParts.push('昼→' + l.mealLunch);
+    if (l.mealDinner) mealParts.push('夕→' + l.mealDinner);
+    const meals = mealParts.length ? ' · ' + mealParts.join(' ') : '';
     const note = l.note ? ` ／ ${l.note}` : '';
     html += `<div class="abs-row">
       <div>
         <div class="abs-name">${l.user}</div>
-        <div class="abs-detail">${l.bin}便${kyushoku ? ' · ' + kyushoku : ''}${note}${l.staff ? ' · 入力：' + l.staff : ''}</div>
+        <div class="abs-detail">${l.bin}便${kyushoku ? ' · ' + kyushoku : ''}${meals}${note}${l.staff ? ' · 入力：' + l.staff : ''}</div>
       </div>
       <span class="abs-tag ${type}">${type}</span>
     </div>`;
