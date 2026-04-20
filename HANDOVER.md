@@ -330,7 +330,6 @@ totalActual
 ### 📋 残タスク（2026-04-20 時点）
 
 - 🔴 ぱぁとなぁ 出欠UI 追加
-- 🔴 すたぁと給食を給食画面に埋め込み
 - 🟡 購入申請 **月カレンダー表示**（大改修本体の残件）
 - 🟡 職員マスター管理画面 UI
 - 🟡 アルコールチェック対象を STAFF_MASTER 連動化
@@ -393,3 +392,57 @@ mealDinner?: 同上
 
 - **#5 給食場所変更を職員にも対応**: 実装は既に `1a9131c`（2026-04-18）で完了していたことを確認。
   ついでに `meal_change` 検索 4 箇所に `isStaff` フィルタを追加し、利用者↔職員の同名衝突を防止。
+
+---
+
+## 🆕 2026-04-20 追加セッション成果（すたぁと給食連絡 改修・3コミット）
+
+### ✅ すたぁと給食連絡の独立化 + 月カレンダー一括入力 完了
+
+HANDOVER「🔴 すたぁと給食を給食画面に埋め込み」相当の再構成を 3 コミットで実装。
+意図は「給食画面に埋め込み」ではなく「独立 scr に分離して月カレンダーで一括入力できるようにする」方向で合意。
+
+- **32c5c12** #1/3: 独立した `scr-startkyushoku` に分離（給食管理画面との重複解消）
+- **26d89b8** #2/3: 月カレンダー一括入力 UI を追加（履歴セクションを統合）
+- **c8b1cdd** #3/3: 月カレンダー JS 実装（変更があった日だけ保存＝案B 安全運用）
+
+### 🎯 改修内容
+
+1. **画面分離**: メニュー「その他 → すたぁと給食連絡」を `goScr('startkyushoku')` に変更。
+   従来は `scr-kyushoku` 上に `kyushoku-start-area` を display:block するだけだったため、
+   奏楽/童里夢/ぱぁとなぁ/すたぁと全一覧と重複表示されていた問題を解消。
+2. **月カレンダー縦リスト**: 対象月の 1 日〜末日を縦リストで表示（日曜・月曜は法人休日でスキップ）。
+   各行: `MM/DD(曜) | 利 [  ] | 職 [  ] | 翌 [  ] | 備考 [      ]`。
+3. **既存データのプリフィル**: `logs` から `type==='start_kyushoku'` かつ対象月内のログを抽出して各行に反映。
+   初期値は `data-init-*` 属性に保持し、入力変更時に比較して `data-dirty='1/0'` を切替。
+4. **変更があった日だけ保存（Q4=B 安全運用）**: `doStartBulkSave()` で dirty 行のみ処理。
+   全ゼロ＆備考空なら既存ドキュメント削除のみ（クリア動作）、そうでなければ upsert。
+5. **誤操作防止の confirm**: 月切替時に dirty があれば警告、保存時にも件数確認ダイアログ。
+6. **単日入力フォーム併存（Q1=B）**: 既存の `doStartSubmit` / 単日フォームはそのまま残置（素早い 1 日入力用）。
+7. **履歴セクションは月カレンダーに統合（Q5=B）**: `start-history-body` は削除。
+   `renderStartHistory` 関数は body null 早期 return で副作用なく残置。
+
+### 🔧 Firestore データ形式（変更なし・完全後方互換）
+
+```
+type: 'start_kyushoku'
+date: 'YYYY-MM-DD'
+users: number, staff: number, nextLunch: number, memo: string
+recordedBy, ts, createdAt
+```
+1日1ドキュメント。保存時は同日既存を deleteDoc してから新規 addDoc（単日フォーム・月カレンダーとも）。
+
+### 🔑 主要キー位置（最新コミット c8b1cdd 時点）
+
+- HTML `scr-startkyushoku`（単日フォーム + 月カレンダー）: L545-
+- `goScr('startkyushoku')` フック（start-date 初期化・renderStartMonth 呼出）: L910-
+- `window.doStartSubmit`（単日保存、既存）: L2405-
+- `window.renderStartHistory`（死に残し、早期 return）: L2440-
+- `window.startMonthMove` / `window.renderStartMonth`: L2478- / L2493-
+- `window.onStartDayInput` / `function updateStartDirtyCount`: L2538- / L2554-
+- `window.doStartBulkSave`: L2560-
+
+### ⚠️ 既知の死にコード（今回スコープ外）
+
+- `setKyushokuTab` 内で `ktab-gh` / `kyushoku-gh-area` / `ktab-start` / `kyushoku-start-area` を参照する行がある（要素はすでに存在しない）。呼出元は L534 の ktab-main `onclick="setKyushokuTab('main')"` のみで、クリックすると null 参照で throw する。
+- 今回の改修ではこのパスに触れていない（ktab-main を押しても元々壊れていた）。気が向いたら別タスクで .phase-tabs ごと削除するのが良い。
