@@ -1,6 +1,6 @@
 # エコール送迎管理アプリ 引き継ぎ資料
 
-最終更新: 2026-04-20
+最終更新: 2026-04-21
 
 ## 🔑 プロジェクト基本情報
 
@@ -446,3 +446,109 @@ recordedBy, ts, createdAt
 
 - `setKyushokuTab` 内で `ktab-gh` / `kyushoku-gh-area` / `ktab-start` / `kyushoku-start-area` を参照する行がある（要素はすでに存在しない）。呼出元は L534 の ktab-main `onclick="setKyushokuTab('main')"` のみで、クリックすると null 参照で throw する。
 - 今回の改修ではこのパスに触れていない（ktab-main を押しても元々壊れていた）。気が向いたら別タスクで .phase-tabs ごと削除するのが良い。
+
+
+---
+
+## 🆕 2026-04-21 セッション成果（送迎マスター v3 移行 + 表記修正）
+
+### 本日完了コミット（新→古）
+
+- **563d0d2** `#32d-2` renderList を v3 対応（当日運行者抽出 / 担当者表示 / 特記事項 / memo 注記）
+- **2e008b1** `#32d-1` 送迎マスター v3 対応（構造保存 + バナー表示、renderList / MasterList は -2/-3 で実装）
+- **ca35a05** `#32c` 渡邊一正の表記を「辺」→「邊」に戻す（ac19c2c の一部撤回）
+- **946509b** `#32b` renderMasterList を CURRENT_MASTER 優先に改修（6便表示 / 曜日条件併記 / 送迎対象外セクション）
+- **c728a2b** `#32a-3` 基本送迎マスター適用ロジック実装（detail 優先 / ぱぁとなぁ居住セクション / noTransport 分類）
+- **ac19c2c** 利用者名表記揺れ 7 件を統一（USER_MASTER / MASTER / SOGAKU_MASTER / KYUSHOKU / GH_MASTER / DEFAULT_TRANSPORT、全 36 箇所）
+
+### 🎯 送迎マスター v3 への移行完了
+
+#### 構造
+`master_current/current` Firestore ドキュメントに `{version, routes, noTransport, _meta}` 形式で保存。
+
+- **v3 の routes**: `{ '賀茂': {bus, specialNote, morning:{drivers:{曜:担当者}, users:[{name, memo, days:{曜:{ride,from,to}}}]}, evening:{...}}, ... }`
+- **v3 の noTransport**: `{ 'パン缶(自力通所)': [...], 'ぱぁとなぁ居住(自力/家族送迎)': [...], 'その他(現時点送迎なし)': [...] }`
+- **利用者ユニーク数**: v2 の 51 → v3 の調整後（渡辺真実鼓・稲垣雅子を noTransport から外し、二川 / 東脇便に組み入れ）
+
+#### リーダー対応状況
+- `renderList`（送迎一覧）: v3 本実装済（#32d-2）。当日曜日で `ride:true` な利用者のみ抽出、便ヘッダーに当日担当、特記事項は赤字、memo はオレンジ小注記。`latestFor` / `logs` 統合で欠席・利用しないタグを表示。
+- `renderMasterList`（マスター一覧）: v3 は**バナーのみ**（#32d-3 で詳細描画を実装予定）。現バナー文言：「詳細表示は送迎一覧で確認可能。マスター一覧画面は #32d-3 対応予定」。
+
+#### 互換性
+- v2 import も `normalizeImportedMaster` 経由で `version:'v2'` として保存可能（回帰テスト容易化）
+- 既存 v2 リーダー経路は無改修
+- `saveBackup` は `payload.data.masterCurrent` に正規化形を保存（復元互換）
+
+### 🔐 Firestore ルール追加（Firebase Console 手動）
+
+`master_current` / `backups` コレクションに以下を追加（既存ルールの末尾に追記）：
+```
+match /master_current/{id} { allow read, write: if true; }
+match /backups/{id}        { allow read, write: if true; }
+```
+**注**: アプリは Firebase Auth 非使用、`currentUser.role >= 3` をクライアント側チェック。rules 自体は全開放。将来 Auth 導入する際は全コレクション再設計が必要。
+
+### ⚠️ Netlify 利用制限発覚 → ローカル運用継続
+
+- **従来案内**: `https://graceful-churros-cbdf0f.netlify.app`（push で自動反映）
+- **現状**: 福澤環境で Netlify 利用制限のため**アクセス不可**
+- **代替運用**: GitHub raw から `ecole_firebase.html` を DL → ローカル上書き → `file:///C:/Users/driza/OneDrive/デスクトップ/dorimyu-kanri/ecole_firebase.html` で起動
+  - raw URL: `https://raw.githubusercontent.com/fukuzawa1994-code/dorimyu-kanri/main/ecole_firebase.html`
+- **CLAUDE.md の GitHub Pages URL**: これも現実態と乖離（GitHub Pages も未設定）
+- **将来**: raw 自動更新スクリプト / Service Worker / VS Code 拡張等で簡略化検討 → 別タスク（`#運用`）で計画
+
+### 🧩 新規関数・エクスポート（#32d-1 / #32d-2）
+
+- `window.normalizeImportedMaster(data)` — v2/v3 入力を `{version, routes, noTransport, _meta}` に正規化（未知形式は throw）
+- `detectMasterVersion(data)` — 内部ヘルパ、`v2`/`v3`/`null` を返す
+- `window.validateImportedMaster` — v2/v3 両対応に拡張
+- `window.applyImportedMaster` — normalize 経由で setDoc
+- `window.restoreFromBackup` — v3 でも既存コードでそのまま動作（#32a-3 で実装済）
+
+### 🔑 主要関数の行番号（2026-04-21 最新 commit 563d0d2 時点）
+
+- `function renderList`: L1506-（v3 分岐 L1508-1610、v2/fallback L1611-）
+- `window.renderMasterList`: L3195-（v3 バナー L3201-3204、v2 以降本体）
+- `window.applyImportedMaster`: L2242-
+- `window.restoreFromBackup`: L2262-
+- `window.normalizeImportedMaster`: L2006-（#32d-1）
+- `window.saveBackup`: L1889-（v3 対応済、masterCurrent を payload に含める）
+- onSnapshot(master_current/current): L5778-
+
+### 📋 次回タスク優先順位
+
+1. **#32d-2 残検証**（明日、福澤 実機）:
+   - 月曜の全便「本日運行なし」表示確認
+   - 渕名健太の特記事項（赤字）＋ memo オレンジ注記表示確認
+   - マスター一覧画面の新バナー文言確認（「送迎一覧で確認可能」）
+   - 担当者バッジ（便ヘッダー右、グレー小文字）確認
+2. **#32d-3**: `renderMasterList` を v3 対応（担当者欄 / 特記事項 / 曜日別詳細 / noTransport カテゴリ / バージョンバッジ）
+3. **#35**: （TBD — 次回セッションで定義）
+4. **#36**: （TBD — 次回セッションで定義）
+
+### 🧪 F12 コンソール動作確認（v3 反映済み確認用）
+
+```js
+// 基本確認
+const cm = window.CURRENT_MASTER;
+console.log({ version: cm && cm.version, routeKeys: cm && cm.routes ? Object.keys(cm.routes) : null, ntKeys: cm && cm.noTransport ? Object.keys(cm.noTransport) : null });
+// 期待値: { version:"v3", routeKeys:["賀茂","東脇","二川","草間","曙","マイクロ"], ntKeys:["パン缶(自力通所)", "ぱぁとなぁ居住(自力/家族送迎)", "その他(現時点送迎なし)"] }
+
+// 当日曜日の全便運行サマリ
+(()=>{const cm=window.CURRENT_MASTER;if(!cm||cm.version!=='v3')return'v3未反映';const dow=['日','月','火','水','木','金','土'][new Date().getDay()];const r={};for(const b of Object.keys(cm.routes)){const m=cm.routes[b].morning,e=cm.routes[b].evening;r[b]={朝:{担当:m&&m.drivers&&m.drivers[dow]||'-',乗車:(m&&m.users||[]).filter(u=>u.days&&u.days[dow]&&u.days[dow].ride).map(u=>u.name+' '+(u.days[dow].from||'')+'→'+(u.days[dow].to||''))},夕:{担当:e&&e.drivers&&e.drivers[dow]||'-',乗車:(e&&e.users||[]).filter(u=>u.days&&u.days[dow]&&u.days[dow].ride).map(u=>u.name+' '+(u.days[dow].from||'')+'→'+(u.days[dow].to||''))}};}return r;})()
+```
+
+### 🗂️ tools/ ディレクトリの現状
+
+- `tools/dump-routes.ps1` — v2 JSON の便別ダンプ（v3 非対応）
+- `tools/gen-master-v2.ps1` — 手書き v2 生成スクリプト
+- `tools/基本送迎マスター_v2.json` — #32d-1 以前の import 用（履歴保持）
+- `tools/送迎マスター_v3.json` — 福澤が Claude.ai 側でパース・配置した v3 JSON（現行 import 対象）
+
+### 💡 編集ルール（変更なし、再掲）
+
+- 「超ゆっくり・丁寧に壊れないように」
+- 精密な文字列マッチで Edit、ゆるマッチ正規表現は使わない
+- `window.doLogin` / `window.applyImportedMaster` / `window.restoreFromBackup` / `window.normalizeImportedMaster` 健在確認
+- 日本語コミットメッセージ、1タスク=1コミット
+
