@@ -50,6 +50,10 @@
   --gray-dark: #6E6E73;
   --coral: #FF3B30;
 
+  /* iOS system blue（情報バナー等） */
+  --ios-blue: #007AFF;
+  --ios-blue-bg: rgba(0,122,255,0.10);
+
   /* 角丸スケール */
   --radius: 14px;         /* legacy */
   --radius-sm: 8px;       /* legacy */
@@ -1501,6 +1505,11 @@ window.toggleRoute = function(el) {
 
 function renderList() {
   const body = document.getElementById('list-body');
+  // #32d-1: v3 は詳細描画未実装、バナー表示のみで早期 return
+  if (CURRENT_MASTER && CURRENT_MASTER.version === 'v3') {
+    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は次回更新で実装予定）</div>';
+    return;
+  }
   const phase = currentPhase;
   const dow = new Date(selectedDate + 'T00:00:00').getDay();
   const dowName = ['日','月','火','水','木','金','土'][dow];
@@ -1986,34 +1995,114 @@ window.initBackupSection = function() {
   }
 };
 
-// ═══ 適正送迎マスター インポート機構（#32a-2） ═══
-// ファイル選択 → JSON 検証 → プレビュー表示 → 2段 confirm
-// 実際の MASTER 反映は #32a-3 で実装（ここでは stub）
+// ═══ 適正送迎マスター インポート機構（#32a-2 / #32d-1 v3対応） ═══
+// ファイル選択 → JSON 検証 → プレビュー表示 → 2段 confirm → normalize → 反映
 
 let _importedMaster = null;
 
+// #32d-1: JSON 形式判定
+function detectMasterVersion(data) {
+  if (!data || typeof data !== 'object') return null;
+  if ((data._meta && data._meta.version === 'v3') || data.buses) return 'v3';
+  if (data.routes && data.meta) return 'v2';
+  return null;
+}
+
+// #32d-1: v2/v3 入力を統一保存形 {version, routes, noTransport, _meta} に正規化
+window.normalizeImportedMaster = function(data) {
+  const v = detectMasterVersion(data);
+  if (v === 'v3') {
+    return {
+      version: 'v3',
+      routes: data.buses || {},
+      noTransport: data.noTransport || {},
+      _meta: data._meta || {}
+    };
+  }
+  if (v === 'v2') {
+    return {
+      version: 'v2',
+      routes: data.routes || {},
+      noTransport: (data.meta && data.meta.noTransport) || {},
+      _meta: data.meta || {}
+    };
+  }
+  throw new Error('未知の JSON 形式（v2/v3 いずれでもない）');
+};
+
 window.validateImportedMaster = function(data) {
   const errors = [];
-  if (typeof data !== 'object' || data === null) errors.push('JSON がオブジェクトではありません');
-  else {
-    if (!data.routes || typeof data.routes !== 'object') errors.push('routes キーが不正またはありません');
-    if (!data.meta || typeof data.meta !== 'object') errors.push('meta キーが不正またはありません');
-    if (data.routes && typeof data.routes === 'object') {
-      const routeKeys = Object.keys(data.routes);
-      if (routeKeys.length === 0) errors.push('routes が空です');
-      for (const rk of routeKeys) {
-        const rv = data.routes[rk];
-        if (typeof rv !== 'object' || rv === null) { errors.push('routes.' + rk + ' がオブジェクトではありません'); break; }
+  if (typeof data !== 'object' || data === null) { errors.push('JSON がオブジェクトではありません'); return { valid:false, errors }; }
+  const ver = detectMasterVersion(data);
+  if (ver === 'v3') {
+    if (!data.buses || typeof data.buses !== 'object') errors.push('v3: buses キーが不正またはありません');
+    if (data.buses && Object.keys(data.buses).length === 0) errors.push('v3: buses が空です');
+    if (data.buses) {
+      for (const bk of Object.keys(data.buses)) {
+        const bv = data.buses[bk];
+        if (typeof bv !== 'object' || bv === null) { errors.push('v3: buses.' + bk + ' がオブジェクトではありません'); break; }
+        if (!bv.morning && !bv.evening) { errors.push('v3: buses.' + bk + ' に morning/evening がありません'); break; }
       }
     }
+    if (data.noTransport && typeof data.noTransport !== 'object') errors.push('v3: noTransport がオブジェクトではありません');
+  } else if (ver === 'v2') {
+    if (!data.routes || typeof data.routes !== 'object') errors.push('v2: routes キーが不正またはありません');
+    if (!data.meta || typeof data.meta !== 'object') errors.push('v2: meta キーが不正またはありません');
+    if (data.routes) {
+      const routeKeys = Object.keys(data.routes);
+      if (routeKeys.length === 0) errors.push('v2: routes が空です');
+      for (const rk of routeKeys) {
+        const rv = data.routes[rk];
+        if (typeof rv !== 'object' || rv === null) { errors.push('v2: routes.' + rk + ' がオブジェクトではありません'); break; }
+      }
+    }
+  } else {
+    errors.push('未知の JSON 形式（v2: routes+meta, v3: buses+_meta.version="v3" いずれでもない）');
   }
-  return { valid: errors.length === 0, errors: errors };
+  return { valid: errors.length === 0, errors: errors, version: ver };
 };
 
 function computeImportStats(data) {
+  const ver = detectMasterVersion(data);
+  if (ver === 'v3') {
+    const buses = data.buses || {};
+    const userSet = new Set();
+    let asaDriverCnt = 0, yuDriverCnt = 0, specialNoteBusCnt = 0;
+    for (const bk of Object.keys(buses)) {
+      const b = buses[bk];
+      if (b.specialNote) specialNoteBusCnt++;
+      if (b.morning) {
+        if (b.morning.drivers) asaDriverCnt += Object.keys(b.morning.drivers).length;
+        if (Array.isArray(b.morning.users)) b.morning.users.forEach(function(u){ if (u && u.name) userSet.add(u.name); });
+      }
+      if (b.evening) {
+        if (b.evening.drivers) yuDriverCnt += Object.keys(b.evening.drivers).length;
+        if (Array.isArray(b.evening.users)) b.evening.users.forEach(function(u){ if (u && u.name) userSet.add(u.name); });
+      }
+    }
+    const nt = data.noTransport || {};
+    const ntCounts = {};
+    let ntTotal = 0;
+    for (const k of Object.keys(nt)) {
+      const arr = Array.isArray(nt[k]) ? nt[k] : [];
+      ntCounts[k] = arr.length;
+      ntTotal += arr.length;
+    }
+    return {
+      version: 'v3',
+      routeCount: Object.keys(buses).length,
+      userCount: userSet.size,
+      asaDriverCnt: asaDriverCnt,
+      yuDriverCnt: yuDriverCnt,
+      specialNoteBusCnt: specialNoteBusCnt,
+      ntCounts: ntCounts,
+      ntTotal: ntTotal
+    };
+  }
+  // v2 (legacy)
   let userCount = 0, asaRecords = 0, yuRecords = 0;
   const destCount = {};
-  for (const route in data.routes) {
+  for (const route in (data.routes || {})) {
     const rusers = data.routes[route];
     for (const u in rusers) {
       userCount++;
@@ -2032,7 +2121,8 @@ function computeImportStats(data) {
     }
   }
   return {
-    routeCount: Object.keys(data.routes).length,
+    version: 'v2',
+    routeCount: Object.keys(data.routes || {}).length,
     userCount: userCount,
     asaRecords: asaRecords,
     yuRecords: yuRecords,
@@ -2055,14 +2145,25 @@ function renderImportPreview(data, validation) {
     return;
   }
   const s = computeImportStats(data);
-  const destList = Object.entries(s.destCount).sort(function(a,b){ return b[1]-a[1]; }).map(function(e){ return e[0] + ':' + e[1]; }).join(' / ');
-  preview.innerHTML =
-    '<div style="color:var(--text);font-weight:600;margin-bottom:8px;font-size:14px">プレビュー</div>' +
-    '<div style="margin-bottom:3px">便 <b>' + s.routeCount + '</b> / 利用者 <b>' + s.userCount + '</b> 名</div>' +
-    '<div style="margin-bottom:3px">朝レコード <b>' + s.asaRecords + '</b> / 夕レコード <b>' + s.yuRecords + '</b></div>' +
-    '<div style="margin-bottom:3px">行き先分布: ' + (destList || '(なし)') + '</div>' +
-    '<div style="margin-bottom:3px">警告ログ: ' + s.warnCount + ' 件</div>' +
-    (data.meta && data.meta.baseMonth ? '<div style="color:#8E8E93;margin-top:6px;font-size:11px">baseMonth: ' + data.meta.baseMonth + ' / source: ' + (data.meta.source || '') + '</div>' : '');
+  if (s.version === 'v3') {
+    const ntList = Object.entries(s.ntCounts).map(function(e){ return e[0] + ':' + e[1]; }).join(' / ');
+    preview.innerHTML =
+      '<div style="color:var(--text);font-weight:600;margin-bottom:8px;font-size:14px">プレビュー <span style="background:var(--ios-blue-bg);color:var(--ios-blue);padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">v3</span></div>' +
+      '<div style="margin-bottom:3px">便 <b>' + s.routeCount + '</b> / 利用者 <b>' + s.userCount + '</b> 名（ユニーク）</div>' +
+      '<div style="margin-bottom:3px">朝担当（曜日延べ） <b>' + s.asaDriverCnt + '</b> / 夕担当 <b>' + s.yuDriverCnt + '</b></div>' +
+      '<div style="margin-bottom:3px">特記事項あり便: <b>' + s.specialNoteBusCnt + '</b></div>' +
+      '<div style="margin-bottom:3px">送迎対象外: <b>' + s.ntTotal + '</b> 名（' + (ntList || 'なし') + '）</div>' +
+      (data._meta && data._meta.source ? '<div style="color:#8E8E93;margin-top:6px;font-size:11px">source: ' + data._meta.source + '</div>' : '');
+  } else {
+    const destList = Object.entries(s.destCount).sort(function(a,b){ return b[1]-a[1]; }).map(function(e){ return e[0] + ':' + e[1]; }).join(' / ');
+    preview.innerHTML =
+      '<div style="color:var(--text);font-weight:600;margin-bottom:8px;font-size:14px">プレビュー <span style="background:#F2F2F7;color:#6E6E73;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">v2</span></div>' +
+      '<div style="margin-bottom:3px">便 <b>' + s.routeCount + '</b> / 利用者 <b>' + s.userCount + '</b> 名</div>' +
+      '<div style="margin-bottom:3px">朝レコード <b>' + s.asaRecords + '</b> / 夕レコード <b>' + s.yuRecords + '</b></div>' +
+      '<div style="margin-bottom:3px">行き先分布: ' + (destList || '(なし)') + '</div>' +
+      '<div style="margin-bottom:3px">警告ログ: ' + s.warnCount + ' 件</div>' +
+      (data.meta && data.meta.baseMonth ? '<div style="color:#8E8E93;margin-top:6px;font-size:11px">baseMonth: ' + data.meta.baseMonth + ' / source: ' + (data.meta.source || '') + '</div>' : '');
+  }
   btn.disabled = false;
   btn.style.opacity = '1';
 }
@@ -2091,12 +2192,23 @@ window.startImport = async function() {
   if (!_importedMaster) { showToast('JSON が読み込まれていません'); return; }
   const s = computeImportStats(_importedMaster);
   // 1段目: プレビュー確認
-  const msg1 = '以下の内容でインポートします:\n\n'
-    + '便: ' + s.routeCount + '\n'
-    + '利用者: ' + s.userCount + ' 名\n'
-    + '朝レコード: ' + s.asaRecords + '\n'
-    + '夕レコード: ' + s.yuRecords + '\n\n'
-    + '続行しますか？';
+  let msg1;
+  if (s.version === 'v3') {
+    msg1 = '以下の内容でインポートします [v3]:\n\n'
+      + '便: ' + s.routeCount + '\n'
+      + '利用者: ' + s.userCount + ' 名\n'
+      + '朝担当: ' + s.asaDriverCnt + ' / 夕担当: ' + s.yuDriverCnt + '\n'
+      + '特記事項あり便: ' + s.specialNoteBusCnt + '\n'
+      + '送迎対象外: ' + s.ntTotal + ' 名\n\n'
+      + '続行しますか？';
+  } else {
+    msg1 = '以下の内容でインポートします [v2]:\n\n'
+      + '便: ' + s.routeCount + '\n'
+      + '利用者: ' + s.userCount + ' 名\n'
+      + '朝レコード: ' + s.asaRecords + '\n'
+      + '夕レコード: ' + s.yuRecords + '\n\n'
+      + '続行しますか？';
+  }
   if (!confirm(msg1)) return;
   // 2段目: destructive 最終確認
   const msg2 = '【最終確認】\n\n'
@@ -2123,15 +2235,18 @@ window.applyImportedMaster = async function(data) {
   if (!checkSession()) return false;
   if (!currentUser || currentUser.role < 3) { showToast('反映権限がありません'); return false; }
   if (!data || typeof data !== 'object') { showToast('データが不正です'); return false; }
+  let norm;
+  try { norm = normalizeImportedMaster(data); }
+  catch (e) { showToast('形式エラー: ' + (e.message || e)); return false; }
   try {
     const backupId = await saveBackup('インポート前自動 (' + new Date().toLocaleString('ja-JP', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) + ')');
     await setDoc(doc(db, 'master_current', 'current'), {
-      data: data,
+      data: norm,
       updatedAt: Date.now(),
       updatedBy: currentStaff || 'unknown',
       backupRef: backupId || null
     });
-    showToast('✓ 基本送迎マスターを反映しました');
+    showToast('✓ 基本送迎マスターを反映しました [' + norm.version + ']');
     return true;
   } catch (e) {
     console.error('applyImportedMaster failed:', e);
@@ -3184,7 +3299,12 @@ window.aggregateMeals = function(dateStr) {
 window.renderMasterList = function() {
   const body = document.getElementById('master-body');
   if (!body) return;
-  
+  // #32d-1: v3 は詳細描画未実装、バナー表示のみで早期 return
+  if (CURRENT_MASTER && CURRENT_MASTER.version === 'v3') {
+    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は次回更新で実装予定）</div>';
+    return;
+  }
+
   let html = '';
   
   // ① 利用者マスター（USER_MASTER）
