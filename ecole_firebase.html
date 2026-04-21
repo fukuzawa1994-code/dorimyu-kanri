@@ -3212,11 +3212,49 @@ window.renderMasterList = function() {
   }
   html += '</div>';
   
-  // ② 基本送迎マスター（DEFAULT_TRANSPORT）
+  // ② 基本送迎マスター — #32b: CURRENT_MASTER があれば 6便 detail 駆動、無ければ従来の DEFAULT_TRANSPORT 描画
   html += '<div style="margin-bottom:18px">';
-  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="bus"></i> 基本送迎マスター（普段の便）</div>';
-  if (typeof DEFAULT_TRANSPORT !== 'undefined') {
-    // 便別にグループ化
+  const cmMaster = (typeof CURRENT_MASTER !== 'undefined') ? CURRENT_MASTER : null;
+  const cmActive = !!(cmMaster && cmMaster.routes);
+  const secTitle = cmActive ? '基本送迎マスター（インポート済 v2）' : '基本送迎マスター（普段の便）';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="bus"></i> ' + secTitle + '</div>';
+  if (cmActive) {
+    // detail 構造: routes[bin][user]['朝'|'夕'] = { days:[], from, to, note }
+    const weekdayAll = ['月','火','水','木','金','土'];
+    function fmtDays(days) {
+      if (!Array.isArray(days) || !days.length) return '';
+      if (days.length === 6 && weekdayAll.every(function(d){ return days.includes(d); })) return ''; // 平日＋土=全曜日扱い→非表示
+      if (days.length === 5 && ['月','火','水','木','金'].every(function(d){ return days.includes(d); })) return ''; // 平日全部
+      if (days.length === 1) return '（' + days[0] + 'のみ）';
+      return '（' + days.join('') + '）';
+    }
+    // 兼務検出: 同一利用者が複数便に出現するかを集計
+    const occurrence = {};
+    for (const bin in cmMaster.routes) {
+      for (const u in cmMaster.routes[bin]) {
+        occurrence[u] = (occurrence[u] || 0) + 1;
+      }
+    }
+    for (const bin of Object.keys(cmMaster.routes)) {
+      const users = Object.keys(cmMaster.routes[bin]);
+      html += '<div style="background:#F0F4FF;border-radius:8px;padding:10px;margin-bottom:6px">';
+      html += '<div style="font-weight:700;color:#3C3489;margin-bottom:6px"><i data-lucide="bus"></i> ' + bin + '便（' + users.length + '名）</div>';
+      html += '<table style="width:100%;font-size:11px;border-collapse:collapse">';
+      html += '<thead><tr style="background:#fff;color:#666"><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">利用者</th><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">朝</th><th style="padding:4px;text-align:left;border-bottom:0.5px solid #ddd">夕</th></tr></thead><tbody>';
+      for (const u of users) {
+        const rec = cmMaster.routes[bin][u];
+        const amR = rec['朝'], pmR = rec['夕'];
+        const amTxt = !amR ? '-' : (amR.note ? amR.note : ((amR.from || '?') + '→' + (amR.to || '?') + fmtDays(amR.days)));
+        const pmTxt = !pmR ? '-' : (pmR.note ? pmR.note : ((pmR.from || '?') + '→' + (pmR.to || '?') + fmtDays(pmR.days)));
+        const kenmu = occurrence[u] > 1 ? ' <span style="background:#FFF3CD;color:#856404;padding:1px 5px;border-radius:4px;font-size:9px">兼務</span>' : '';
+        html += '<tr><td style="padding:3px 4px;border-bottom:0.5px solid #eee">' + u + kenmu + '</td>';
+        html += '<td style="padding:3px 4px;border-bottom:0.5px solid #eee;color:#666">' + amTxt + '</td>';
+        html += '<td style="padding:3px 4px;border-bottom:0.5px solid #eee;color:#666">' + pmTxt + '</td></tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+  } else if (typeof DEFAULT_TRANSPORT !== 'undefined') {
+    // 従来フォールバック
     const byBin = {};
     for (const [user, info] of Object.entries(DEFAULT_TRANSPORT)) {
       const bin = (info.am && info.am.bin) || (info.pm && info.pm.bin) || '-';
@@ -3342,6 +3380,26 @@ window.renderMasterList = function() {
     html += '</div>';
   }
   html += '</div>';
+
+  // ⑨ 送迎対象外（#32b: CURRENT_MASTER.meta.noTransport があれば表示）
+  if (cmActive && cmMaster.meta && cmMaster.meta.noTransport) {
+    const nt = cmMaster.meta.noTransport;
+    const cats = [['パン缶','#FF9500'], ['ぱぁとなぁ居住','#EC4899'], ['その他','#8E8E93']];
+    const totalNT = cats.reduce(function(s, c){ return s + (Array.isArray(nt[c[0]]) ? nt[c[0]].length : 0); }, 0);
+    if (totalNT > 0) {
+      html += '<div style="margin-bottom:18px">';
+      html += '<div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--purple)"><i data-lucide="user-x"></i> 送迎対象外（' + totalNT + '名）</div>';
+      for (const [key, col] of cats) {
+        const list = Array.isArray(nt[key]) ? nt[key] : [];
+        if (!list.length) continue;
+        html += '<div style="background:#F2F2F7;border-radius:8px;padding:10px;margin-bottom:6px">';
+        html += '<div style="font-weight:700;color:' + col + ';margin-bottom:6px">' + key + '（' + list.length + '名）</div>';
+        html += '<div style="margin-left:10px;font-size:11px;color:#555">' + list.join('・') + '</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+  }
 
   body.innerHTML = html;
   if (window.refreshIcons) window.refreshIcons();
