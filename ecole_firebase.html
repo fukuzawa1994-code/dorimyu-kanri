@@ -1505,9 +1505,111 @@ window.toggleRoute = function(el) {
 
 function renderList() {
   const body = document.getElementById('list-body');
-  // #32d-1: v3 は詳細描画未実装、バナー表示のみで早期 return
+  // #32d-2: v3 本実装 — routes[bin].morning|evening.users[].days[曜日].ride で当日乗車者抽出
   if (CURRENT_MASTER && CURRENT_MASTER.version === 'v3') {
-    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は次回更新で実装予定）</div>';
+    const cm = CURRENT_MASTER;
+    const phase = currentPhase;
+    const periodKey = phase === '朝' ? 'morning' : 'evening';
+    // タイムゾーン安全: T00:00:00 ローカル時刻固定で曜日判定（UTC ずれ回避）
+    const dow = new Date(selectedDate + 'T00:00:00').getDay();
+    const dowName = ['日','月','火','水','木','金','土'][dow];
+    let html = '';
+    for (const bin of Object.keys(cm.routes)) {
+      const b = cm.routes[bin];
+      const color = (MASTER.routes[bin] && MASTER.routes[bin].color) || '#8E8E93';
+      const periodData = b && b[periodKey];
+      if (!periodData) continue;
+      const allUsers = Array.isArray(periodData.users) ? periodData.users : [];
+      const ridingUsers = allUsers.filter(function(u){ return u && u.days && u.days[dowName] && u.days[dowName].ride === true; });
+      const driver = (periodData.drivers && periodData.drivers[dowName]) || '-';
+      const driverBadge = '<span style="font-size:10px;color:var(--text-sub);margin-right:8px">' + phase + '担当: ' + driver + '</span>';
+      const specialNote = b.specialNote ? '<div style="font-size:11px;color:var(--coral);margin:6px 14px 2px;font-weight:600">⚠ ' + b.specialNote + '</div>' : '';
+      if (ridingUsers.length === 0) {
+        html += '<div class="rcard"><div class="rcard-hd" onclick="toggleRoute(this)">'
+          + '<div style="display:flex;align-items:center"><div class="rdot" style="background:' + color + '"></div><span class="rname">' + bin + '</span></div>'
+          + '<div style="display:flex;align-items:center;gap:8px">' + driverBadge + '<span class="badge" style="background:#E5E5EA;color:#636366">本日運行なし</span><span class="arrow">▼</span></div>'
+          + '</div>' + specialNote + '</div>';
+        continue;
+      }
+      let cnt = 0, rows = '';
+      for (const u of ridingUsers) {
+        const userName = u.name;
+        const dayRec = u.days[dowName];
+        const ls = latestFor(selectedDate, bin, userName);
+        const abs = ls ? ls.abs : false;
+        const ride = phase === '朝' ? (ls ? ls.am : '利用する') : (ls ? ls.pm : '利用する');
+        const dim = abs || ride === '利用しない';
+        if (!dim) cnt++;
+        const tag = abs ? '<span class="stag tabs">欠席</span>'
+                       : ride === '利用する' ? '<span class="stag tok">乗車</span>'
+                       : '<span class="stag tno">不要</span>';
+        const fromTo = (dayRec.from && dayRec.to) ? (dayRec.from + '→' + dayRec.to)
+                     : dayRec.from ? (dayRec.from + '→')
+                     : dayRec.to ? ('→' + dayRec.to) : '-';
+        const sub = abs ? '欠席' : ride === '利用しない' ? '利用しない' : fromTo;
+        const memoNote = u.memo ? '<span style="font-size:10px;color:#FF6F00;margin-left:6px">※' + u.memo + '</span>' : '';
+        const [bg, fg] = avColor(userName);
+        rows += '<div class="prow' + (dim ? ' dim' : '') + '" onclick="openSheet(\'' + userName + '\',\'' + bin + '\',\'' + selectedDate + '\')">'
+          + '<div style="display:flex;align-items:center">'
+          + '<div class="av" style="background:' + bg + ';color:' + fg + '">' + userName.slice(0,2) + '</div>'
+          + '<div class="pinfo"><div class="pname">' + userName + memoNote + '</div><div class="psub">' + sub + '</div></div>'
+          + '</div>' + tag + '</div>';
+      }
+      html += '<div class="rcard"><div class="rcard-hd" onclick="toggleRoute(this)">'
+        + '<div style="display:flex;align-items:center"><div class="rdot" style="background:' + color + '"></div><span class="rname">' + bin + '</span></div>'
+        + '<div style="display:flex;align-items:center;gap:8px">' + driverBadge + '<span class="badge ' + (phase==='朝'?'b-blue':'b-amber') + '">' + cnt + '名乗車</span><span class="arrow">▼</span></div>'
+        + '</div>' + specialNote + rows + '</div>';
+    }
+    // ぱぁとなぁ居住セクション（5名固定、PAATONAA_SCHEDULE 駆動。v2 と同じロジック）
+    if (typeof PAATONAA_SCHEDULE !== 'undefined') {
+      const residents = ['木下真利','上村恭弘','白井かおり','松野友紀','臼井想'];
+      const sched = PAATONAA_SCHEDULE[dowName];
+      if (sched) {
+        let presRows = '', presCnt = 0;
+        for (const u of residents) {
+          const period = phase === '朝' ? sched.am : sched.pm;
+          if (!period || period.mode !== 'ride') continue;
+          const jigyosho = (typeof getPaatonaaUserJigyosho === 'function' ? getPaatonaaUserJigyosho(u) : null) || '事業所';
+          const fromL = phase === '朝' ? (period.from || '自宅') : jigyosho;
+          const toL   = phase === '朝' ? jigyosho              : (period.to || 'ぱぁとなぁ');
+          presCnt++;
+          const [bg, fg] = avColor(u);
+          presRows += '<div class="prow">'
+            + '<div style="display:flex;align-items:center">'
+            + '<div class="av" style="background:' + bg + ';color:' + fg + '">' + u.slice(0,2) + '</div>'
+            + '<div class="pinfo"><div class="pname">' + u + '</div><div class="psub">' + fromL + '→' + toL + '</div></div>'
+            + '</div><span class="stag tok">居住</span></div>';
+        }
+        if (presRows) {
+          html += '<div class="rcard"><div class="rcard-hd" onclick="toggleRoute(this)">'
+            + '<div style="display:flex;align-items:center"><div class="rdot" style="background:#EC4899"></div><span class="rname">ぱぁとなぁ居住（' + residents.length + '名）</span></div>'
+            + '<div style="display:flex;align-items:center;gap:8px"><span class="badge ' + (phase==='朝'?'b-blue':'b-amber') + '">' + presCnt + '名</span><span class="arrow">▼</span></div>'
+            + '</div>' + presRows + '</div>';
+        }
+      }
+    }
+    // 送迎対象外セクション（v3 キー: パン缶(自力通所) / その他(現時点送迎なし)）— ぱぁとなぁ居住は上で表示済のため除外
+    if (cm.noTransport) {
+      for (const ntKey of Object.keys(cm.noTransport)) {
+        if (ntKey.startsWith('ぱぁとなぁ居住')) continue;
+        const list = Array.isArray(cm.noTransport[ntKey]) ? cm.noTransport[ntKey] : [];
+        if (!list.length) continue;
+        const col = ntKey.startsWith('パン缶') ? '#FF9500' : '#8E8E93';
+        const ntRows = list.map(function(u){
+          const c = avColor(u);
+          return '<div class="prow dim">'
+            + '<div style="display:flex;align-items:center">'
+            + '<div class="av" style="background:' + c[0] + ';color:' + c[1] + '">' + u.slice(0,2) + '</div>'
+            + '<div class="pinfo"><div class="pname">' + u + '</div><div class="psub">送迎対象外</div></div>'
+            + '</div><span class="stag tno">対象外</span></div>';
+        }).join('');
+        html += '<div class="rcard collapsed"><div class="rcard-hd" onclick="toggleRoute(this)">'
+          + '<div style="display:flex;align-items:center"><div class="rdot" style="background:' + col + '"></div><span class="rname">' + ntKey + '（' + list.length + '名）</span></div>'
+          + '<div style="display:flex;align-items:center;gap:8px"><span class="badge" style="background:#E5E5EA;color:#636366">対象外</span><span class="arrow">▼</span></div>'
+          + '</div>' + ntRows + '</div>';
+      }
+    }
+    body.innerHTML = html;
     return;
   }
   const phase = currentPhase;
@@ -3299,9 +3401,9 @@ window.aggregateMeals = function(dateStr) {
 window.renderMasterList = function() {
   const body = document.getElementById('master-body');
   if (!body) return;
-  // #32d-1: v3 は詳細描画未実装、バナー表示のみで早期 return
+  // #32d-2: マスター一覧画面の v3 詳細描画は #32d-3 で実装。バナー文言のみ更新。
   if (CURRENT_MASTER && CURRENT_MASTER.version === 'v3') {
-    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は次回更新で実装予定）</div>';
+    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は送迎一覧で確認可能。マスター一覧画面は #32d-3 対応予定）</div>';
     return;
   }
 
