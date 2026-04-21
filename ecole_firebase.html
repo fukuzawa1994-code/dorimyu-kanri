@@ -1245,6 +1245,7 @@ function today() {
 }
 let selectedDate = today();
 let logs = [];
+let CURRENT_MASTER = null; // #32a-3: master_current/current の内容（インポート済み基本送迎マスター）
 let currentScr = 'list';
 let readNotif = JSON.parse(localStorage.getItem('ecole_read') || '[]');
 let sheetCtx = {};
@@ -1502,9 +1503,17 @@ function renderList() {
   const body = document.getElementById('list-body');
   const phase = currentPhase;
   const dow = new Date(selectedDate + 'T00:00:00').getDay();
+  const dowName = ['日','月','火','水','木','金','土'][dow];
+  const cm = CURRENT_MASTER; // #32a-3: インポート済みなら detail 駆動
   let html = '';
-  for (const [bin, route] of Object.entries(MASTER.routes)) {
-    const {color, users, pmOnly} = route;
+  // 表示する便: CURRENT_MASTER があればそのキー順 + すたぁと等 MASTER 専用便、それ以外は従来
+  const routeKeys = (cm && cm.routes)
+    ? Object.keys(cm.routes).concat(Object.keys(MASTER.routes).filter(k => !cm.routes[k]))
+    : Object.keys(MASTER.routes);
+  for (const bin of routeKeys) {
+    const mRoute = MASTER.routes[bin] || { color: '#8E8E93', users: [], pmOnly: [] };
+    const color = mRoute.color;
+    const {users, pmOnly} = mRoute;
     // 朝は通常users、夕はusers+pmOnly
     // すたぁと便はログから動的に乗車者を取得
     let members;
@@ -1520,6 +1529,10 @@ function renderList() {
         </div></div>`;
         continue;
       }
+    } else if (cm && cm.routes && cm.routes[bin]) {
+      // CURRENT_MASTER: その期間に登録のある利用者のみ
+      members = Object.keys(cm.routes[bin]).filter(u => cm.routes[bin][u] && cm.routes[bin][u][phase] != null);
+      if (!members.length) continue;
     } else {
       members = phase==='夕' ? [...users, ...(pmOnly||[])] : users;
       if (!members.length) continue;
@@ -1548,7 +1561,21 @@ function renderList() {
       const [bg,fg] = avColor(u);
       const tag = abs ? '<span class="stag tabs">欠席</span>' : ride==='利用する' ? '<span class="stag tok">乗車</span>' : '<span class="stag tno">不要</span>';
       const dropoff = phase==='夕' && ls && ls.pmDropoff && ls.pmDropoff!=='自宅' ? ` → ${ls.pmDropoff}` : '';
-      const sub = abs ? '欠席' : ride==='利用しない' ? '利用しない' : place + dropoff;
+      // #32a-3: CURRENT_MASTER から当日の予定（from→to / 兼務 / 当日乗らない）を付加
+      let detail = '';
+      if (cm && cm.routes && cm.routes[bin] && cm.routes[bin][u]) {
+        const pd = cm.routes[bin][u][phase];
+        if (pd) {
+          if (pd.note) {
+            detail = ' · ' + pd.note;
+          } else if (Array.isArray(pd.days) && pd.days.includes(dowName) && pd.from && pd.to) {
+            detail = ' · 予定: ' + pd.from + '→' + pd.to;
+          } else if (Array.isArray(pd.days) && !pd.days.includes(dowName)) {
+            detail = ' · 予定: ' + dowName + '曜は乗らない';
+          }
+        }
+      }
+      const sub = (abs ? '欠席' : ride==='利用しない' ? '利用しない' : place + dropoff) + detail;
       rows += `<div class="prow${dim?' dim':''}" onclick="openSheet('${u}','${bin}','${selectedDate}')">
         <div style="display:flex;align-items:center">
           <div class="av" style="background:${bg};color:${fg}">${u.slice(0,2)}</div>
@@ -1559,6 +1586,55 @@ function renderList() {
       <div style="display:flex;align-items:center"><div class="rdot" style="background:${color}"></div><span class="rname">${bin}</span></div>
       <div style="display:flex;align-items:center;gap:8px"><span class="badge ${phase==='朝'?'b-blue':'b-amber'}">${cnt}名乗車</span><span class="arrow">▼</span></div>
     </div>${rows}</div>`;
+  }
+  // #32a-3: ぱぁとなぁ居住セクション（5名固定、PAATONAA_SCHEDULE 駆動）
+  if (cm && typeof PAATONAA_SCHEDULE !== 'undefined') {
+    const residents = ['木下真利','上村恭弘','白井かおり','松野友紀','臼井想'];
+    const sched = PAATONAA_SCHEDULE[dowName];
+    if (sched) {
+      let presRows = '', presCnt = 0;
+      for (const u of residents) {
+        const period = phase==='朝' ? sched.am : sched.pm;
+        if (!period || period.mode !== 'ride') continue; // 朝徒歩/朝なし/夕なしは非表示
+        const jigyosho = (typeof getPaatonaaUserJigyosho === 'function' ? getPaatonaaUserJigyosho(u) : null) || '事業所';
+        const fromL = phase==='朝' ? (period.from || '自宅') : jigyosho;
+        const toL   = phase==='朝' ? jigyosho              : (period.to || 'ぱぁとなぁ');
+        presCnt++;
+        const [bg,fg] = avColor(u);
+        presRows += `<div class="prow">
+          <div style="display:flex;align-items:center">
+            <div class="av" style="background:${bg};color:${fg}">${u.slice(0,2)}</div>
+            <div class="pinfo"><div class="pname">${u}</div><div class="psub">${fromL}→${toL}</div></div>
+          </div><span class="stag tok">居住</span></div>`;
+      }
+      if (presRows) {
+        html += `<div class="rcard"><div class="rcard-hd" onclick="toggleRoute(this)">
+          <div style="display:flex;align-items:center"><div class="rdot" style="background:#EC4899"></div><span class="rname">ぱぁとなぁ居住（${residents.length}名）</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span class="badge ${phase==='朝'?'b-blue':'b-amber'}">${presCnt}名</span><span class="arrow">▼</span></div>
+        </div>${presRows}</div>`;
+      }
+    }
+  }
+  // #32a-3: 送迎対象外（パン缶 / その他）— 折りたたみ表示
+  if (cm && cm.meta && cm.meta.noTransport) {
+    const nt = cm.meta.noTransport;
+    const cats = [['パン缶','#FF9500'], ['その他','#8E8E93']];
+    for (const [key, col] of cats) {
+      const list = Array.isArray(nt[key]) ? nt[key] : [];
+      if (!list.length) continue;
+      const ntRows = list.map(u => {
+        const [bg,fg] = avColor(u);
+        return `<div class="prow dim">
+          <div style="display:flex;align-items:center">
+            <div class="av" style="background:${bg};color:${fg}">${u.slice(0,2)}</div>
+            <div class="pinfo"><div class="pname">${u}</div><div class="psub">送迎対象外</div></div>
+          </div><span class="stag tno">対象外</span></div>`;
+      }).join('');
+      html += `<div class="rcard collapsed"><div class="rcard-hd" onclick="toggleRoute(this)">
+        <div style="display:flex;align-items:center"><div class="rdot" style="background:${col}"></div><span class="rname">${key}（${list.length}名）</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="badge ${phase==='朝'?'b-blue':'b-amber'}" style="background:#E5E5EA;color:#636366">対象外</span><span class="arrow">▼</span></div>
+      </div>${ntRows}</div>`;
+    }
   }
   body.innerHTML = html;
 }
@@ -1809,6 +1885,14 @@ window.saveBackup = async function(description) {
         userMaster: JSON.parse(JSON.stringify(USER_MASTER))
       }
     };
+    // #32a-3: 現行 master_current も退避対象に含める（復元用）
+    try {
+      const mcSnap = await getDoc(doc(db, 'master_current', 'current'));
+      if (mcSnap.exists()) {
+        const mc = mcSnap.data();
+        payload.data.masterCurrent = mc && mc.data ? mc.data : null;
+      }
+    } catch (_) { /* master_current 未作成時は無視 */ }
     const ref = await addDoc(collection(db, 'backups'), payload);
     // Auto-trim: keep latest 10
     const snap = await getDocs(query(collection(db, 'backups'), orderBy('createdAt', 'desc')));
@@ -1874,9 +1958,14 @@ window.renderBackupList = async function() {
       const by = b.createdBy || '';
       const safeDesc = desc.replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const safeBy = by.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const hasMC = !!(b.data && b.data.masterCurrent);
+      const restoreBtn = hasMC
+        ? '<button onclick="restoreFromBackup(\'' + b.id + '\')" style="height:34px;padding:0 14px;background:#F3ECFF;color:var(--purple);border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px">復元</button>'
+        : '<span style="font-size:10px;color:#8E8E93;margin-right:8px">旧形式（復元不可）</span>';
       return '<div style="background:var(--surface);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow-card)">'
         + '<div style="font-size:11px;color:#8E8E93;margin-bottom:4px">' + ts + ' · ' + safeBy + '</div>'
         + '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px">' + safeDesc + '</div>'
+        + restoreBtn
         + '<button onclick="deleteBackup(\'' + b.id + '\')" style="height:34px;padding:0 14px;background:var(--fill-chip);color:#FF3B30;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">削除</button>'
         + '</div>';
     }).join('');
@@ -2015,11 +2104,71 @@ window.startImport = async function() {
     + '元に戻すにはバックアップからの復元が必要です。\n\n'
     + '本当にインポートしますか？';
   if (!confirm(msg2)) return;
-  // TODO #32a-3: await applyImportedMaster(_importedMaster);
-  //   - 事前に自動バックアップ（saveBackup('インポート前自動')）
-  //   - MASTER.routes[bin].detail に書き込み（Firestore 永続化方針は #32a-3 で決定）
-  //   - 失敗時ロールバック
-  showToast('インポート反映は #32a-3 で実装予定です（UI は動作しています）');
+  const ok = await applyImportedMaster(_importedMaster);
+  if (ok) {
+    _importedMaster = null;
+    const input = document.getElementById('import-file');
+    if (input) input.value = '';
+    const nameEl = document.getElementById('import-filename');
+    if (nameEl) nameEl.textContent = '';
+    renderImportPreview(null, null);
+    if (typeof renderBackupList === 'function') renderBackupList();
+  }
+};
+
+// ═══ #32a-3: インポート反映 / 復元 ═══
+// applyImportedMaster: 事前自動バックアップ → master_current/current へ setDoc
+// restoreFromBackup:   確認 → 現行退避 → 旧スナップショットを master_current/current へ書戻し
+window.applyImportedMaster = async function(data) {
+  if (!checkSession()) return false;
+  if (!currentUser || currentUser.role < 3) { showToast('反映権限がありません'); return false; }
+  if (!data || typeof data !== 'object') { showToast('データが不正です'); return false; }
+  try {
+    const backupId = await saveBackup('インポート前自動 (' + new Date().toLocaleString('ja-JP', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) + ')');
+    await setDoc(doc(db, 'master_current', 'current'), {
+      data: data,
+      updatedAt: Date.now(),
+      updatedBy: currentStaff || 'unknown',
+      backupRef: backupId || null
+    });
+    showToast('✓ 基本送迎マスターを反映しました');
+    return true;
+  } catch (e) {
+    console.error('applyImportedMaster failed:', e);
+    showToast('反映失敗: ' + (e.message || e));
+    return false;
+  }
+};
+
+window.restoreFromBackup = async function(backupId) {
+  if (!checkSession()) return false;
+  if (!currentUser || currentUser.role < 3) { showToast('復元権限がありません'); return false; }
+  if (!backupId) return false;
+  try {
+    const snap = await getDoc(doc(db, 'backups', backupId));
+    if (!snap.exists()) { showToast('バックアップが見つかりません'); return false; }
+    const b = snap.data();
+    const restoreData = b && b.data && b.data.masterCurrent ? b.data.masterCurrent : null;
+    if (!restoreData) {
+      alert('このバックアップには master_current のスナップショットが含まれていません（旧形式）。復元できません。');
+      return false;
+    }
+    if (!confirm('このバックアップから基本送迎マスターを復元します。\n現在の内容は「復元前自動」バックアップに退避されます。\n続行しますか？')) return false;
+    await saveBackup('復元前自動 (' + new Date().toLocaleString('ja-JP', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) + ')');
+    await setDoc(doc(db, 'master_current', 'current'), {
+      data: restoreData,
+      updatedAt: Date.now(),
+      updatedBy: currentStaff || 'unknown',
+      restoredFrom: backupId
+    });
+    showToast('✓ 復元しました');
+    if (typeof renderBackupList === 'function') renderBackupList();
+    return true;
+  } catch (e) {
+    console.error('restoreFromBackup failed:', e);
+    showToast('復元失敗: ' + (e.message || e));
+    return false;
+  }
 };
 
 window.initImportSection = function() {
@@ -5446,6 +5595,12 @@ onSnapshot(query(collection(db, 'logs'), orderBy('createdAt', 'desc')), snap => 
   if (currentScr === 'kyushoku') renderKyushoku();
   if (currentScr === 'absence') renderAbsence();
   updateDot();
+});
+
+// #32a-3: 基本送迎マスター（master_current/current）購読
+onSnapshot(doc(db, 'master_current', 'current'), snap => {
+  CURRENT_MASTER = (snap.exists() && snap.data() && snap.data().data) ? snap.data().data : null;
+  if (currentScr === 'list') renderList();
 });
 </script>
   </div><!-- /app-root -->
