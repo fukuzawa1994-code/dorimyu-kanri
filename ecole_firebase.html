@@ -2000,12 +2000,22 @@ window.renderAdminPanel = function() {
   if (currentUser && currentUser.role >= 3) renderStaffMasterList();
 };
 
-// ── 職員マスタ一覧（編集可、管理者のみ）──
+// ── 職員マスタ一覧（#39-v2 大改修：departments 配列・roles 配列・adminRole 3択） ──
+const SSM_ADMIN_LABELS = {3:'管理者', 2:'上司', 1:'一般'};
+const SSM_ADMIN_NUMS = {'管理者':3,'上司':2,'一般':1};
+const SSM_DEPT_CHOICES = ['童里夢','奏楽','ぱぁとなぁ','すたぁと'];
+const SSM_ROLE_CHOICES = ['班長','主任'];
 let _defaultHash0000 = null;
 (async function(){ try { _defaultHash0000 = await hashPassword('0000'); } catch(_){} })();
+// 一覧表示・編集時のキャッシュ（最新の読込結果）
+let _ssmList = [];
+let _ssmSearch = '';
+let _ssmDeptFilter = new Set();
+let _ssmAdminFilter = new Set();
 
 function ssmFormatCreatedAt(v) {
   if (!v) return '';
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
   if (typeof v === 'number') return new Date(v).toISOString().slice(0,10);
   if (v && typeof v.toDate === 'function') return v.toDate().toISOString().slice(0,10);
   if (v && typeof v.seconds === 'number') return new Date(v.seconds * 1000).toISOString().slice(0,10);
@@ -2018,6 +2028,77 @@ function ssmPwBadge(hash) {
   return '<span style="background:#E4F8E8;color:#34C759;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">変更済</span>';
 }
 
+// 旧データからの推測（フォールバック）
+function ssmInferDepts(acc, fs) {
+  if (fs && Array.isArray(fs.departments)) return fs.departments.slice();
+  if (fs && Array.isArray(fs.jigyosho))   return fs.jigyosho.slice();
+  if (acc && Array.isArray(acc.jigyosho)) return acc.jigyosho.slice();
+  return [];
+}
+function ssmInferRoles(acc, fs) {
+  if (fs && Array.isArray(fs.roles)) return fs.roles.slice();
+  const han = (fs && fs.han) || (acc && acc.han) || '';
+  return SSM_ROLE_CHOICES.filter(function(r){ return han.indexOf(r) >= 0; });
+}
+function ssmInferAdminRole(acc, fs) {
+  if (fs && fs.adminRole) return fs.adminRole;
+  const r = (fs && typeof fs.role === 'number') ? fs.role : ((acc && typeof acc.role === 'number') ? acc.role : 1);
+  return SSM_ADMIN_LABELS[r] || '一般';
+}
+
+// ACCOUNTS + Firestore staff_accounts をマージして全員を取得
+async function ssmLoadAllStaff() {
+  const fsMap = new Map();
+  try {
+    const snap = await getDocs(collection(db, 'staff_accounts'));
+    snap.forEach(function(d){ fsMap.set(d.id, d.data() || {}); });
+  } catch (e) { console.warn('staff_accounts fetch failed:', e); }
+  const list = [];
+  // 1. ACCOUNTS に登場する全員
+  for (const name of Object.keys(ACCOUNTS)) {
+    const acc = ACCOUNTS[name];
+    const fs = fsMap.get(name);
+    const isHardcoded = _ACCOUNTS_HARDCODED_NAMES.has(name);
+    list.push({
+      name: name,
+      departments: ssmInferDepts(acc, fs),
+      roles: ssmInferRoles(acc, fs),
+      adminRole: ssmInferAdminRole(acc, fs),
+      registeredAt: (fs && fs.registeredAt) || ssmFormatCreatedAt(fs && fs.createdAt) || '',
+      lastLogin: (fs && fs.lastLogin) || null,
+      passwordHash: (fs && fs.passwordHash) || null,
+      _source: fs ? (isHardcoded ? 'merged' : 'firestore-only') : 'hardcoded'
+    });
+    fsMap.delete(name);
+  }
+  // 2. Firestore のみの孤児
+  fsMap.forEach(function(fs, name){
+    list.push({
+      name: name,
+      departments: ssmInferDepts(null, fs),
+      roles: ssmInferRoles(null, fs),
+      adminRole: ssmInferAdminRole(null, fs),
+      registeredAt: fs.registeredAt || ssmFormatCreatedAt(fs.createdAt) || '',
+      lastLogin: fs.lastLogin || null,
+      passwordHash: fs.passwordHash || null,
+      _source: 'firestore-only'
+    });
+  });
+  list.sort(function(a,b){ return a.name.localeCompare(b.name, 'ja'); });
+  return list;
+}
+
+// 絞り込み適用
+function ssmApplyFilters(list) {
+  return list.filter(function(s){
+    if (_ssmSearch && s.name.indexOf(_ssmSearch) < 0) return false;
+    if (_ssmDeptFilter.size > 0 && !s.departments.some(function(d){ return _ssmDeptFilter.has(d); })) return false;
+    if (_ssmAdminFilter.size > 0 && !_ssmAdminFilter.has(s.adminRole)) return false;
+    return true;
+  });
+}
+
+// メイン描画
 window.renderStaffMasterList = async function() {
   const sec = document.getElementById('admin-staff-master');
   if (!sec) return;
@@ -2025,163 +2106,265 @@ window.renderStaffMasterList = async function() {
   sec.style.display = 'block';
   sec.innerHTML = '<div class="ksec-hd">職員マスタ一覧（編集可）</div><div style="color:#8E8E93;font-size:12px;padding:8px 12px">読み込み中...</div>';
   try {
-    const snap = await getDocs(collection(db, 'staff_accounts'));
-    const list = [];
-    snap.forEach(function(d){ list.push(Object.assign({ _id: d.id }, d.data())); });
-    list.sort(function(a,b){ return a._id.localeCompare(b._id, 'ja'); });
-    const roleLabels = {3:'管理者', 2:'上司', 1:'一般'};
-    const jgOpts = ['童里夢','奏楽','ぱぁとなぁ','すたぁと'];
-    let html = '<div class="ksec-hd">職員マスタ一覧（編集可）<span style="font-size:11px;font-weight:400;color:var(--text-sub);margin-left:8px">' + list.length + '名・セルをタップして編集</span></div>';
-    if (!list.length) {
-      html += '<div style="padding:14px;color:var(--text-sub);font-size:12px;text-align:center">登録されている職員はありません</div>';
-      sec.innerHTML = html;
-      return;
-    }
-    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0;border:0.5px solid var(--border);border-radius:8px;background:#fff">';
-    html += '<table style="border-collapse:collapse;width:100%;min-width:640px;font-size:12px">'
-      + '<thead><tr style="background:#F8F6FF;color:#666">'
-      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd;white-space:nowrap">名前(ID)</th>'
-      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd;white-space:nowrap">事業所</th>'
-      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd;white-space:nowrap">権限</th>'
-      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd;white-space:nowrap">登録日</th>'
-      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd;white-space:nowrap">最終ログイン</th>'
-      + '<th style="padding:8px;text-align:center;border-bottom:0.5px solid #ddd;white-space:nowrap">PW</th>'
-      + '<th style="padding:8px;text-align:center;border-bottom:0.5px solid #ddd;white-space:nowrap">操作</th>'
-      + '</tr></thead><tbody>';
-    for (const s of list) {
-      const name = s._id;
-      const jg = Array.isArray(s.jigyosho) ? (s.jigyosho[0] || '') : (s.jigyosho || '');
-      const role = typeof s.role === 'number' ? s.role : 1;
-      const createdAt = ssmFormatCreatedAt(s.createdAt);
-      const isSelf = (name === currentStaff);
-      const editStyle = 'padding:6px 8px;border-bottom:0.5px solid #eee;cursor:pointer;white-space:nowrap';
-      html += '<tr data-name="' + name + '">'
-        + '<td class="ssm-cell" data-field="name"      data-name="' + name + '" onclick="ssmStartEdit(this)" style="' + editStyle + ';font-weight:600">' + name + (isSelf?' <span style="font-size:9px;color:var(--purple)">(自分)</span>':'') + '</td>'
-        + '<td class="ssm-cell" data-field="jigyosho"  data-name="' + name + '" onclick="ssmStartEdit(this)" style="' + editStyle + '">' + (jg || '-') + '</td>'
-        + '<td class="ssm-cell" data-field="role"      data-name="' + name + '" onclick="ssmStartEdit(this)" style="' + editStyle + '">' + (roleLabels[role] || '?') + '</td>'
-        + '<td class="ssm-cell" data-field="createdAt" data-name="' + name + '" onclick="ssmStartEdit(this)" style="' + editStyle + '">' + (createdAt || '-') + '</td>'
-        + '<td style="padding:6px 8px;border-bottom:0.5px solid #eee;color:var(--text-sub)">-</td>'
-        + '<td style="padding:6px 8px;border-bottom:0.5px solid #eee;text-align:center">' + ssmPwBadge(s.passwordHash) + '</td>'
-        + '<td style="padding:6px 8px;border-bottom:0.5px solid #eee;text-align:center">'
-        + '<button onclick="ssmDelete(\'' + name + '\')" style="background:#fff;color:' + (isSelf?'#C7C7CC':'#FF3B30') + ';border:1px solid ' + (isSelf?'#E5E5EA':'#FF3B30') + ';border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:' + (isSelf?'not-allowed':'pointer') + '"' + (isSelf?' disabled':'') + '>削除</button>'
-        + '</td></tr>';
-    }
-    html += '</tbody></table></div>';
-    html += '<div style="font-size:10px;color:var(--text-sub);padding:4px 12px">凡例: PW 初期=0000 のまま / 変更済=変更済み。名前変更後は対象職員の再ログインが必要。</div>';
-    sec.innerHTML = html;
+    _ssmList = await ssmLoadAllStaff();
+    ssmRender();
   } catch (e) {
     console.error('renderStaffMasterList failed:', e);
     sec.innerHTML = '<div class="ksec-hd">職員マスタ一覧（編集可）</div><div style="color:#FF3B30;padding:12px;font-size:12px">読込失敗: ' + (e.message || e) + '</div>';
   }
 };
 
-// セル編集開始（インライン input/select）
-window.ssmStartEdit = function(td) {
-  if (!currentUser || currentUser.role < 3) { showToast('編集権限がありません'); return; }
-  if (td.querySelector('input,select')) return; // 既に編集中
-  const field = td.dataset.field;
-  const name = td.dataset.name;
-  const original = td.textContent.trim().replace(/\s*\(自分\)\s*$/,'');
-  const commit = async function(newVal) {
-    if (td.dataset.committing === '1') return;
-    td.dataset.committing = '1';
-    await ssmCommitEdit(name, field, original, newVal);
-    // renderStaffMasterList で再描画される
-  };
-  const cancel = function() { renderStaffMasterList(); };
-  let el;
-  if (field === 'jigyosho') {
-    const opts = ['童里夢','奏楽','ぱぁとなぁ','すたぁと'];
-    el = document.createElement('select');
-    el.style.cssText = 'width:100%;padding:4px 6px;border:1px solid var(--purple);border-radius:6px;font-size:12px';
-    el.innerHTML = opts.map(function(o){ return '<option value="' + o + '"' + (o===original?' selected':'') + '>' + o + '</option>'; }).join('');
-    el.addEventListener('change', function(){ commit(el.value); });
-    el.addEventListener('blur', function(){ cancel(); });
-  } else if (field === 'role') {
-    const roleMap = {'管理者':3,'上司':2,'一般':1};
-    el = document.createElement('select');
-    el.style.cssText = 'width:100%;padding:4px 6px;border:1px solid var(--purple);border-radius:6px;font-size:12px';
-    el.innerHTML = ['管理者','上司','一般'].map(function(r){ return '<option value="' + r + '"' + (r===original?' selected':'') + '>' + r + '</option>'; }).join('');
-    el.addEventListener('change', function(){ commit(String(roleMap[el.value])); });
-    el.addEventListener('blur', function(){ cancel(); });
-  } else if (field === 'createdAt') {
-    el = document.createElement('input');
-    el.type = 'date';
-    el.value = original && original !== '-' ? original : '';
-    el.style.cssText = 'width:100%;padding:4px 6px;border:1px solid var(--purple);border-radius:6px;font-size:12px';
-    el.addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); commit(el.value); } else if (e.key==='Escape'){ cancel(); } });
-    el.addEventListener('blur', function(){ commit(el.value); });
+// フィルタ後の再描画（データ再取得なし）
+function ssmRender() {
+  const sec = document.getElementById('admin-staff-master');
+  if (!sec) return;
+  const filtered = ssmApplyFilters(_ssmList);
+  let html = '';
+  // ヘッダー
+  html += '<div class="ksec-hd">職員マスタ一覧（編集可）'
+    + '<span style="font-size:11px;font-weight:400;color:var(--text-sub);margin-left:8px">'
+    + _ssmList.length + '名中 ' + filtered.length + '名表示</span></div>';
+  // 絞り込みバー
+  html += '<div style="background:var(--fill-input);border-radius:10px;padding:10px 12px;margin:6px 0">'
+    + '<input id="ssm-search" type="text" placeholder="名前で検索..." value="' + (_ssmSearch||'').replace(/"/g,'&quot;') + '" oninput="ssmOnSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff;box-sizing:border-box"/>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'
+    + '<span style="font-size:10px;color:var(--text-sub);align-self:center;margin-right:4px">事業所:</span>';
+  for (const d of SSM_DEPT_CHOICES) {
+    const on = _ssmDeptFilter.has(d);
+    html += '<button onclick="ssmToggleDeptFilter(\'' + d + '\')" style="padding:4px 10px;border-radius:12px;border:1px solid ' + (on?'var(--purple)':'var(--border)') + ';background:' + (on?'var(--purple)':'#fff') + ';color:' + (on?'#fff':'var(--text)') + ';font-size:11px;font-weight:600;cursor:pointer">' + d + '</button>';
+  }
+  html += '</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'
+    + '<span style="font-size:10px;color:var(--text-sub);align-self:center;margin-right:4px">権限:</span>';
+  for (const r of ['管理者','上司','一般']) {
+    const on = _ssmAdminFilter.has(r);
+    html += '<button onclick="ssmToggleAdminFilter(\'' + r + '\')" style="padding:4px 10px;border-radius:12px;border:1px solid ' + (on?'var(--purple)':'var(--border)') + ';background:' + (on?'var(--purple)':'#fff') + ';color:' + (on?'#fff':'var(--text)') + ';font-size:11px;font-weight:600;cursor:pointer">' + r + '</button>';
+  }
+  if (_ssmSearch || _ssmDeptFilter.size || _ssmAdminFilter.size) {
+    html += '<button onclick="ssmClearFilters()" style="padding:4px 10px;border-radius:12px;border:1px solid var(--coral);background:#fff;color:var(--coral);font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">クリア</button>';
+  }
+  html += '</div></div>';
+  // カードグリッド
+  if (!filtered.length) {
+    html += '<div style="padding:24px;color:var(--text-sub);font-size:12px;text-align:center">該当する職員はいません</div>';
   } else {
-    // name
-    el = document.createElement('input');
-    el.type = 'text';
-    el.value = original;
-    el.style.cssText = 'width:100%;padding:4px 6px;border:1px solid var(--purple);border-radius:6px;font-size:12px';
-    el.addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); commit(el.value.trim()); } else if (e.key==='Escape'){ cancel(); } });
-    el.addEventListener('blur', function(){ commit(el.value.trim()); });
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:6px 0">';
+    for (const s of filtered) html += ssmRenderCard(s);
+    html += '</div>';
   }
-  td.innerHTML = '';
-  td.appendChild(el);
-  if (el.focus) el.focus();
-  if (el.select) el.select();
-};
-
-// セル編集確定 — Firestore + ACCOUNTS 同期
-async function ssmCommitEdit(name, field, oldVal, newVal) {
-  try {
-    if (newVal === oldVal || newVal === '' || newVal == null) { renderStaffMasterList(); return; }
-    if (field === 'name') {
-      const newName = newVal.trim();
-      if (!newName) { showToast('名前が空です'); renderStaffMasterList(); return; }
-      if (ACCOUNTS[newName]) { showToast('この名前はすでに使用中です'); renderStaffMasterList(); return; }
-      const existing = await getDoc(doc(db, 'staff_accounts', newName));
-      if (existing.exists()) { showToast('この名前はすでに使用中です（Firestore）'); renderStaffMasterList(); return; }
-      const msg = '名前(ID) を「' + name + '」→「' + newName + '」に変更します。\n'
-        + '- Firestore ドキュメント ID も変更されます\n'
-        + '- 変更後、対象職員の再ログインが必要です\n'
-        + (name === currentStaff ? '- 自分自身の変更の場合、操作後に再ログインが必要です\n' : '')
-        + 'この操作は元に戻せません。続行しますか？';
-      if (!confirm(msg)) { renderStaffMasterList(); return; }
-      const oldSnap = await getDoc(doc(db, 'staff_accounts', name));
-      if (!oldSnap.exists()) { showToast('元データが見つかりません'); renderStaffMasterList(); return; }
-      const oldData = oldSnap.data();
-      await setDoc(doc(db, 'staff_accounts', newName), oldData);
-      await deleteDoc(doc(db, 'staff_accounts', name));
-      if (ACCOUNTS[name]) { ACCOUNTS[newName] = ACCOUNTS[name]; delete ACCOUNTS[name]; }
-      showToast('✓ 名前を変更しました（再ログインが必要）');
-    } else if (field === 'jigyosho') {
-      await updateDoc(doc(db, 'staff_accounts', name), { han: newVal, jigyosho: [newVal] });
-      if (ACCOUNTS[name]) { ACCOUNTS[name].han = newVal; ACCOUNTS[name].jigyosho = [newVal]; }
-      showToast('✓ 事業所を更新しました');
-    } else if (field === 'role') {
-      const newRole = parseInt(newVal, 10);
-      if (!(newRole >= 1 && newRole <= 3)) { showToast('権限が不正です'); renderStaffMasterList(); return; }
-      if (name === currentStaff && newRole < 3) {
-        if (!confirm('自分自身の権限を下げると、管理者操作ができなくなります。続行しますか？')) { renderStaffMasterList(); return; }
-      }
-      await updateDoc(doc(db, 'staff_accounts', name), { role: newRole });
-      if (ACCOUNTS[name]) ACCOUNTS[name].role = newRole;
-      showToast('✓ 権限を更新しました');
-    } else if (field === 'createdAt') {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(newVal)) { showToast('日付形式が不正です'); renderStaffMasterList(); return; }
-      const ms = new Date(newVal + 'T00:00:00').getTime();
-      if (!ms) { showToast('日付が不正です'); renderStaffMasterList(); return; }
-      await updateDoc(doc(db, 'staff_accounts', name), { createdAt: ms });
-      showToast('✓ 登録日を更新しました');
-    }
-    renderStaffMasterList();
-  } catch (e) {
-    console.error('ssmCommitEdit failed:', e);
-    showToast('更新失敗: ' + (e.message || e));
-    renderStaffMasterList();
-  }
+  // 凡例
+  html += '<div style="font-size:10px;color:var(--text-sub);padding:6px 12px;line-height:1.6">'
+    + '凡例: PW 初期=0000 のまま / 変更済=変更済み / 未設定=Firestore に未保存。'
+    + 'ソース: <b>hardcoded</b>=コード定義のみ / <b>merged</b>=コード+Firestore / <b>firestore-only</b>=adminAddUser で追加。'
+    + 'ハードコード職員はアプリ上から削除不可（ソース編集が必要）。'
+    + '</div>';
+  sec.innerHTML = html;
+  // 検索フィールドにフォーカス復帰（再描画後）
+  const si = document.getElementById('ssm-search');
+  if (si && document.activeElement !== si && _ssmSearch) { /* focus を戻さない — oninput 中に複数回走るため */ }
 }
 
-// 削除
+function ssmRenderCard(s) {
+  const isSelf = (s.name === currentStaff);
+  const isHardcoded = _ACCOUNTS_HARDCODED_NAMES.has(s.name);
+  const canDelete = !isSelf && !isHardcoded;
+  const escName = s.name.replace(/'/g, "\\'");
+  const srcBadge = s._source === 'hardcoded' ? '<span style="background:#F2F2F7;color:#636366;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px">hardcoded</span>'
+                 : s._source === 'merged'    ? '<span style="background:#E4F0FF;color:#007AFF;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px">merged</span>'
+                 : '<span style="background:#F3ECFF;color:var(--purple);padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px">firestore</span>';
+  let h = '<div class="ssm-card" data-name="' + escName + '" style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-card,none)">';
+  // ヘッダー行: 名前 + PW + ソース
+  h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">'
+    + '<span onclick="ssmEditNameCard(\'' + escName + '\',this)" style="font-size:14px;font-weight:700;color:var(--text);cursor:pointer;padding:2px 4px;border-radius:4px">' + s.name + '</span>'
+    + (isSelf ? '<span style="font-size:9px;color:var(--purple);font-weight:600">(自分)</span>' : '')
+    + '<span style="flex:1"></span>'
+    + ssmPwBadge(s.passwordHash) + srcBadge
+    + '</div>';
+  // 権限プルダウン
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+    + '<span style="font-size:11px;color:var(--text-sub);width:56px">権限</span>'
+    + '<select onchange="ssmOnAdminChange(\'' + escName + '\',this.value)"' + (isSelf?' disabled title="自分自身の権限は変更できません"':'') + ' style="flex:1;padding:5px 8px;border:1px solid ' + (isSelf?'var(--border)':'var(--purple)') + ';border-radius:6px;font-size:12px;background:' + (isSelf?'var(--fill-input)':'#fff') + ';color:' + (isSelf?'var(--text-sub)':'var(--text)') + '">';
+  for (const r of ['管理者','上司','一般']) h += '<option value="' + r + '"' + (r===s.adminRole?' selected':'') + '>' + r + '</option>';
+  h += '</select></div>';
+  // 事業所チェックボックス
+  h += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">'
+    + '<span style="font-size:11px;color:var(--text-sub);width:56px;padding-top:2px">事業所</span>'
+    + '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px">';
+  for (const d of SSM_DEPT_CHOICES) {
+    const on = s.departments.indexOf(d) >= 0;
+    h += '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px">'
+      + '<input type="checkbox"' + (on?' checked':'') + ' onchange="ssmOnDeptToggle(\'' + escName + '\',\'' + d + '\',this.checked)" style="width:14px;height:14px;cursor:pointer"/>'
+      + d + '</label>';
+  }
+  h += '</div></div>';
+  // 役職チェックボックス
+  h += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">'
+    + '<span style="font-size:11px;color:var(--text-sub);width:56px;padding-top:2px">役職</span>'
+    + '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px">';
+  for (const r of SSM_ROLE_CHOICES) {
+    const on = s.roles.indexOf(r) >= 0;
+    h += '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px">'
+      + '<input type="checkbox"' + (on?' checked':'') + ' onchange="ssmOnRoleToggle(\'' + escName + '\',\'' + r + '\',this.checked)" style="width:14px;height:14px;cursor:pointer"/>'
+      + r + '</label>';
+  }
+  h += '</div></div>';
+  // 登録日
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+    + '<span style="font-size:11px;color:var(--text-sub);width:56px">登録日</span>'
+    + '<span onclick="ssmEditDateCard(\'' + escName + '\',this)" style="flex:1;font-size:11px;color:var(--text);cursor:pointer;padding:2px 4px;border-radius:4px">' + (s.registeredAt || '-') + '</span>'
+    + '</div>';
+  // 最終ログイン
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    + '<span style="font-size:11px;color:var(--text-sub);width:56px">最終</span>'
+    + '<span style="flex:1;font-size:11px;color:var(--text-sub)">' + (s.lastLogin || '-') + '</span>'
+    + '</div>';
+  // 削除ボタン
+  const delStyle = canDelete
+    ? 'background:#fff;color:#FF3B30;border:1px solid #FF3B30;cursor:pointer'
+    : 'background:#F2F2F7;color:#C7C7CC;border:1px solid #E5E5EA;cursor:not-allowed';
+  const delTitle = isSelf ? '自分自身は削除できません'
+               : isHardcoded ? 'ハードコード職員はアプリ上から削除不可（ソース編集が必要）'
+               : '';
+  h += '<button onclick="ssmDelete(\'' + escName + '\')" title="' + delTitle + '" style="' + delStyle + ';border-radius:8px;padding:5px 14px;font-size:11px;font-weight:600;width:100%">削除</button>';
+  h += '</div>';
+  return h;
+}
+
+// --- フィルタ操作 ---
+window.ssmOnSearch = function(v) {
+  _ssmSearch = v || '';
+  ssmRender();
+  // 検索ボックスのフォーカスを復元（ssmRender で innerHTML 更新されるため）
+  const si = document.getElementById('ssm-search');
+  if (si) { si.focus(); si.setSelectionRange(si.value.length, si.value.length); }
+};
+window.ssmToggleDeptFilter = function(d) {
+  if (_ssmDeptFilter.has(d)) _ssmDeptFilter.delete(d); else _ssmDeptFilter.add(d);
+  ssmRender();
+};
+window.ssmToggleAdminFilter = function(r) {
+  if (_ssmAdminFilter.has(r)) _ssmAdminFilter.delete(r); else _ssmAdminFilter.add(r);
+  ssmRender();
+};
+window.ssmClearFilters = function() {
+  _ssmSearch = ''; _ssmDeptFilter.clear(); _ssmAdminFilter.clear();
+  ssmRender();
+};
+
+// --- カード内の編集操作 ---
+window.ssmEditNameCard = function(name, el) {
+  if (!currentUser || currentUser.role < 3) return;
+  if (el.querySelector('input')) return;
+  const input = document.createElement('input');
+  input.type = 'text'; input.value = name;
+  input.style.cssText = 'font-size:14px;font-weight:700;padding:2px 4px;border:1px solid var(--purple);border-radius:4px;width:120px';
+  el.innerHTML = ''; el.appendChild(input); input.focus(); input.select();
+  let done = false;
+  const commit = async function() {
+    if (done) return; done = true;
+    const newName = input.value.trim();
+    if (!newName || newName === name) { ssmRender(); return; }
+    if (ACCOUNTS[newName]) { showToast('この名前はすでに使用中です'); ssmRender(); return; }
+    const exist = await getDoc(doc(db, 'staff_accounts', newName));
+    if (exist.exists()) { showToast('この名前はすでに使用中です（Firestore）'); ssmRender(); return; }
+    const msg = '名前(ID) を「' + name + '」→「' + newName + '」に変更します。\n'
+      + '・Firestore ドキュメント ID も変更されます\n'
+      + '・変更後、対象職員の再ログインが必要です\n'
+      + (name === currentStaff ? '・自分自身の変更の場合、操作後に再ログインが必要です\n' : '')
+      + 'この操作は元に戻せません。続行しますか？';
+    if (!confirm(msg)) { ssmRender(); return; }
+    try {
+      const snap = await getDoc(doc(db, 'staff_accounts', name));
+      const oldData = snap.exists() ? snap.data() : { role:1 };
+      await setDoc(doc(db, 'staff_accounts', newName), oldData);
+      if (snap.exists()) await deleteDoc(doc(db, 'staff_accounts', name));
+      if (ACCOUNTS[name]) { ACCOUNTS[newName] = ACCOUNTS[name]; delete ACCOUNTS[name]; }
+      showToast('✓ 名前を変更しました（再ログインが必要）');
+      renderStaffMasterList();
+    } catch (e) { console.error(e); showToast('名前変更失敗: ' + (e.message||e)); ssmRender(); }
+  };
+  input.addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); commit(); } else if (e.key==='Escape'){ done=true; ssmRender(); } });
+  input.addEventListener('blur', commit);
+};
+
+window.ssmEditDateCard = function(name, el) {
+  if (!currentUser || currentUser.role < 3) return;
+  if (el.querySelector('input')) return;
+  const cur = el.textContent.trim();
+  const input = document.createElement('input');
+  input.type = 'date'; input.value = (cur && cur !== '-') ? cur : '';
+  input.style.cssText = 'font-size:11px;padding:2px 4px;border:1px solid var(--purple);border-radius:4px;width:140px';
+  el.innerHTML = ''; el.appendChild(input); input.focus();
+  let done = false;
+  const commit = async function() {
+    if (done) return; done = true;
+    const v = input.value;
+    if (!v || v === cur) { ssmRender(); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { showToast('日付形式が不正です'); ssmRender(); return; }
+    try {
+      await setDoc(doc(db, 'staff_accounts', name), { registeredAt: v }, { merge: true });
+      const s = _ssmList.find(function(x){ return x.name === name; });
+      if (s) s.registeredAt = v;
+      showToast('✓ 登録日を更新しました');
+      ssmRender();
+    } catch (e) { console.error(e); showToast('更新失敗: ' + (e.message||e)); ssmRender(); }
+  };
+  input.addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); commit(); } else if (e.key==='Escape'){ done=true; ssmRender(); } });
+  input.addEventListener('blur', commit);
+};
+
+window.ssmOnDeptToggle = async function(name, dept, checked) {
+  const s = _ssmList.find(function(x){ return x.name === name; });
+  if (!s) return;
+  let depts = s.departments.slice();
+  if (checked && depts.indexOf(dept) < 0) depts.push(dept);
+  else if (!checked) depts = depts.filter(function(d){ return d !== dept; });
+  s.departments = depts;
+  try {
+    // 新旧両フィールドを同時書込（ログイン系互換）
+    await setDoc(doc(db, 'staff_accounts', name), { departments: depts, jigyosho: depts }, { merge: true });
+    if (ACCOUNTS[name]) ACCOUNTS[name].jigyosho = depts.slice();
+    showToast('✓ 事業所を更新しました');
+  } catch (e) { console.error(e); showToast('更新失敗: ' + (e.message||e)); renderStaffMasterList(); }
+};
+
+window.ssmOnRoleToggle = async function(name, role, checked) {
+  const s = _ssmList.find(function(x){ return x.name === name; });
+  if (!s) return;
+  let roles = s.roles.slice();
+  if (checked && roles.indexOf(role) < 0) roles.push(role);
+  else if (!checked) roles = roles.filter(function(r){ return r !== role; });
+  s.roles = roles;
+  try {
+    await setDoc(doc(db, 'staff_accounts', name), { roles: roles }, { merge: true });
+    showToast('✓ 役職を更新しました');
+  } catch (e) { console.error(e); showToast('更新失敗: ' + (e.message||e)); renderStaffMasterList(); }
+};
+
+window.ssmOnAdminChange = async function(name, newLabel) {
+  if (name === currentStaff) { alert('自分自身の権限は変更できません。'); renderStaffMasterList(); return; }
+  if (!SSM_ADMIN_NUMS[newLabel]) { renderStaffMasterList(); return; }
+  const s = _ssmList.find(function(x){ return x.name === name; });
+  if (!s) return;
+  const newNum = SSM_ADMIN_NUMS[newLabel];
+  s.adminRole = newLabel;
+  try {
+    // 新旧両フィールドを同時書込（ログイン系互換のため role も）
+    await setDoc(doc(db, 'staff_accounts', name), { adminRole: newLabel, role: newNum }, { merge: true });
+    if (ACCOUNTS[name]) ACCOUNTS[name].role = newNum;
+    showToast('✓ 権限を更新しました');
+    ssmRender();
+  } catch (e) { console.error(e); showToast('更新失敗: ' + (e.message||e)); renderStaffMasterList(); }
+};
+
+// --- 削除 ---
 window.ssmDelete = async function(name) {
   if (!checkSession()) return;
   if (!currentUser || currentUser.role < 3) { showToast('削除権限がありません'); return; }
   if (name === currentStaff) { alert('自分自身は削除できません。先に別の管理者でログインし直してから削除してください。'); return; }
+  if (_ACCOUNTS_HARDCODED_NAMES.has(name)) {
+    alert('ハードコード職員はアプリ上から削除不可。ソース編集が必要です。\n\n（' + name + ' は ecole_firebase.html の ACCOUNTS 定数に定義されているため、削除するにはソースコードを編集してください）');
+    return;
+  }
   if (!confirm('職員「' + name + '」を削除しますか？\nこの操作は元に戻せません。')) return;
   try {
     await deleteDoc(doc(db, 'staff_accounts', name));
@@ -5268,6 +5451,9 @@ const ACCOUNTS = {
   '安田米子':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] },
   '山田明美':   { password: '', role: 1, han: 'すたぁと',   jigyosho: ['すたぁと'] }
 };
+// #39-v2: ACCOUNTS のうちハードコード定義に含まれる名前を固定スナップショット
+// （起動時 staff_accounts マージで ACCOUNTS が拡張された後も、どれがハードコード由来か判別できるようにする）
+const _ACCOUNTS_HARDCODED_NAMES = new Set(Object.keys(ACCOUNTS));
 let currentUser = null;
 
 window.doLogin = async function() {
