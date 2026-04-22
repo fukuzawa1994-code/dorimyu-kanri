@@ -4297,6 +4297,55 @@ const SHORTSTAY_HEALTH_CHIPS = ['発作なし','発作あり','ぐっすり'];
 // Phase2 A-1: 書類仕様の新フィールド（トップレベル）
 const SHORTSTAY_BELONGINGS_V2 = ['受給者証','実費票確認印','持ち物チェック表','フェイスシート'];
 const SHORTSTAY_MED_TIMES = ['朝前','朝後','昼前','昼後','夕前','夕後','就寝前'];
+// #A-2: 支援記録マトリクスの 8 項目（縦軸固定）
+const SS_MATRIX_ITEMS = [
+  { key:'kishou',   label:'起床・就寝' },
+  { key:'kenkou',   label:'健康状態' },
+  { key:'fukuyaku', label:'服薬' },
+  { key:'suibun',   label:'水分量' },
+  { key:'nyouben',  label:'尿・便' },
+  { key:'hamigaki', label:'歯磨き' },
+  { key:'kenon',    label:'検温' },
+  { key:'nyuyoku',  label:'入浴' }
+];
+// #A-2: 入退所から日付ごとの時間帯セクションを算出
+function ssAddDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function ssRangeHours(from, to) {
+  const out = [];
+  for (let h = from; h <= to; h++) out.push(h);
+  return out;
+}
+function ssCalcSections(startDate, endDate, entryTime, exitTime) {
+  if (!startDate || !endDate || !entryTime || !exitTime) return [];
+  if (endDate < startDate) return [];
+  const entryH = parseInt(entryTime.split(':')[0], 10);
+  const exitH  = parseInt(exitTime.split(':')[0], 10);
+  if (isNaN(entryH) || isNaN(exitH)) return [];
+  const sections = [];
+  if (startDate === endDate) {
+    if (exitH < entryH) return []; // 日帰りで退所<入所は無効
+    sections.push({ date: startDate, hours: ssRangeHours(entryH, exitH) });
+    return sections;
+  }
+  // 複数日
+  sections.push({ date: startDate, hours: ssRangeHours(entryH, 23) });
+  let cur = ssAddDays(startDate, 1);
+  while (cur < endDate) {
+    sections.push({ date: cur, hours: ssRangeHours(0, 23) });
+    cur = ssAddDays(cur, 1);
+  }
+  sections.push({ date: endDate, hours: ssRangeHours(0, exitH) });
+  return sections;
+}
+function ssFormatSectionHeader(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = ['日','月','火','水','木','金','土'][d.getDay()];
+  return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + '（' + dow + '）';
+}
 
 function shortstayDefaultData(user) {
   const sr = {};
@@ -4317,6 +4366,8 @@ function shortstayDefaultData(user) {
     category: { overnight: false, daytime: false },
     belongings: belongV2,
     medicine: { enabled: false, times: medTimes, others: '' },
+    // #A-2: 支援記録マトリクス（データ本実装は A-6）、キー形式: "YYYY-MM-DD_HH"
+    matrix: {},
     // 旧フィールド（既存互換、A-6 で統合方針確定予定）
     stay: { startDate: today(), endDate: today(), checkInTime:'17:00', checkOutTime:'09:00', checkInTransport:'すたぁと', checkOutTransport:'他', overnight:true, daytime:false },
     medicationConfig: { 朝:{enabled:false,timing:'前'}, 昼:{enabled:false,timing:'前'}, 夕:{enabled:false,timing:'前'}, 就寝前:{enabled:false}, その他:{enabled:false,note:''} },
@@ -4485,8 +4536,8 @@ window.renderShortstayEdit = function() {
     }
     return o;
   };
-  html += '<div class="frow"><span class="flbl">入所時刻</span><select onchange="ssSet(\'entryTime\',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">' + hourOpts(d.entryTime || '17:00') + '</select></div>';
-  html += '<div class="frow"><span class="flbl">退所時刻</span><select onchange="ssSet(\'exitTime\',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">' + hourOpts(d.exitTime || '09:00') + '</select></div>';
+  html += '<div class="frow"><span class="flbl">入所時刻</span><select onchange="ssOnEntryTimeChange(this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">' + hourOpts(d.entryTime || '17:00') + '</select></div>';
+  html += '<div class="frow"><span class="flbl">退所時刻</span><select onchange="ssOnExitTimeChange(this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">' + hourOpts(d.exitTime || '09:00') + '</select></div>';
   // ③ 区分チェックボックス
   const cat = d.category || { overnight:false, daytime:false };
   html += '<span class="tog-label">区分</span>'
@@ -4531,12 +4582,42 @@ window.renderShortstayEdit = function() {
   }
   html += '</div>';
 
-  // ⑥ 支援記録マトリクス — A-1 ではプレースホルダー、A-2 で本実装
+  // ⑥ 支援記録マトリクス — #A-2: 日付分割方式、8項目×時間のセル
   html += '<div class="ksec-hd" style="margin-top:12px">支援記録</div>';
-  html += '<div id="shortstay-matrix-area" style="margin:6px 0 0;padding:24px 16px;background:var(--fill-input);border-radius:12px;text-align:center">'
-    + '<div style="font-size:12px;color:var(--text-sub)">※ 支援記録マトリクスは A-2 で実装予定</div>'
-    + '<div style="font-size:11px;color:var(--text-sub);margin-top:6px;line-height:1.6">予定項目: 起床・就寝 / 健康状態（発作等）/ 服薬（有・無）/ 水分量（種類）/ 尿・便（パッド交換）/ 歯磨き / 検温 / 入浴（有・無）</div>'
-    + '</div>';
+  html += '<div id="shortstay-matrix-area" style="margin:6px 0 0">';
+  const sections = ssCalcSections(d.startDate, d.endDate, d.entryTime, d.exitTime);
+  if (!sections.length) {
+    html += '<div style="padding:24px 16px;background:var(--fill-input);border-radius:12px;text-align:center">'
+      + '<div style="font-size:12px;color:var(--text-sub)">利用日・入退所時刻を入力するとマトリクスが表示されます</div>'
+      + '</div>';
+  } else {
+    html += '<div style="font-size:11px;color:var(--text-sub);padding:0 2px 6px">全 ' + sections.length + ' 日・セル入力は A-3 で実装予定</div>';
+    for (const sec of sections) {
+      html += '<div style="margin-bottom:12px;border:0.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff">'
+        + '<div style="padding:8px 12px;background:#F8F6FF;font-size:12px;font-weight:700;color:var(--purple);border-bottom:0.5px solid var(--border)">' + ssFormatSectionHeader(sec.date) + '</div>'
+        + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative">'
+        + '<table style="border-collapse:separate;border-spacing:0;min-width:max-content;font-size:11px">';
+      // 時刻ヘッダー
+      html += '<thead><tr>'
+        + '<th style="position:sticky;left:0;background:#F8F6FF;z-index:2;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid var(--border);font-weight:600;color:#666;text-align:left">時刻 →</th>';
+      for (const h of sec.hours) {
+        html += '<th style="min-width:44px;padding:6px 4px;border-bottom:0.5px solid var(--border);border-right:0.5px solid #F2F2F7;font-weight:600;color:#666;text-align:center">' + (h<10?('0'+h):h) + '</th>';
+      }
+      html += '</tr></thead><tbody>';
+      // 項目行 × 8
+      for (const item of SS_MATRIX_ITEMS) {
+        html += '<tr>'
+          + '<th scope="row" style="position:sticky;left:0;background:#fff;z-index:1;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid #F2F2F7;font-weight:600;color:var(--text);text-align:left;white-space:nowrap">' + item.label + '</th>';
+        for (const h of sec.hours) {
+          const cellKey = sec.date + '_' + (h<10?('0'+h):h);
+          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" style="min-width:44px;min-height:44px;height:44px;padding:0;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;color:var(--text);font-size:12px"></td>';
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table></div></div>';
+    }
+  }
+  html += '</div>';
 
   // 食事
   html += '<div class="ksec-hd" style="margin-top:12px">食事</div><div class="fsec">';
@@ -4630,6 +4711,17 @@ window.ssOnEndDateChange = function(value) {
   d.endDate = value;
   if (!d.category) d.category = { overnight:false, daytime:false };
   d.category.overnight = (d.endDate && d.endDate !== d.startDate);
+  renderShortstayEdit();
+};
+// #A-2: 時刻変更時もマトリクス再生成
+window.ssOnEntryTimeChange = function(value) {
+  if (!_shortstayEditCtx) return;
+  _shortstayEditCtx.data.entryTime = value;
+  renderShortstayEdit();
+};
+window.ssOnExitTimeChange = function(value) {
+  if (!_shortstayEditCtx) return;
+  _shortstayEditCtx.data.exitTime = value;
   renderShortstayEdit();
 };
 // A-1: 服薬 有/無 ラジオ変更時
