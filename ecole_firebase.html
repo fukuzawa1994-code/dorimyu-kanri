@@ -4327,19 +4327,53 @@ function ssCalcSections(startDate, endDate, entryTime, exitTime) {
   if (isNaN(entryH) || isNaN(exitH)) return [];
   const sections = [];
   if (startDate === endDate) {
-    if (exitH < entryH) return []; // 日帰りで退所<入所は無効
+    if (exitH <= entryH) return []; // 日帰りで退所<=入所は無効
     sections.push({ date: startDate, hours: ssRangeHours(entryH, exitH) });
     return sections;
   }
-  // 複数日
+  // 複数日（A-2.1 安全弁: 最大 10 日分まで）
+  const MAX_ITERATIONS = 10;
+  let iterations = 0;
   sections.push({ date: startDate, hours: ssRangeHours(entryH, 23) });
   let cur = ssAddDays(startDate, 1);
   while (cur < endDate) {
+    if (++iterations > MAX_ITERATIONS) {
+      console.error('ssCalcSections: 反復回数上限(10日)に達しました。中断します');
+      break;
+    }
     sections.push({ date: cur, hours: ssRangeHours(0, 23) });
     cur = ssAddDays(cur, 1);
   }
   sections.push({ date: endDate, hours: ssRangeHours(0, exitH) });
   return sections;
+}
+// #A-2.1: 利用総時間を算出
+function ssCalcTotalHours(startDate, endDate, entryTime, exitTime) {
+  if (!startDate || !endDate || !entryTime || !exitTime) return 0;
+  const entryH = parseInt(entryTime.split(':')[0], 10);
+  const exitH  = parseInt(exitTime.split(':')[0], 10);
+  if (isNaN(entryH) || isNaN(exitH)) return 0;
+  const d0 = new Date(startDate + 'T00:00:00');
+  const d1 = new Date(endDate   + 'T00:00:00');
+  if (isNaN(d0.getTime()) || isNaN(d1.getTime())) return 0;
+  const dayDiff = Math.round((d1 - d0) / 86400000);
+  if (dayDiff < 0) return 0;
+  if (dayDiff === 0) return Math.max(0, exitH - entryH);
+  return (24 - entryH) + (dayDiff - 1) * 24 + exitH;
+}
+// #A-2.1: 入力バリデーション（type='prompt'=軽案内 / 'error'=赤警告）
+function ssValidateDateRange(startDate, endDate, entryTime, exitTime) {
+  if (!startDate) return { ok:false, type:'prompt', msg:'開始日を入力してください' };
+  if (!endDate)   return { ok:false, type:'prompt', msg:'終了日を入力してください' };
+  if (!entryTime) return { ok:false, type:'prompt', msg:'入所時刻を選択してください' };
+  if (!exitTime)  return { ok:false, type:'prompt', msg:'退所時刻を選択してください' };
+  if (endDate < startDate) return { ok:false, type:'error', msg:'終了日は開始日以降を選択してください' };
+  if (startDate === endDate) {
+    if (exitTime <= entryTime) return { ok:false, type:'error', msg:'同日利用の場合、退所時刻は入所時刻より後にしてください' };
+  }
+  const totalHours = ssCalcTotalHours(startDate, endDate, entryTime, exitTime);
+  if (totalHours > 32) return { ok:false, type:'error', msg:'利用時間が長すぎます（' + totalHours + '時間）。最大 32 時間まで対応しています' };
+  return { ok:true };
 }
 function ssFormatSectionHeader(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -4582,13 +4616,23 @@ window.renderShortstayEdit = function() {
   }
   html += '</div>';
 
-  // ⑥ 支援記録マトリクス — #A-2: 日付分割方式、8項目×時間のセル
+  // ⑥ 支援記録マトリクス — #A-2: 日付分割方式、8項目×時間のセル（#A-2.1: バリデーション追加）
   html += '<div class="ksec-hd" style="margin-top:12px">支援記録</div>';
   html += '<div id="shortstay-matrix-area" style="margin:6px 0 0">';
-  const sections = ssCalcSections(d.startDate, d.endDate, d.entryTime, d.exitTime);
-  if (!sections.length) {
+  const validation = ssValidateDateRange(d.startDate, d.endDate, d.entryTime, d.exitTime);
+  const sections = validation.ok ? ssCalcSections(d.startDate, d.endDate, d.entryTime, d.exitTime) : [];
+  if (!validation.ok) {
+    if (validation.type === 'error') {
+      html += '<div style="padding:14px 16px;background:#FED7D7;color:#C53030;border-radius:10px;text-align:center;font-size:13px;font-weight:600">⚠ ' + validation.msg + '</div>';
+    } else {
+      html += '<div style="padding:24px 16px;background:var(--fill-input);border-radius:12px;text-align:center">'
+        + '<div style="font-size:12px;color:var(--text-sub)">' + validation.msg + '</div>'
+        + '</div>';
+    }
+  } else if (!sections.length) {
+    // バリデーション ok だが sections が空（想定外）。安全側で軽案内。
     html += '<div style="padding:24px 16px;background:var(--fill-input);border-radius:12px;text-align:center">'
-      + '<div style="font-size:12px;color:var(--text-sub)">利用日・入退所時刻を入力するとマトリクスが表示されます</div>'
+      + '<div style="font-size:12px;color:var(--text-sub)">マトリクスを生成できませんでした</div>'
       + '</div>';
   } else {
     html += '<div style="font-size:11px;color:var(--text-sub);padding:0 2px 6px">全 ' + sections.length + ' 日・セル入力は A-3 で実装予定</div>';
