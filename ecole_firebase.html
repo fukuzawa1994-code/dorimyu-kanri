@@ -3401,9 +3401,97 @@ window.aggregateMeals = function(dateStr) {
 window.renderMasterList = function() {
   const body = document.getElementById('master-body');
   if (!body) return;
-  // #32d-2: マスター一覧画面の v3 詳細描画は #32d-3 で実装。バナー文言のみ更新。
+  // #32d-3: v3 完全対応（6便 × 朝夕テーブル / 担当者 / 特記事項 / 略記+凡例 / 送迎対象外 3 カテゴリ）
   if (CURRENT_MASTER && CURRENT_MASTER.version === 'v3') {
-    body.innerHTML = '<div style="margin:10px 12px;padding:12px 16px;background:var(--ios-blue-bg);border-radius:12px;color:var(--ios-blue);font-size:13px;font-weight:600">送迎マスター v3 読込済み（詳細表示は送迎一覧で確認可能。マスター一覧画面は #32d-3 対応予定）</div>';
+    const cm = CURRENT_MASTER;
+    const dows = ['月','火','水','木','金','土'];
+    function abbrLoc(s) {
+      const m = {'自宅':'宅','エコール':'ェ','童里夢':'童','奏楽':'奏','GH':'G','ＧＨ':'G','ぱぁとなぁ':'ぱ'};
+      return (s in m) ? m[s] : (s || '?');
+    }
+    function fmtCell(dayRec) {
+      if (!dayRec || dayRec.ride === false) return '<span style="color:#C7C7CC">×</span>';
+      const f = dayRec.from ? abbrLoc(dayRec.from) : '';
+      const t = dayRec.to ? abbrLoc(dayRec.to) : '';
+      if (!f && !t) return '-';
+      if (f && !t) return f + '→';
+      if (!f && t) return '→' + t;
+      return f + '→' + t;
+    }
+    function renderPeriodTable(label, periodData) {
+      if (!periodData) return '';
+      const users = Array.isArray(periodData.users) ? periodData.users : [];
+      const drivers = periodData.drivers || {};
+      const driverLine = dows.map(function(d){ return d + '=' + (drivers[d] || '-'); }).join(' / ');
+      let rows = '';
+      for (const u of users) {
+        const cells = dows.map(function(d){
+          const rec = u.days && u.days[d];
+          return '<td style="padding:4px 6px;text-align:center;border-bottom:0.5px solid #eee;font-size:12px;white-space:nowrap">' + fmtCell(rec) + '</td>';
+        }).join('');
+        const memo = u.memo ? ('<span style="color:#FF6F00">' + u.memo + '</span>') : '';
+        rows += '<tr><td style="padding:4px 6px;border-bottom:0.5px solid #eee;font-size:12px;white-space:nowrap;font-weight:600">' + u.name + '</td>'
+          + cells
+          + '<td style="padding:4px 6px;border-bottom:0.5px solid #eee;font-size:11px;white-space:nowrap">' + memo + '</td></tr>';
+      }
+      return '<div style="margin-top:8px">'
+        + '<div style="font-size:12px;font-weight:600;color:#3C3489;margin-bottom:4px">' + label + '（' + users.length + '名）</div>'
+        + '<div style="font-size:11px;color:var(--text-sub);margin-bottom:6px">' + label.replace(/（.*）$/, '') + '担当: ' + driverLine + '</div>'
+        + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:0.5px solid var(--border);border-radius:6px;background:#fff">'
+        + '<table style="border-collapse:collapse;width:100%;min-width:440px">'
+        + '<thead><tr style="background:#F8F6FF">'
+        + '<th style="padding:5px 6px;text-align:left;border-bottom:0.5px solid #ddd;font-size:11px;color:#666;white-space:nowrap">名前</th>'
+        + dows.map(function(d){ return '<th style="padding:5px 6px;text-align:center;border-bottom:0.5px solid #ddd;font-size:11px;color:#666">' + d + '</th>'; }).join('')
+        + '<th style="padding:5px 6px;text-align:left;border-bottom:0.5px solid #ddd;font-size:11px;color:#666;white-space:nowrap">memo</th>'
+        + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    }
+    let html = '';
+    // ヘッダー（sticky 凡例）
+    const src = (cm._meta && cm._meta.source) ? cm._meta.source : '';
+    html += '<div style="position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 12px 10px;border-bottom:0.5px solid var(--separator)">'
+      + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">'
+      + '<span style="font-size:15px;font-weight:700;color:var(--purple)"><i data-lucide="bus"></i> 送迎マスター</span>'
+      + '<span style="background:var(--ios-blue-bg);color:var(--ios-blue);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">v3</span>'
+      + (src ? '<span style="font-size:10px;color:var(--text-sub);margin-left:auto">source: ' + src + '</span>' : '')
+      + '</div>'
+      + '<div style="font-size:10px;color:var(--text-sub);line-height:1.5">凡例: 宅=自宅 / ェ=エコール / 童=童里夢 / 奏=奏楽 / ぱ=ぱぁとなぁ / G=GH / ×=乗らない</div>'
+      + '</div>';
+    // 6便カード
+    for (const bin of Object.keys(cm.routes)) {
+      const b = cm.routes[bin];
+      const color = (MASTER.routes[bin] && MASTER.routes[bin].color) || '#8E8E93';
+      html += '<div class="rcard" style="margin:10px 12px;padding:12px 14px">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">'
+        + '<div class="rdot" style="background:' + color + '"></div>'
+        + '<span style="font-size:15px;font-weight:700;color:' + color + '">' + bin + '便</span>'
+        + '</div>'
+        + (b.specialNote ? '<div style="font-size:11px;color:var(--coral);font-weight:600;margin:4px 0 2px">⚠ ' + b.specialNote + '</div>' : '')
+        + renderPeriodTable('朝', b.morning)
+        + renderPeriodTable('夕', b.evening)
+        + '</div>';
+    }
+    // 送迎対象外 3 カテゴリ（初期折りたたみ）
+    if (cm.noTransport) {
+      const catColors = {};
+      catColors['パン缶'] = '#FF9500';
+      catColors['ぱぁとなぁ居住'] = '#EC4899';
+      catColors['その他'] = '#8E8E93';
+      for (const ntKey of Object.keys(cm.noTransport)) {
+        const list = Array.isArray(cm.noTransport[ntKey]) ? cm.noTransport[ntKey] : [];
+        if (!list.length) continue;
+        let col = '#8E8E93';
+        for (const prefix of Object.keys(catColors)) { if (ntKey.startsWith(prefix)) { col = catColors[prefix]; break; } }
+        html += '<div class="rcard collapsed" style="margin:10px 12px">'
+          + '<div class="rcard-hd" onclick="toggleRoute(this)">'
+          + '<div style="display:flex;align-items:center"><div class="rdot" style="background:' + col + '"></div><span class="rname">' + ntKey + '（' + list.length + '名）</span></div>'
+          + '<div style="display:flex;align-items:center;gap:8px"><span class="badge" style="background:#E5E5EA;color:#636366">対象外</span><span class="arrow">▼</span></div>'
+          + '</div>'
+          + '<div class="prow" style="padding:10px 18px;font-size:12px;color:#555;line-height:1.7">' + list.join('・') + '</div>'
+          + '</div>';
+      }
+    }
+    body.innerHTML = html;
+    if (window.refreshIcons) window.refreshIcons();
     return;
   }
 
