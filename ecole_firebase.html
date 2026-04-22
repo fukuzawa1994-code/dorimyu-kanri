@@ -1250,6 +1250,9 @@ function today() {
 let selectedDate = today();
 let logs = [];
 let CURRENT_MASTER = null; // #32a-3: master_current/current の内容（インポート済み基本送迎マスター）
+let masterEditMode = false; // #33a: マスター一覧編集モード ON/OFF（管理者のみ、画面離脱で自動 OFF）
+let _masterEditCtx = null;  // #33a: 編集中セルの context {bin, userName, period, dow}
+let _toastTimerId = null;   // #33a: Toast 非スタック用タイマー参照
 let currentScr = 'list';
 let readNotif = JSON.parse(localStorage.getItem('ecole_read') || '[]');
 let sheetCtx = {};
@@ -1406,6 +1409,7 @@ window.getStaffAffiliation = getStaffAffiliation;
 
 
 window.goScr = function(s) {
+  masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
   ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
@@ -3418,7 +3422,7 @@ window.renderMasterList = function() {
       if (!f && t) return '→' + t;
       return f + '→' + t;
     }
-    function renderPeriodTable(label, periodData) {
+    function renderPeriodTable(bin, period, label, periodData) {
       if (!periodData) return '';
       const users = Array.isArray(periodData.users) ? periodData.users : [];
       const drivers = periodData.drivers || {};
@@ -3427,7 +3431,10 @@ window.renderMasterList = function() {
       for (const u of users) {
         const cells = dows.map(function(d){
           const rec = u.days && u.days[d];
-          return '<td style="padding:4px 6px;text-align:center;border-bottom:0.5px solid #eee;font-size:12px;white-space:nowrap">' + fmtCell(rec) + '</td>';
+          const editAttrs = masterEditMode
+            ? ' onclick="openMasterCellEditor(\'' + bin + '\',\'' + u.name + '\',\'' + period + '\',\'' + d + '\')" style="padding:4px 6px;text-align:center;border:1px dashed var(--purple);background:var(--purple-light);font-size:12px;white-space:nowrap;cursor:pointer"'
+            : ' style="padding:4px 6px;text-align:center;border-bottom:0.5px solid #eee;font-size:12px;white-space:nowrap"';
+          return '<td' + editAttrs + '>' + fmtCell(rec) + '</td>';
         }).join('');
         const memo = u.memo ? ('<span style="color:#FF6F00">' + u.memo + '</span>') : '';
         rows += '<tr><td style="padding:4px 6px;border-bottom:0.5px solid #eee;font-size:12px;white-space:nowrap;font-weight:600">' + u.name + '</td>'
@@ -3446,15 +3453,25 @@ window.renderMasterList = function() {
         + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
     }
     let html = '';
-    // ヘッダー（sticky 凡例）
+    // ヘッダー（sticky 凡例）— 編集モード中は薄紫背景
     const src = (cm._meta && cm._meta.source) ? cm._meta.source : '';
-    html += '<div style="position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 12px 10px;border-bottom:0.5px solid var(--separator)">'
-      + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">'
+    const isAdmin = !!(currentUser && currentUser.role >= 3);
+    const hdBg = masterEditMode ? 'var(--purple-light)' : 'var(--bg)';
+    const editBtn = isAdmin
+      ? (masterEditMode
+          ? '<button onclick="toggleMasterEditMode()" style="background:var(--purple);color:#fff;border:none;border-radius:14px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto">完了</button>'
+          : '<button onclick="toggleMasterEditMode()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:auto">編集モード</button>')
+      : '';
+    html += '<div style="position:sticky;top:0;z-index:5;background:' + hdBg + ';padding:8px 12px 10px;border-bottom:0.5px solid var(--separator)">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
       + '<span style="font-size:15px;font-weight:700;color:var(--purple)"><i data-lucide="bus"></i> 送迎マスター</span>'
       + '<span style="background:var(--ios-blue-bg);color:var(--ios-blue);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">v3</span>'
-      + (src ? '<span style="font-size:10px;color:var(--text-sub);margin-left:auto">source: ' + src + '</span>' : '')
+      + (src && !masterEditMode ? '<span style="font-size:10px;color:var(--text-sub);margin-left:8px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">source: ' + src + '</span>' : '')
+      + editBtn
       + '</div>'
-      + '<div style="font-size:10px;color:var(--text-sub);line-height:1.5">凡例: 宅=自宅 / ェ=エコール / 童=童里夢 / 奏=奏楽 / ぱ=ぱぁとなぁ / G=GH / ×=乗らない</div>'
+      + '<div style="font-size:10px;color:var(--text-sub);line-height:1.5">凡例: 宅=自宅 / ェ=エコール / 童=童里夢 / 奏=奏楽 / ぱ=ぱぁとなぁ / G=GH / ×=乗らない'
+      + (masterEditMode ? '　<span style="color:var(--purple);font-weight:700">編集モード — セルをタップして変更</span>' : '')
+      + '</div>'
       + '</div>';
     // 6便カード
     for (const bin of Object.keys(cm.routes)) {
@@ -3466,8 +3483,8 @@ window.renderMasterList = function() {
         + '<span style="font-size:15px;font-weight:700;color:' + color + '">' + bin + '便</span>'
         + '</div>'
         + (b.specialNote ? '<div style="font-size:11px;color:var(--coral);font-weight:600;margin:4px 0 2px">⚠ ' + b.specialNote + '</div>' : '')
-        + renderPeriodTable('朝', b.morning)
-        + renderPeriodTable('夕', b.evening)
+        + renderPeriodTable(bin, '朝', '朝', b.morning)
+        + renderPeriodTable(bin, '夕', '夕', b.evening)
         + '</div>';
     }
     // 送迎対象外 3 カテゴリ（初期折りたたみ）
@@ -3713,6 +3730,127 @@ window.renderMasterList = function() {
 
   body.innerHTML = html;
   if (window.refreshIcons) window.refreshIcons();
+};
+
+// ═══ #33a マスター編集モード + 行き先セル編集 ═══
+window.toggleMasterEditMode = function() {
+  if (!currentUser || currentUser.role < 3) { showToast('編集権限がありません'); return; }
+  masterEditMode = !masterEditMode;
+  renderMasterList();
+};
+
+window.openMasterCellEditor = function(bin, userName, period, dow) {
+  if (!masterEditMode) return;
+  if (!currentUser || currentUser.role < 3) { showToast('編集権限がありません'); return; }
+  if (!CURRENT_MASTER || CURRENT_MASTER.version !== 'v3') return;
+  const bus = CURRENT_MASTER.routes[bin];
+  if (!bus) return;
+  const periodKey = period === '朝' ? 'morning' : 'evening';
+  const pd = bus[periodKey];
+  if (!pd || !Array.isArray(pd.users)) return;
+  const user = pd.users.find(function(u){ return u.name === userName; });
+  if (!user) return;
+  if (!user.days) user.days = {};
+  const cur = user.days[dow] || { ride: false };
+  _masterEditCtx = { bin, userName, period, dow };
+  // モーダル動的生成
+  const existing = document.getElementById('master-edit-bg');
+  if (existing) existing.remove();
+  const opts = ['自宅','エコール','童里夢','奏楽','ぱぁとなぁ','GH'];
+  const optHtml = function(sel) {
+    return opts.map(function(o){ return '<option value="' + o + '"' + (o === sel ? ' selected' : '') + '>' + o + '</option>'; }).join('');
+  };
+  const ride = cur.ride === true;
+  const from = cur.from || '自宅';
+  const to   = cur.to   || 'エコール';
+  const wrap = document.createElement('div');
+  wrap.id = 'master-edit-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:22px 22px 0 0;width:100%;max-width:460px;padding:0 0 24px">'
+    + '  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:0.5px solid var(--border)">'
+    + '    <div>'
+    + '      <div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">' + bin + '便 / ' + period + ' / ' + dow + '曜</div>'
+    + '      <div style="font-size:16px;font-weight:700;color:var(--text)">' + userName + '</div>'
+    + '    </div>'
+    + '    <button onclick="closeMasterCellEditor()" class="close-btn">×</button>'
+    + '  </div>'
+    + '  <div style="padding:14px 18px">'
+    + '    <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px">乗車</div>'
+    + '    <div id="mec-ride-row" style="display:flex;gap:8px;margin-bottom:16px">'
+    + '      <button onclick="setMECRide(true)"  id="mec-ride-yes" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--purple);background:' + (ride?'var(--purple)':'#fff') + ';color:' + (ride?'#fff':'var(--purple)') + ';font-weight:700;cursor:pointer">乗る</button>'
+    + '      <button onclick="setMECRide(false)" id="mec-ride-no"  style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--coral);background:' + (!ride?'var(--coral)':'#fff') + ';color:' + (!ride?'#fff':'var(--coral)') + ';font-weight:700;cursor:pointer">乗らない</button>'
+    + '    </div>'
+    + '    <div id="mec-fromto" style="opacity:' + (ride?'1':'0.4') + ';pointer-events:' + (ride?'auto':'none') + '">'
+    + '      <div style="margin-bottom:12px"><div style="font-size:12px;color:var(--text-sub);margin-bottom:4px">乗車元（from）</div>'
+    + '        <select id="mec-from" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--fill-input);font-size:14px">' + optHtml(from) + '</select></div>'
+    + '      <div><div style="font-size:12px;color:var(--text-sub);margin-bottom:4px">降車先（to）</div>'
+    + '        <select id="mec-to"   style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--fill-input);font-size:14px">' + optHtml(to) + '</select></div>'
+    + '    </div>'
+    + '  </div>'
+    + '  <div style="display:flex;gap:8px;padding:0 18px">'
+    + '    <button onclick="closeMasterCellEditor()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    + '    <button onclick="doMasterCellSave()"    style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">保存</button>'
+    + '  </div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+};
+
+window.setMECRide = function(val) {
+  const yes = document.getElementById('mec-ride-yes');
+  const no  = document.getElementById('mec-ride-no');
+  const ft  = document.getElementById('mec-fromto');
+  if (!yes || !no || !ft) return;
+  if (val) {
+    yes.style.background = 'var(--purple)'; yes.style.color = '#fff';
+    no.style.background  = '#fff';          no.style.color   = 'var(--coral)';
+    ft.style.opacity = '1'; ft.style.pointerEvents = 'auto';
+  } else {
+    yes.style.background = '#fff';          yes.style.color  = 'var(--purple)';
+    no.style.background  = 'var(--coral)';  no.style.color   = '#fff';
+    ft.style.opacity = '0.4'; ft.style.pointerEvents = 'none';
+  }
+  yes.dataset.selected = val ? '1' : '0';
+};
+
+window.closeMasterCellEditor = function() {
+  const el = document.getElementById('master-edit-bg');
+  if (el) el.remove();
+  _masterEditCtx = null;
+};
+
+window.doMasterCellSave = async function() {
+  if (!_masterEditCtx) return;
+  if (!currentUser || currentUser.role < 3) { showToast('編集権限がありません'); return; }
+  const { bin, userName, period, dow } = _masterEditCtx;
+  const yes = document.getElementById('mec-ride-yes');
+  const ride = yes && yes.dataset.selected !== '0';
+  const fromSel = document.getElementById('mec-from');
+  const toSel   = document.getElementById('mec-to');
+  const from = fromSel ? fromSel.value : null;
+  const to   = toSel   ? toSel.value   : null;
+  const bus = CURRENT_MASTER && CURRENT_MASTER.routes && CURRENT_MASTER.routes[bin];
+  const periodKey = period === '朝' ? 'morning' : 'evening';
+  const pd = bus && bus[periodKey];
+  const user = pd && Array.isArray(pd.users) ? pd.users.find(function(u){ return u.name === userName; }) : null;
+  if (!user) { showToast('対象利用者が見つかりません'); return; }
+  if (!user.days) user.days = {};
+  // 楽観的 UI 更新
+  user.days[dow] = ride ? { ride:true, from, to } : Object.assign({}, user.days[dow] || {}, { ride:false });
+  closeMasterCellEditor();
+  renderMasterList();
+  try {
+    await setDoc(doc(db, 'master_current', 'current'), {
+      data: CURRENT_MASTER,
+      updatedAt: Date.now(),
+      updatedBy: currentStaff || 'unknown'
+    }, { merge: true });
+    showToast('✓ 保存しました');
+  } catch (e) {
+    console.error('master cell save failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+    // 失敗時は onSnapshot から最新値が戻る（マスター再描画）
+  }
 };
 
 // ═══ すたぁと給食連絡 ═══
@@ -5943,7 +6081,8 @@ function renderKyushoku() {
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  if (_toastTimerId) { clearTimeout(_toastTimerId); _toastTimerId = null; }
+  _toastTimerId = setTimeout(() => { t.classList.remove('show'); _toastTimerId = null; }, 2000);
 }
 
 // ── 起動 ──
