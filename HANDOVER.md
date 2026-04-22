@@ -552,3 +552,19 @@ console.log({ version: cm && cm.version, routeKeys: cm && cm.routes ? Object.key
 - `window.doLogin` / `window.applyImportedMaster` / `window.restoreFromBackup` / `window.normalizeImportedMaster` 健在確認
 - 日本語コミットメッセージ、1タスク=1コミット
 
+---
+
+## 🔖 2026-04-22 追加メモ
+
+### 🏷️ 利用者表記「小嶋彰」vs「小島彰」
+すたぁと短期入所利用個別記録の実物書類は **「小嶋 彰」**（山偏の嶋 + 空白）で表記されている。しかし `USER_MASTER` 他 `DEFAULT_TRANSPORT`・`KYUSHOKU` 等は **「小島彰」**（島、空白なし）で統一済み。
+
+**現状の判断（#shortstay Phase 1）**: `SHORTSTAY_USERS = [{ id:'kojima_akira', name:'小島彰' }]` として `USER_MASTER` 準拠で統一。
+
+**将来の対応選択肢**:
+- (a) 本人が「小嶋」派なら `USER_MASTER` 全体を「小嶋彰」に変更（#32c の渡邊一正と同パターン、全36箇所対応要）
+- (b) `display_name` フィールドを `USER_MASTER` に追加し、印刷書類だけ「小嶋 彰」、アプリ内は「小島彰」で両立
+- (c) 現状維持（すたぁと記録含め全て「小島彰」）
+
+次回セッションで戸籍表記確認→決定。
+
