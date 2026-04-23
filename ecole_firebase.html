@@ -1153,6 +1153,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-shortstay-hist" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-hist-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-shortstay-edit" style="padding-bottom:120px;overflow-y:auto"><div id="shortstay-edit-body"><div class="loading">読み込み中...</div></div><div class="vac-cta-fixed ss-screen-only" style="display:flex;gap:8px;padding:8px 12px"><button class="sbtn" style="flex:2" onclick="doShortstayPublicSave()">保存する</button><button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="ssPrint()"><i data-lucide="printer"></i> 印刷</button></div></div>
     <div class="scr" id="scr-cashbook" style="padding-bottom:100px;overflow-y:auto"><div id="cashbook-body"><div class="loading">読み込み中...</div></div></div>
+    <div class="scr" id="scr-allowance" style="padding-bottom:100px;overflow-y:auto"><div id="allowance-body"><div class="loading">読み込み中...</div></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
 
@@ -1300,7 +1301,8 @@ const scrTitles = {
   case: 'ケース記録', purchase: '購入申請', admin: 'アカウント管理', vacation: '休暇申請', startkyushoku: 'すたぁと給食連絡',
     inspection: '車両点検', alcohol: 'アルコールチェック', master: 'マスター一覧',
     shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録',
-    cashbook: 'ぱぁとなぁ金銭出納帳'
+    cashbook: 'ぱぁとなぁ金銭出納帳',
+    allowance: 'ぱぁとなぁお小遣い帳'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
@@ -1308,7 +1310,8 @@ const scrSubs = {
   distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理', admin: '職員アカウント管理', vacation: '休暇・送迎自動除外', startkyushoku: 'レストラン連絡',
     inspection: '月次点検記録', alcohol: '朝夕測定値', master: '登録データ確認',
     shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集',
-    cashbook: '紬/ひまわり/事務費'
+    cashbook: '紬/ひまわり/事務費',
+    allowance: '紬/ひまわり 利用者別'
 };
 
 // ── ユーティリティ ──
@@ -1451,7 +1454,7 @@ window.getStaffAffiliation = getStaffAffiliation;
 window.goScr = function(s) {
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -1481,6 +1484,7 @@ window.goScr = function(s) {
   if (s==='shortstay-hist') renderShortstayHist();
   if (s==='shortstay-edit') renderShortstayEdit();
   if (s==='cashbook')       renderCashbook();
+  if (s==='allowance')      renderAllowance();
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
@@ -3239,6 +3243,7 @@ window.showSubMenu = function(type) {
       { icon: 'file-text', label: 'すたぁと給食連絡', action: "goScr('startkyushoku')" },
       { icon: 'home', label: 'すたぁと短期入所記録', action: "goScr('shortstay')" },
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
+      { icon: 'wallet', label: 'ぱぁとなぁお小遣い帳', action: "goScr('allowance')" },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
@@ -5847,6 +5852,425 @@ window.cbCarryOver = async function() {
     renderCashbook();
   } catch (e) {
     console.error('cbCarryOver failed:', e);
+    showToast('繰越失敗: ' + (e.message || e));
+  }
+};
+
+// ═══ ぱぁとなぁ お小遣い帳 ═══
+let _abUserId = null;    // 選択中利用者（名前をキーとして使用）
+let _abYm = null;        // 'YYYY-MM'
+let _abAllEntries = [];  // 現 _abUserId の全件キャッシュ
+let _abEdit = null;      // {id, data, mode}
+
+function getAllowanceUsers() {
+  const out = [];
+  if (typeof GH_MASTER === 'object' && GH_MASTER) {
+    for (const groupKey of Object.keys(GH_MASTER)) {
+      const home = (groupKey === 'ひまわり') ? 'ひまわり' : '紬';
+      const users = (GH_MASTER[groupKey] && GH_MASTER[groupKey].users) || [];
+      for (const name of users) {
+        if (!out.find(function(u){ return u.id === name; })) {
+          out.push({ id: name, name: name, home: home });
+        }
+      }
+    }
+  }
+  // 並び順: 紬 → ひまわり、50音（localeCompare 'ja'）
+  out.sort(function(a,b){
+    if (a.home !== b.home) return a.home === '紬' ? -1 : 1;
+    return a.name.localeCompare(b.name, 'ja');
+  });
+  return out;
+}
+
+function _abCurYm() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function _abFilterMonth(all, ym) {
+  return all.filter(function(e){ return (e.date||'').startsWith(ym); }).sort(function(a,b){
+    if (a.date < b.date) return -1;
+    if (a.date > b.date) return 1;
+    return (a.recordedAt || 0) - (b.recordedAt || 0);
+  });
+}
+function _abComputeMonthClosing(all, ym) {
+  const entries = _abFilterMonth(all, ym);
+  let bal = 0;
+  for (const e of entries) bal += (parseInt(e.income)||0) - (parseInt(e.expense)||0);
+  return bal;
+}
+function _abPrevYm(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+// 画像圧縮: 最大幅 800px、JPEG 品質 70%、Base64 で返す
+window.abCompressImage = function(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onerror = function(){ reject(new Error('画像読込失敗')); };
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onerror = function(){ reject(new Error('画像解析失敗')); };
+      img.onload = function() {
+        const maxWidth = 800;
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+window.renderAllowance = async function() {
+  const body = document.getElementById('allowance-body');
+  if (!body) return;
+  if (!_abYm) _abYm = _abCurYm();
+  const users = getAllowanceUsers();
+  if (!users.length) { body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-sub)">ぱぁとなぁ居住者が GH_MASTER に登録されていません</div>'; return; }
+  if (!_abUserId || !users.find(function(u){ return u.id === _abUserId; })) _abUserId = users[0].id;
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'allowance'), orderBy('date', 'asc')));
+    const all = [];
+    snap.forEach(function(d){
+      const x = d.data();
+      if (x && x.userId === _abUserId) all.push(Object.assign({ _id: d.id }, x));
+    });
+    _abAllEntries = all;
+    const monthEntries = _abFilterMonth(all, _abYm);
+    let bal = 0;
+    for (const e of monthEntries) {
+      bal += (parseInt(e.income)||0) - (parseInt(e.expense)||0);
+      e._balance = bal;
+    }
+    const prevClosing = _abComputeMonthClosing(all, _abPrevYm(_abYm));
+    body.innerHTML = _abRenderHtml(users, monthEntries, prevClosing);
+    if (window.refreshIcons) window.refreshIcons();
+  } catch (e) {
+    console.error('renderAllowance failed:', e);
+    body.innerHTML = '<div style="color:#FF3B30;padding:14px;font-size:12px">読込失敗: ' + (e.message || e) + '</div>';
+  }
+};
+
+function _abRenderHtml(users, entries, prevClosing) {
+  const [yy, mm] = _abYm.split('-').map(Number);
+  const incomeSum = entries.reduce(function(s,e){ return s + (parseInt(e.income)||0); }, 0);
+  const expenseSum = entries.reduce(function(s,e){ return s + (parseInt(e.expense)||0); }, 0);
+  const closingBal = entries.length ? entries[entries.length-1]._balance : 0;
+  // 現残高（当月中のある日までの running balance は使わず、月末残高 or 直近）
+  const currentBal = entries.length ? entries[entries.length-1]._balance : prevClosing;
+  let html = '';
+  // 利用者タブ
+  html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 12px 0;border-bottom:0.5px solid var(--border)">';
+  html += '<div style="display:flex;gap:4px;min-width:max-content">';
+  for (const u of users) {
+    const on = _abUserId === u.id;
+    const colorStyle = u.home === 'ひまわり' ? ';border-color:#F59E0B' : ';border-color:#EC4899';
+    const bgStyle = on ? (u.home === 'ひまわり' ? ';background:#F59E0B;color:#fff' : ';background:#EC4899;color:#fff') : ';background:#fff;color:var(--text)';
+    html += '<div onclick="abSetUser(\'' + u.id + '\')" style="padding:6px 14px;border-radius:16px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap' + colorStyle + bgStyle + '">'
+      + u.name + '<span style="font-size:9px;margin-left:4px;opacity:0.8">' + u.home + '</span></div>';
+  }
+  html += '</div></div>';
+  // 月切替 + アクション
+  html += '<div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  html += '<div style="display:flex;align-items:center;gap:6px">'
+    + '<button onclick="abMonthMove(-1)" style="width:36px;height:36px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:16px">＜</button>'
+    + '<span style="font-size:15px;font-weight:700;min-width:110px;text-align:center">' + yy + '年' + mm + '月分</span>'
+    + '<button onclick="abMonthMove(1)"  style="width:36px;height:36px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:16px">＞</button>'
+    + '</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<button onclick="abOpenEditor(null)" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規入力</button>'
+    + '<button onclick="abCarryOver()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer"><i data-lucide="calendar"></i> 月繰越</button>'
+    + '</div></div>';
+  // 残高 < 5000 アラート
+  if (currentBal <= 5000 && (entries.length > 0 || prevClosing > 0)) {
+    html += '<div style="margin:6px 12px;padding:12px 14px;background:#FFEBEE;color:#C62828;border:2px solid #EF5350;border-radius:8px;font-weight:700;font-size:13px">⚠ 残高が 5,000円以下です（現在: ' + currentBal.toLocaleString() + ' 円）</div>';
+  }
+  // 現残高表示
+  html += '<div style="padding:4px 14px;font-size:12px;color:var(--text-sub);display:flex;justify-content:space-between">'
+    + '<span>前月末残高（参考）: <b style="color:var(--text)">' + prevClosing.toLocaleString() + '</b> 円</span>'
+    + '<span>現在残高: <b style="color:var(--purple);font-size:14px">' + currentBal.toLocaleString() + '</b> 円</span>'
+    + '</div>';
+  // テーブル
+  if (!entries.length) {
+    html += '<div style="padding:36px 12px;text-align:center;color:var(--text-sub);font-size:12px">記録はありません</div>';
+  } else {
+    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 12px;border:0.5px solid var(--border);border-radius:8px;background:#fff">';
+    html += '<table style="border-collapse:collapse;width:100%;min-width:520px;font-size:11px">';
+    html += '<thead><tr style="background:#F8F6FF;color:#666">'
+      + '<th style="padding:8px;text-align:left;white-space:nowrap;border-bottom:0.5px solid #ddd">月/日</th>'
+      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd">摘要</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">収入</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">支出</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">残高</th>'
+      + '</tr></thead><tbody>';
+    for (const e of entries) {
+      const parts = (e.date||'').split('-');
+      const dlabel = (parseInt(parts[1])||0) + '/' + (parseInt(parts[2])||0);
+      const income = parseInt(e.income) || 0;
+      const expense = parseInt(e.expense) || 0;
+      const safeDesc = (e.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const hasReceipt = !!e.receipt;
+      const receiptIcon = hasReceipt ? ' <span onclick="event.stopPropagation();abShowReceipt(\'' + e._id + '\')" style="color:var(--purple);cursor:pointer" title="レシート表示">📎</span>' : '';
+      const descCell = e.isCarryOver ? '<span style="color:var(--purple);font-weight:600">' + safeDesc + '</span>' : safeDesc + receiptIcon;
+      html += '<tr onclick="abOpenEditor(\'' + e._id + '\')" style="cursor:pointer;border-bottom:0.5px solid #eee">'
+        + '<td style="padding:6px 8px;white-space:nowrap">' + dlabel + '</td>'
+        + '<td style="padding:6px 8px">' + descCell + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#0288D1">' + (income ? income.toLocaleString() : '') + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#C53030">' + (expense ? expense.toLocaleString() : '') + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:700">' + (e._balance||0).toLocaleString() + '</td>'
+        + '</tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+  // 月末合計
+  html += '<div style="margin:10px 12px;padding:12px 14px;background:#F8F6FF;border-radius:10px;font-size:13px">'
+    + '<div style="display:flex;justify-content:space-between"><span>当月収入合計:</span><b>' + incomeSum.toLocaleString() + ' 円</b></div>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:4px"><span>当月支出合計:</span><b>' + expenseSum.toLocaleString() + ' 円</b></div>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border);font-weight:700;color:var(--purple)"><span>月末残高:</span><b>' + closingBal.toLocaleString() + ' 円</b></div>'
+    + '</div>';
+  return html;
+}
+
+window.abSetUser = function(userId) {
+  _abUserId = userId;
+  renderAllowance();
+};
+window.abMonthMove = function(delta) {
+  const [y, m] = _abYm.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _abYm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  renderAllowance();
+};
+
+window.abShowReceipt = function(id) {
+  const entry = _abAllEntries.find(function(e){ return e._id === id; });
+  if (!entry || !entry.receipt) { showToast('レシート画像がありません'); return; }
+  const existing = document.getElementById('ab-receipt-bg');
+  if (existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'ab-receipt-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:20px';
+  wrap.onclick = function(){ wrap.remove(); };
+  wrap.innerHTML = '<img src="' + entry.receipt + '" style="max-width:100%;max-height:90vh;border-radius:8px"/>'
+    + '<button onclick="document.getElementById(\'ab-receipt-bg\').remove()" style="position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.9);border:none;font-size:20px;cursor:pointer">×</button>';
+  document.body.appendChild(wrap);
+};
+
+window.abOpenEditor = function(id) {
+  const users = getAllowanceUsers();
+  const user = users.find(function(u){ return u.id === _abUserId; });
+  if (!user) { showToast('利用者が選択されていません'); return; }
+  let data, mode = 'new';
+  if (id) {
+    const existing = _abAllEntries.find(function(e){ return e._id === id; });
+    if (!existing) { showToast('エントリが見つかりません'); return; }
+    data = JSON.parse(JSON.stringify(existing));
+    delete data._balance;
+    mode = 'edit';
+  } else {
+    const today = new Date();
+    const [yy, mm] = _abYm.split('-').map(Number);
+    const curY = today.getFullYear(), curM = today.getMonth()+1, curD = today.getDate();
+    const dateStr = (yy === curY && mm === curM) ? _abYm + '-' + String(curD).padStart(2,'0') : _abYm + '-01';
+    data = {
+      userId: user.id, userName: user.name, home: user.home,
+      date: dateStr, description: '', income: '', expense: '',
+      receipt: null, isCarryOver: false
+    };
+  }
+  _abEdit = { id: id, data: data, mode: mode };
+  _abRenderEditor();
+};
+
+function _abRenderEditor() {
+  if (!_abEdit) return;
+  const d = _abEdit.data;
+  const existing = document.getElementById('ab-editor-bg');
+  if (existing) existing.remove();
+  const isAdmin = currentUser && currentUser.role >= 3;
+  const canEditIncome = currentUser && currentUser.role >= 2; // 上司 or 管理者
+  const title = _abEdit.mode === 'new' ? '新規入力' : '編集';
+  const safeDesc = (d.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const incomeInput = canEditIncome
+    ? '<input type="number" id="ab-f-income" value="' + (d.income||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/>'
+    : '<input type="number" id="ab-f-income" value="' + (d.income||'') + '" disabled placeholder="上司/管理者のみ入力可" style="font-size:12px;border:none;background:var(--fill-input);color:var(--text-sub);outline:none;text-align:right;width:160px;padding:2px 6px;border-radius:6px"/>';
+  const receiptPreview = d.receipt
+    ? '<div style="margin-top:8px"><img src="' + d.receipt + '" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)"/><button onclick="abRemoveReceipt()" style="margin-top:4px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">レシート画像を削除</button></div>'
+    : '';
+  const deleteBtnHtml = (_abEdit.mode === 'edit' && isAdmin)
+    ? '<button onclick="abDelete()" style="width:100%;margin-top:8px;padding:10px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:10px;font-weight:600;cursor:pointer">この記録を削除（管理者のみ）</button>'
+    : '';
+  const wrap = document.createElement('div');
+  wrap.id = 'ab-editor-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:22px 22px 0 0;width:100%;max-width:460px;max-height:92vh;display:flex;flex-direction:column">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:0.5px solid var(--border)">'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:var(--text-sub)">お小遣い帳・' + d.home + '・' + d.userName + (d.isCarryOver?'（繰越）':'') + '</div>'
+    +     '<div style="font-size:15px;font-weight:700">' + title + '</div>'
+    +   '</div>'
+    +   '<button onclick="abCloseEditor()" class="close-btn">×</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:10px 16px">'
+    +   '<div class="frow"><span class="flbl">年月日</span><input type="date" id="ab-f-date" value="' + (d.date || '') + '" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right"/></div>'
+    +   '<div style="margin-top:8px"><label style="font-size:12px;color:var(--text-sub);display:block;margin-bottom:4px">摘要</label><input type="text" id="ab-f-description" value="' + safeDesc + '" placeholder="例: お菓子代、お小遣い 他" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box"/></div>'
+    +   '<div class="frow" style="margin-top:8px"><span class="flbl">収入金額</span>' + incomeInput + '<span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
+    +   '<div class="frow"><span class="flbl">支払金額</span><input type="number" id="ab-f-expense" value="' + (d.expense||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
+    +   '<div style="font-size:10px;color:var(--text-sub);margin-top:6px">※ 収入 or 支払 どちらか必須' + (canEditIncome?'':'（収入は上司/管理者のみ）') + '</div>'
+    +   '<div style="margin-top:12px"><label style="font-size:12px;color:var(--text-sub);display:block;margin-bottom:4px">レシート画像（任意、支払時）</label>'
+    +   '<input type="file" id="ab-f-receipt" accept="image/*" capture="environment" onchange="abOnReceiptChange(this)" style="font-size:12px"/>'
+    +   '<div id="ab-receipt-preview">' + receiptPreview + '</div>'
+    +   '</div>'
+    +   deleteBtnHtml
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:10px 16px;border-top:0.5px solid var(--border)">'
+    +   '<button onclick="abCloseEditor()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    +   '<button onclick="abSaveEditor()" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">保存</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+}
+
+window.abOnReceiptChange = async function(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  showToast('画像を圧縮中...');
+  try {
+    const b64 = await abCompressImage(file);
+    if (!_abEdit) return;
+    _abEdit.data.receipt = b64;
+    const prev = document.getElementById('ab-receipt-preview');
+    if (prev) prev.innerHTML = '<div style="margin-top:8px"><img src="' + b64 + '" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)"/><button onclick="abRemoveReceipt()" style="margin-top:4px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">レシート画像を削除</button></div>';
+    const sizeKb = Math.round(b64.length * 3 / 4 / 1024); // 近似サイズ
+    showToast('✓ レシートを追加（約 ' + sizeKb + ' KB）');
+  } catch (e) {
+    console.error('receipt compress failed:', e);
+    showToast('画像処理失敗: ' + (e.message || e));
+  }
+};
+
+window.abRemoveReceipt = function() {
+  if (!_abEdit) return;
+  _abEdit.data.receipt = null;
+  const prev = document.getElementById('ab-receipt-preview');
+  if (prev) prev.innerHTML = '';
+  const fileInput = document.getElementById('ab-f-receipt');
+  if (fileInput) fileInput.value = '';
+};
+
+window.abCloseEditor = function() {
+  _abEdit = null;
+  const el = document.getElementById('ab-editor-bg');
+  if (el) el.remove();
+};
+
+window.abSaveEditor = async function() {
+  if (!_abEdit) return;
+  const d = _abEdit.data;
+  const dateV = (document.getElementById('ab-f-date') || {}).value || '';
+  const descV = ((document.getElementById('ab-f-description') || {}).value || '').trim();
+  const incomeVRaw = (document.getElementById('ab-f-income') || {}).value || '';
+  const expenseVRaw = (document.getElementById('ab-f-expense') || {}).value || '';
+  if (!dateV) { showToast('年月日を入力してください'); return; }
+  if (!descV) { showToast('摘要を入力してください'); return; }
+  const inc = parseInt(incomeVRaw, 10) || 0;
+  const exp = parseInt(expenseVRaw, 10) || 0;
+  if (inc === 0 && exp === 0) { showToast('収入金額または支払金額を入力してください'); return; }
+  // 収入は上司/管理者のみ（二重チェック）
+  if (inc > 0 && (!currentUser || currentUser.role < 2)) { showToast('収入金額は上司または管理者のみ入力できます'); return; }
+  const payload = {
+    userId: d.userId,
+    userName: d.userName,
+    home: d.home,
+    date: dateV,
+    description: descV,
+    income: inc,
+    expense: exp,
+    receipt: d.receipt || null,
+    isCarryOver: !!d.isCarryOver,
+    recordedBy: currentStaff || '-',
+    recordedAt: Date.now()
+  };
+  try {
+    if (_abEdit.mode === 'new') {
+      await addDoc(collection(db, 'allowance'), payload);
+      showToast('✓ 記録しました');
+    } else {
+      await updateDoc(doc(db, 'allowance', _abEdit.id), payload);
+      showToast('✓ 更新しました');
+    }
+    abCloseEditor();
+    renderAllowance();
+  } catch (e) {
+    console.error('abSaveEditor failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+  }
+};
+
+window.abDelete = async function() {
+  if (!_abEdit || _abEdit.mode !== 'edit') return;
+  if (!currentUser || currentUser.role < 3) { showToast('削除権限がありません（管理者のみ）'); return; }
+  if (!confirm('この記録を削除しますか？\nこの操作は元に戻せません。')) return;
+  try {
+    await deleteDoc(doc(db, 'allowance', _abEdit.id));
+    showToast('削除しました');
+    abCloseEditor();
+    renderAllowance();
+  } catch (e) {
+    console.error('abDelete failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
+  }
+};
+
+window.abCarryOver = async function() {
+  if (!checkSession()) return;
+  if (!_abUserId) { showToast('利用者が選択されていません'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('月繰越は上司/管理者のみ実行できます（収入扱いのため）'); return; }
+  const prevYm = _abPrevYm(_abYm);
+  const prevClosing = _abComputeMonthClosing(_abAllEntries, prevYm);
+  const existing = _abAllEntries.find(function(e){ return e.isCarryOver && (e.date||'').startsWith(_abYm); });
+  const prevLabel = prevYm.split('-')[1] + '月分繰越';
+  const msg = '前月末残高（' + prevClosing.toLocaleString() + '円）を繰越行として\n'
+            + _abYm + '-01 に追加します。\n'
+            + (existing ? '\n既に繰越行があります。上書きします。' : '')
+            + '\nよろしいですか？';
+  if (!confirm(msg)) return;
+  const users = getAllowanceUsers();
+  const user = users.find(function(u){ return u.id === _abUserId; });
+  try {
+    const payload = {
+      userId: _abUserId,
+      userName: user ? user.name : _abUserId,
+      home: user ? user.home : '',
+      date: _abYm + '-01',
+      description: prevLabel,
+      income: prevClosing,
+      expense: 0,
+      receipt: null,
+      isCarryOver: true,
+      recordedBy: currentStaff || '-',
+      recordedAt: Date.now()
+    };
+    if (existing) {
+      await updateDoc(doc(db, 'allowance', existing._id), payload);
+    } else {
+      await addDoc(collection(db, 'allowance'), payload);
+    }
+    showToast('✓ 繰越行を追加しました');
+    renderAllowance();
+  } catch (e) {
+    console.error('abCarryOver failed:', e);
     showToast('繰越失敗: ' + (e.message || e));
   }
 };
