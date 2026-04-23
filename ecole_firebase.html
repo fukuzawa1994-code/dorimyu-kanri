@@ -6896,21 +6896,46 @@ window.togglePApprover = function(name) {
   renderApproverPicker();
 };
 
+// #37+#38 追補: 旧フォーム <select> の名字短縮形(8名固定) → ACCOUNTS フル名の静的マッピング
+// 旧データで approver: "福澤" のような短縮形がそのまま保存されていた分を、
+// currentStaff (フル名) と照合可能にするため正規化する。
+const OLD_APPROVER_SHORT_NAME_MAP = {
+  '牛山':   '牛山智浩',
+  '鈴木早': '鈴木早苗',
+  '福澤':   '福澤嵐',
+  '青山':   '青山祐介',
+  '杉浦':   '杉浦翔子',
+  '清水':   '清水歩',
+  '朝河':   '朝河碧',
+  '鈴木清': '鈴木清益'
+};
+function resolveLegacyApproverName(name) {
+  if (!name) return name;
+  if (typeof ACCOUNTS !== 'undefined' && ACCOUNTS[name]) return name; // 既にフル名
+  if (OLD_APPROVER_SHORT_NAME_MAP[name]) return OLD_APPROVER_SHORT_NAME_MAP[name];
+  return name; // 不明な短縮形は素通し
+}
+
 // #37+#38: 旧 approver 単数形式 → 新 approvers 配列へ正規化
 function normalizePurchase(p) {
   if (!p) return p;
-  // 既に approvers があればそのまま使用
-  if (!Array.isArray(p.approvers)) {
-    const arr = [];
-    if (p.approver) {
-      arr.push({
-        name: p.approver,
-        approvedAt1: (p.approval1 && p.approval1.at) ? p.approval1.at : null,
-        approvedAt2: (p.approval2 && p.approval2.at) ? p.approval2.at : null
-      });
-    }
-    p.approvers = arr;
+  // 既に approvers があっても各 name は短縮形のまま保存されている可能性があるため解決
+  if (Array.isArray(p.approvers)) {
+    p.approvers = p.approvers.map(function(a){
+      if (!a) return a;
+      return Object.assign({}, a, { name: resolveLegacyApproverName(a.name) });
+    });
+    return p;
   }
+  const arr = [];
+  if (p.approver) {
+    arr.push({
+      name: resolveLegacyApproverName(p.approver),
+      approvedAt1: (p.approval1 && p.approval1.at) ? p.approval1.at : null,
+      approvedAt2: (p.approval2 && p.approval2.at) ? p.approval2.at : null
+    });
+  }
+  p.approvers = arr;
   return p;
 }
 // 計算 status: '却下' / '打診中' / '打診承諾済' / '本申請中' / '完了' / '取り消し'
