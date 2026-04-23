@@ -4673,6 +4673,10 @@ function shortstayNormalizeData(d) {
   }
   if (typeof d.medicine.others !== 'string') d.medicine.others = '';
   if (typeof d.medicine.enabled !== 'boolean') d.medicine.enabled = false;
+  // #A-6: A-2/A-4 で追加したフィールドの初期化ガード（旧 Phase1 ドキュメント読込時）
+  if (!d.matrix     || typeof d.matrix     !== 'object') d.matrix = {};
+  if (!d.cellNotes  || typeof d.cellNotes  !== 'object') d.cellNotes = {};
+  if (!Array.isArray(d.caseEntries)) d.caseEntries = [];
   return d;
 }
 
@@ -4740,11 +4744,17 @@ window.renderShortstayHist = async function() {
     html += '<div style="padding:40px 20px;text-align:center;color:var(--text-sub);font-size:12px">記録はまだありません</div>';
   } else {
     for (const r of records) {
-      const rb = r.recordedBy || '-';
+      // #A-6: 日付範囲 + 記録者 + 更新日時
+      const start = r.startDate || r.recordDate || '-';
+      const end   = r.endDate   || '';
+      const range = end && end !== start ? (start + ' 〜 ' + end) : start;
+      const rb    = r.recordedBy || r.updatedBy || '-';
+      const upd   = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+      const updLine = upd ? (' / 更新: ' + upd) : '';
       html += '<div class="rcard" style="margin-bottom:8px;padding:12px 14px;display:flex;align-items:center;gap:10px">'
         + '<div style="flex:1">'
-        + '<div style="font-size:14px;font-weight:600">' + (r.recordDate || '-') + '</div>'
-        + '<div style="font-size:11px;color:var(--text-sub);margin-top:2px">記録者: ' + rb + '</div>'
+        + '<div style="font-size:14px;font-weight:600">' + range + '</div>'
+        + '<div style="font-size:11px;color:var(--text-sub);margin-top:2px">記録者: ' + rb + updLine + '</div>'
         + '</div>'
         + '<button onclick="openShortstayEdit(\'' + userId + '\',\'' + r._id + '\')" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:12px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer">編集</button>'
         + '</div>';
@@ -5044,21 +5054,35 @@ window.ssDeleteCaseEntry = function(index) {
   renderShortstayEdit();
 };
 
-// --- 保存 ---
+// --- 保存 (#A-6: 決定論的 docId + createdAt/updatedAt/updatedBy 管理) ---
 window.doShortstayPublicSave = async function() {
   if (!checkSession()) return;
   if (!_shortstayEditCtx) { showToast('編集対象がありません'); return; }
   const ctx = _shortstayEditCtx;
-  const payload = Object.assign({}, ctx.data, { updatedAt: Date.now() });
-  if (!ctx.recordId) payload.createdAt = Date.now();
+  // #A-6: 最低限バリデーション
+  if (!ctx.data.startDate) { showToast('開始日を入力してください'); return; }
+  if (!ctx.userId) { showToast('利用者情報が不明です'); return; }
+  const payload = Object.assign({}, ctx.data, {
+    updatedAt: Date.now(),
+    updatedBy: currentStaff || 'unknown'
+  });
   try {
+    // 既存記録は ctx.recordId を維持、新規は YYYYMMDD_userId 形式で決定論的に
+    let docId;
     if (ctx.recordId) {
-      await setDoc(doc(db, 'shortstay_records', ctx.recordId), payload, { merge: true });
+      docId = ctx.recordId;
     } else {
-      const ref = await addDoc(collection(db, 'shortstay_records'), payload);
-      ctx.recordId = ref.id;
-      ctx.mode = 'edit';
+      docId = ctx.data.startDate.replace(/-/g, '') + '_' + ctx.userId;
+      const existingSnap = await getDoc(doc(db, 'shortstay_records', docId));
+      if (existingSnap.exists()) {
+        if (!confirm('同日の記録が既に存在します。上書きしますか？\n（既存データは失われます）')) return;
+      } else {
+        payload.createdAt = Date.now();
+      }
     }
+    await setDoc(doc(db, 'shortstay_records', docId), payload, { merge: true });
+    ctx.recordId = docId;
+    ctx.mode = 'edit';
     showToast('✓ 保存しました');
     _shortstaySelectedUserId = ctx.userId;
     goScr('shortstay-hist');
