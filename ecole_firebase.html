@@ -7081,6 +7081,7 @@ window.renderPurchaseList = function() {
       const canApproveStep2 = isMyApprover && p.step===2 && st==='本申請中' && !approvers[myIdx].approvedAt2 && !p.rejectedBy;
       const canReject = (canApproveStep1 || canApproveStep2);
       const canStep2 = isApplicant && p.step===1 && st==='打診承諾済' && !p.rejectedBy;
+      const canEdit = canEditPurchase(p); // 本申請中かつ上司/管理者
       // 承認者進捗行
       const progressItems = approvers.map(function(a){
         const isRejected = p.rejectedBy === a.name;
@@ -7102,6 +7103,7 @@ window.renderPurchaseList = function() {
         ${progressItems ? `<div style="font-size:11px;margin-top:6px;line-height:1.6">${progressItems}</div>` : ''}
         ${rejectedLine}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          ${canEdit ? `<button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="openPurchaseEditor('${p.id}')">✏ 編集</button>` : ''}
           ${canApproveStep1 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承諾 <i data-lucide="check-circle-2"></i></button>` : ''}
           ${canApproveStep2 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',2)">本申請承認 <i data-lucide="check-circle-2"></i></button>` : ''}
           ${canReject ? `<button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">拒否</button>` : ''}
@@ -7265,6 +7267,185 @@ window.rejectPurchase = async function(id) {
     showToast('拒否失敗: ' + (e.message || e));
   }
 }
+
+// ═══ 購入申請 本申請中の編集（承認者用、#37+#38 拡張） ═══
+const PURCHASE_CATEGORIES = ['福祉事業活動','就労生産活動','雑貨班','レストラン','ぱん班','たんぽぽ'];
+const PURCHASE_USAGES = ['事業費','事務費','製造','販売','仕入','消耗','器具'];
+const PURCHASE_TAXES = ['8%','10%'];
+let _purchaseEdit = null; // { id, data }
+
+function canEditPurchase(p) {
+  const st = computePurchaseStatus(p);
+  if (st !== '本申請中') return false;
+  const acc = ACCOUNTS[currentStaff];
+  return !!(acc && (acc.role === 2 || acc.role === 3));
+}
+
+window.openPurchaseEditor = async function(id) {
+  if (!checkSession()) return;
+  const acc = ACCOUNTS[currentStaff];
+  if (!acc || acc.role < 2) { showToast('編集権限がありません（上司または管理者のみ）'); return; }
+  try {
+    const snap = await getDoc(doc(db, 'purchases', id));
+    if (!snap.exists()) { showToast('申請が見つかりません'); return; }
+    const p = normalizePurchase(snap.data());
+    if (!canEditPurchase(p)) { showToast('この申請は編集できません（本申請中のみ編集可）'); return; }
+    // deep copy to allow cancellation
+    _purchaseEdit = { id: id, data: JSON.parse(JSON.stringify(p)) };
+    renderPurchaseEditor();
+  } catch (e) {
+    console.error('openPurchaseEditor failed:', e);
+    showToast('読込失敗: ' + (e.message || e));
+  }
+};
+
+window.closePurchaseEditor = function() {
+  _purchaseEdit = null;
+  const el = document.getElementById('purchase-edit-bg');
+  if (el) el.remove();
+};
+
+function renderPurchaseEditor() {
+  if (!_purchaseEdit) return;
+  const p = _purchaseEdit.data;
+  const existing = document.getElementById('purchase-edit-bg');
+  if (existing) existing.remove();
+  // 事業区分ピル
+  let catHtml = '';
+  for (const c of PURCHASE_CATEGORIES) {
+    const on = (p.categories||[]).indexOf(c) >= 0;
+    catHtml += '<div class="tog' + (on?' son':'') + '" onclick="pePillCat(\'' + c + '\')">' + c + '</div>';
+  }
+  // 各品目
+  let itemsHtml = '';
+  (p.items || []).forEach(function(item, i) {
+    let taxH = '';
+    for (const t of PURCHASE_TAXES) {
+      taxH += '<div class="tog' + (item.tax===t?' son':'') + '" onclick="pePillTax(' + i + ',\'' + t + '\')">' + t + '</div>';
+    }
+    let usageH = '';
+    const usageArr = Array.isArray(item.usage) ? item.usage : (item.usage ? [item.usage] : []);
+    for (const u of PURCHASE_USAGES) {
+      const on = usageArr.indexOf(u) >= 0;
+      usageH += '<div class="tog' + (on?' son':'') + '" onclick="pePillUsage(' + i + ',\'' + u + '\')">' + u + '</div>';
+    }
+    const safePurpose = (item.purpose||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeName = (item.name||'-').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    itemsHtml += '<div class="ksec-hd" style="margin-top:12px">品目' + (i+1) + '：' + safeName + ' <span style="font-size:10px;font-weight:400;color:var(--text-sub)">（品名は編集不可）</span></div>';
+    itemsHtml += '<div class="fsec">';
+    itemsHtml += '<div class="frow"><span class="flbl">数量</span><input type="number" value="' + (item.qty||0) + '" min="1" onchange="peSetQty(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>';
+    itemsHtml += '<div class="frow"><span class="flbl">単価</span><input type="number" value="' + (item.unitPrice||0) + '" min="0" onchange="peSetUnit(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">税</span><div class="togrow">' + taxH + '</div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">用途（複数選択可）</span><div class="togrow" style="flex-wrap:wrap">' + usageH + '</div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">購入目的</span><textarea onchange="peSetPurpose(' + i + ',this.value)" placeholder="購入目的（任意）" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-height:44px;box-sizing:border-box;font-family:inherit;resize:vertical">' + safePurpose + '</textarea>';
+    itemsHtml += '</div>';
+  });
+  // 編集履歴サマリ（もしあれば）
+  let historyHtml = '';
+  if (Array.isArray(p.editHistory) && p.editHistory.length) {
+    historyHtml = '<div style="font-size:10px;color:var(--text-sub);padding:4px 2px;margin-top:8px">編集履歴: '
+      + p.editHistory.map(function(h){
+          const ts = h.editedAt ? new Date(h.editedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+          return (h.editedBy || '-') + '（' + ts + '）';
+        }).join(' / ') + '</div>';
+  }
+  const wrap = document.createElement('div');
+  wrap.id = 'purchase-edit-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:22px 22px 0 0;width:100%;max-width:460px;max-height:92vh;display:flex;flex-direction:column">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:0.5px solid var(--border)">'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:var(--text-sub)">' + (p.applicant||'-') + ' / ' + (p.date||'-') + '</div>'
+    +     '<div style="font-size:15px;font-weight:700;color:var(--text)">✏ 申請の編集</div>'
+    +   '</div>'
+    +   '<button onclick="closePurchaseEditor()" class="close-btn">×</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:10px 14px">'
+    +   '<div class="ksec-hd">事業区分（複数選択可）</div>'
+    +   '<div class="togrow" style="flex-wrap:wrap">' + catHtml + '</div>'
+    +   itemsHtml
+    +   historyHtml
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:10px 14px;border-top:0.5px solid var(--border)">'
+    +   '<button onclick="closePurchaseEditor()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    +   '<button onclick="savePurchaseEdit()" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">保存</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+}
+
+window.pePillCat = function(c) {
+  if (!_purchaseEdit) return;
+  const p = _purchaseEdit.data;
+  if (!Array.isArray(p.categories)) p.categories = [];
+  const i = p.categories.indexOf(c);
+  if (i >= 0) p.categories.splice(i, 1); else p.categories.push(c);
+  renderPurchaseEditor();
+};
+window.pePillTax = function(idx, t) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  _purchaseEdit.data.items[idx].tax = t;
+  renderPurchaseEditor();
+};
+window.pePillUsage = function(idx, u) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  const item = _purchaseEdit.data.items[idx];
+  if (!Array.isArray(item.usage)) item.usage = item.usage ? [item.usage] : [];
+  const i = item.usage.indexOf(u);
+  if (i >= 0) item.usage.splice(i, 1); else item.usage.push(u);
+  renderPurchaseEditor();
+};
+window.peSetQty = function(idx, v) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  _purchaseEdit.data.items[idx].qty = parseInt(v, 10) || 0;
+};
+window.peSetUnit = function(idx, v) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  _purchaseEdit.data.items[idx].unitPrice = parseInt(v, 10) || 0;
+};
+window.peSetPurpose = function(idx, v) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  _purchaseEdit.data.items[idx].purpose = v;
+};
+
+window.savePurchaseEdit = async function() {
+  if (!_purchaseEdit) return;
+  const p = _purchaseEdit.data;
+  if (!Array.isArray(p.categories) || p.categories.length === 0) { showToast('事業区分を1つ以上選択してください'); return; }
+  if (!Array.isArray(p.items) || p.items.length === 0) { showToast('品目が空です'); return; }
+  for (const it of p.items) {
+    const name = it.name || '(無名)';
+    if ((it.qty||0) < 1) { showToast('「' + name + '」の数量は1以上にしてください'); return; }
+    if ((it.unitPrice||0) < 0) { showToast('「' + name + '」の単価は0以上にしてください'); return; }
+    if (!it.tax) { showToast('「' + name + '」の税を選んでください'); return; }
+    const usageArr = Array.isArray(it.usage) ? it.usage : (it.usage ? [it.usage] : []);
+    if (usageArr.length === 0) { showToast('「' + name + '」の用途を1つ以上選んでください'); return; }
+    it.usage = usageArr;
+  }
+  const subtotal = p.items.reduce(function(s, i){ return s + (i.qty||0) * (i.unitPrice||0); }, 0);
+  const totalPrice = p.items.reduce(function(s, i){
+    const rate = i.tax === '8%' ? 0.08 : 0.10;
+    return s + Math.round((i.qty||0) * (i.unitPrice||0) * (1 + rate));
+  }, 0);
+  const history = Array.isArray(p.editHistory) ? p.editHistory.slice() : [];
+  history.push({ editedBy: currentStaff || '-', editedAt: Date.now() });
+  try {
+    await updateDoc(doc(db, 'purchases', _purchaseEdit.id), {
+      categories: p.categories,
+      items: p.items,
+      subtotal: subtotal,
+      totalPrice: totalPrice,
+      editHistory: history
+    });
+    showToast('✓ 編集内容を保存しました');
+    closePurchaseEditor();
+    renderPurchaseList();
+  } catch (e) {
+    console.error('savePurchaseEdit failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+  }
+};
 
 window.startStep2 = function(id) {
   getDoc(doc(db, 'purchases', id)).then(snap => {
