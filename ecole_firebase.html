@@ -1088,13 +1088,9 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 
           <div class="frow"><span class="flbl">申請者</span><span id="p-applicant" style="font-size:13px;color:var(--text)"></span></div>
           <div class="frow"><span class="flbl">購入予定日</span><input type="date" id="p-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>
-          <div class="frow"><span class="flbl">承認依頼する上司</span>
-            <select id="p-approver" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">
-              <option>牛山</option><option>鈴木早</option><option>福澤</option>
-              <option>青山</option><option>杉浦</option><option>清水</option>
-              <option>朝河</option><option>鈴木清</option>
-            </select>
-          </div>
+          <div class="ksec-hd" style="margin-top:8px">承認者（1〜3人まで選択）</div>
+          <div id="p-approver-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;padding:4px 0"></div>
+          <div id="p-approver-count" style="font-size:11px;color:var(--text-sub);margin-bottom:8px">0 / 3 人選択中</div>
 
           <div class="ksec-hd" style="margin-top:12px">福祉事業活動・就労生産活動</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="p-category-wrap">
@@ -6740,6 +6736,9 @@ window.setPurchaseTab = function(tab) {
     initPurchaseFormListeners();
     renumberPurchaseItems();
     recalcPurchaseTotal();
+    // #37+#38: 承認者ピッカー初期化
+    _purchaseApprovers = [];
+    renderApproverPicker();
   }
 }
 
@@ -6854,6 +6853,84 @@ function initPurchaseFormListeners() {
   wrap.dataset.listenerAttached = '1';
 }
 
+// #37+#38: 承認者候補の取得（ACCOUNTS から role>=2、自分を除く）
+let _purchaseApprovers = [];
+function getApproverCandidates() {
+  const self = currentStaff;
+  const list = [];
+  for (const name in ACCOUNTS) {
+    const a = ACCOUNTS[name];
+    if (a && (a.role === 2 || a.role === 3) && name !== self) {
+      list.push({ name: name, role: a.role });
+    }
+  }
+  list.sort(function(x,y){ return (y.role - x.role) || x.name.localeCompare(y.name, 'ja'); });
+  return list;
+}
+window.renderApproverPicker = function() {
+  const wrap = document.getElementById('p-approver-pills');
+  if (!wrap) return;
+  const cands = getApproverCandidates();
+  const selected = _purchaseApprovers || [];
+  const roleLabel = { 3:'管理者', 2:'上司' };
+  let html = '';
+  for (const c of cands) {
+    const on = selected.indexOf(c.name) >= 0;
+    html += '<div class="tog' + (on?' son':'') + '" onclick="togglePApprover(\'' + c.name + '\')" style="font-size:12px">'
+      + c.name + ' <span style="font-size:9px;opacity:0.7">(' + (roleLabel[c.role]||'?') + ')</span>'
+      + '</div>';
+  }
+  wrap.innerHTML = html;
+  const count = document.getElementById('p-approver-count');
+  if (count) count.textContent = selected.length + ' / 3 人選択中';
+};
+window.togglePApprover = function(name) {
+  if (!Array.isArray(_purchaseApprovers)) _purchaseApprovers = [];
+  const idx = _purchaseApprovers.indexOf(name);
+  if (idx >= 0) {
+    _purchaseApprovers.splice(idx, 1);
+  } else {
+    if (_purchaseApprovers.length >= 3) { showToast('承認者は最大3人までです'); return; }
+    _purchaseApprovers.push(name);
+  }
+  renderApproverPicker();
+};
+
+// #37+#38: 旧 approver 単数形式 → 新 approvers 配列へ正規化
+function normalizePurchase(p) {
+  if (!p) return p;
+  // 既に approvers があればそのまま使用
+  if (!Array.isArray(p.approvers)) {
+    const arr = [];
+    if (p.approver) {
+      arr.push({
+        name: p.approver,
+        approvedAt1: (p.approval1 && p.approval1.at) ? p.approval1.at : null,
+        approvedAt2: (p.approval2 && p.approval2.at) ? p.approval2.at : null
+      });
+    }
+    p.approvers = arr;
+  }
+  return p;
+}
+// 計算 status: '却下' / '打診中' / '打診承諾済' / '本申請中' / '完了' / '取り消し'
+function computePurchaseStatus(p) {
+  if (!p) return '';
+  if (p.status === '取り消し') return '取り消し';
+  if (p.rejectedBy) return '却下';
+  const approvers = Array.isArray(p.approvers) ? p.approvers : [];
+  if (approvers.length === 0) return p.status || '打診中';
+  const all1 = approvers.every(function(a){ return a.approvedAt1; });
+  const all2 = approvers.every(function(a){ return a.approvedAt2; });
+  if (p.step === 2) {
+    if (all2) return '完了';
+    return '本申請中';
+  }
+  // step === 1
+  if (all1) return '打診承諾済';
+  return '打診中';
+}
+
 window.submitPurchase1 = async function() {
   if (!checkSession()) return;
   const date = document.getElementById('p-date').value;
@@ -6882,21 +6959,27 @@ window.submitPurchase1 = async function() {
   if (!date) { showToast('購入予定日を入力してください'); return; }
   if (cats.length === 0) { showToast('福祉事業活動・就労生産活動を1つ以上選んでください'); return; }
   if (items.length === 0) { showToast('品目を1つ以上入力してください'); return; }
+  // #37+#38: 承認者バリデーション
+  if (!Array.isArray(_purchaseApprovers) || _purchaseApprovers.length === 0) {
+    showToast('承認者を1人以上選択してください'); return;
+  }
+  if (_purchaseApprovers.length > 3) { showToast('承認者は最大3人までです'); return; }
+  if (_purchaseApprovers.indexOf(currentStaff) >= 0) { showToast('自分自身を承認者にはできません'); return; }
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
   const totalPrice = items.reduce((s, i) => {
     const rate = i.tax === '8%' ? 0.08 : 0.10;
     return s + Math.round(i.qty * i.unitPrice * (1 + rate));
   }, 0);
-  const approverEl = document.getElementById('p-approver');
-  const approver = approverEl ? approverEl.value : '';
+
+  const approversArr = _purchaseApprovers.map(function(n){ return { name: n, approvedAt1: null, approvedAt2: null }; });
 
   const rec = {
     type: 'purchase',
     step: 1,
     status: '打診中',
     applicant: currentStaff,
-    approver,
+    approvers: approversArr,
     date,
     categories: cats,
     items,
@@ -6904,14 +6987,15 @@ window.submitPurchase1 = async function() {
     subtotal,
     totalPrice,
     createdAt: Date.now(),
-    approval1: null,
-    approval2: null
+    rejectedBy: null,
+    rejectedReason: null
   };
 
   try {
     await addDoc(collection(db, 'purchases'), rec);
     showToast('打診申請を提出しました');
     resetPurchaseForm();
+    _purchaseApprovers = [];
     setPurchaseTab('list');
   } catch (e) {
     showToast('送信に失敗しました');
@@ -6957,26 +7041,45 @@ window.renderPurchaseList = function() {
   body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">読み込み中...</div>';
   getDocs(query(collection(db, 'purchases'), orderBy('createdAt', 'desc'))).then(snap => {
     const list = [];
-    snap.forEach(c => list.push({id: c.id, ...c.data()}));
+    snap.forEach(c => list.push(normalizePurchase({id: c.id, ...c.data()})));
     if (list.length===0) { body.innerHTML = '<div style="text-align:center;color:var(--gray-dark);padding:20px">申請はありません</div>'; return; }
     body.innerHTML = list.map(p => {
-      const statusColor = p.status==='承認済' ? 'var(--green-dark)' : p.status==='却下' ? 'var(--red-dark)' : 'var(--amber-dark)';
-      const canApprove = p.step===1 && p.status==='打診中' && currentStaff !== p.applicant && currentUser && currentUser.role >= 2 && (!p.approver || p.approver === currentStaff || currentUser.role >= 3);
-      const canStep2 = p.step===1 && p.status==='承認済' && p.applicant===currentStaff;
+      const approvers = Array.isArray(p.approvers) ? p.approvers : [];
+      const st = computePurchaseStatus(p);
+      const statusColor = st==='完了' ? 'var(--green-dark)' : (st==='却下' || st==='取り消し') ? 'var(--red-dark)' : 'var(--amber-dark)';
+      const isApplicant = p.applicant === currentStaff;
+      const myIdx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+      const isMyApprover = myIdx >= 0;
+      const all1 = approvers.length > 0 && approvers.every(function(a){ return a.approvedAt1; });
+      // ボタン表示条件
+      const canApproveStep1 = isMyApprover && p.step===1 && st==='打診中' && !approvers[myIdx].approvedAt1 && !p.rejectedBy;
+      const canApproveStep2 = isMyApprover && p.step===2 && st==='本申請中' && !approvers[myIdx].approvedAt2 && !p.rejectedBy;
+      const canReject = (canApproveStep1 || canApproveStep2);
+      const canStep2 = isApplicant && p.step===1 && st==='打診承諾済' && !p.rejectedBy;
+      // 承認者進捗行
+      const progressItems = approvers.map(function(a){
+        const isRejected = p.rejectedBy === a.name;
+        if (isRejected) return '<span style="color:var(--red-dark);font-weight:700">✕ ' + a.name + '（拒否）</span>';
+        if (a.approvedAt2) return '<span style="color:var(--green-dark);font-weight:700">✓✓ ' + a.name + '（本申請承認）</span>';
+        if (a.approvedAt1) return '<span style="color:var(--green-dark);font-weight:700">✓ ' + a.name + '（打診承諾）</span>';
+        return '<span style="color:var(--text-sub)">⏳ ' + a.name + '（待ち）</span>';
+      }).join(' / ');
+      const rejectedLine = p.rejectedBy ? '<div style="font-size:11px;color:var(--red-dark);margin-top:4px">✕ 拒否: ' + p.rejectedBy + (p.rejectedReason ? '（' + p.rejectedReason + '）' : '') + '</div>' : '';
       return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}${p.approver ? ' → '+p.approver : ''}</span>
-          <span onclick="openPurchaseStatusSheet('${p.id}')" style="cursor:pointer;font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px;user-select:none;-webkit-user-select:none">${p.status}（${p.step===1?'打診':'本申請'}）</span>
+          <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}</span>
+          <span onclick="openPurchaseStatusSheet('${p.id}')" style="cursor:pointer;font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:2px 8px;border-radius:20px;user-select:none;-webkit-user-select:none">${st}</span>
         </div>
         <div style="font-size:12px;color:var(--gray-dark);margin-bottom:4px">${(p.categories||[]).join('・')}</div>
         ${renderPurchaseItemsSummary(p)}
         <div style="font-size:12px;color:var(--gray-dark)">${p.itemsV2 ? `税抜 <strong>${(p.subtotal||0).toLocaleString()}円</strong> / 税込 <strong>${(p.totalPrice||0).toLocaleString()}円</strong>` : `合計 <strong>${(p.totalPrice||0).toLocaleString()}円</strong>`}</div>
         ${!p.itemsV2 && p.purpose ? `<div style="font-size:11px;color:var(--gray-dark);margin-top:4px">${p.purpose}</div>` : ''}
-        ${p.approval1 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:4px">✓ 打診承認: ${p.approval1.by} ${new Date(p.approval1.at).toLocaleDateString()}</div>` : ''}
-        ${p.approval2 ? `<div style="font-size:11px;color:var(--green-dark);margin-top:2px">✓ 本申請承認: ${p.approval2.by} ${new Date(p.approval2.at).toLocaleDateString()}</div>` : ''}
+        ${progressItems ? `<div style="font-size:11px;margin-top:6px;line-height:1.6">${progressItems}</div>` : ''}
+        ${rejectedLine}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          ${canApprove ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承認 <i data-lucide="check-circle-2"></i></button>
-          <button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">却下</button>` : ''}
+          ${canApproveStep1 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承諾 <i data-lucide="check-circle-2"></i></button>` : ''}
+          ${canApproveStep2 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',2)">本申請承認 <i data-lucide="check-circle-2"></i></button>` : ''}
+          ${canReject ? `<button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">拒否</button>` : ''}
           ${canStep2 ? `<button class="sbtn" style="flex:1" onclick="startStep2('${p.id}')">本申請へ進む →</button>` : ''}
         </div>
       </div>`;
@@ -6991,28 +7094,29 @@ window.openPurchaseStatusSheet = async function(id) {
 
   const snap = await getDoc(doc(db, 'purchases', id));
   if (!snap.exists()) return;
-  const p = snap.data();
-  const status = p.status;
+  const p = normalizePurchase(snap.data());
+  const st = computePurchaseStatus(p);
+  const isApplicant = p.applicant === currentStaff;
+  const approvers = Array.isArray(p.approvers) ? p.approvers : [];
+  const myIdx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+  const isMyApprover = myIdx >= 0;
 
   const items = [];
-  if (status === '打診中') {
-    const isApplicant = p.applicant === currentStaff;
-    const canApprove = currentUser && currentUser.role >= 2 && currentStaff !== p.applicant
-      && (!p.approver || p.approver === currentStaff || currentUser.role >= 3);
-    if (isApplicant) items.push({ label: '打診取り消し', action: 'cancelPurchase', destructive: true });
-    if (canApprove) {
-      items.push({ label: '承認へ変更', action: 'approveFromSheet' });
-      items.push({ label: '却下', action: 'rejectPurchase', destructive: true });
+  // 申請者の操作
+  if (isApplicant && (st === '打診中' || st === '打診承諾済')) {
+    items.push({ label: '打診取り消し', action: 'cancelPurchase', destructive: true });
+  }
+  // 承認者の操作
+  if (isMyApprover && !p.rejectedBy) {
+    if (p.step === 1 && approvers[myIdx].approvedAt1 && st !== '完了') {
+      items.push({ label: '自分の打診承諾を取消', action: 'revertMyApproval1', destructive: true });
     }
-  } else if (status === '承認済') {
-    const canModify = currentUser && currentUser.role >= 2;
-    if (canModify) {
-      items.push({ label: '承認取り消し', action: 'revertPurchaseApproval', destructive: true });
-      items.push({ label: '差し戻し', action: 'sendBackPurchase' });
-      items.push({ label: '却下', action: 'rejectPurchase', destructive: true });
+    if (p.step === 2 && approvers[myIdx].approvedAt2 && st !== '完了') {
+      items.push({ label: '自分の本申請承認を取消', action: 'revertMyApproval2', destructive: true });
     }
-  } else {
-    return;
+    if ((st === '打診中' && !approvers[myIdx].approvedAt1) || (st === '本申請中' && !approvers[myIdx].approvedAt2)) {
+      items.push({ label: '拒否', action: 'rejectPurchase', destructive: true });
+    }
   }
 
   if (items.length === 0) { showToast('このステータスを変更する権限がありません'); return; }
@@ -7047,7 +7151,37 @@ window.openPurchaseStatusSheet = async function(id) {
   requestAnimationFrame(function() { overlay.classList.add('on'); });
 };
 
-window.approveFromSheet = function(id) { approvePurchase(id, 1); };
+// Action Sheet 経由の承認取消（自分の分のみ）
+window.revertMyApproval1 = async function(id) {
+  if (!checkSession()) return;
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) return;
+  const p = normalizePurchase(snap.data());
+  const approvers = (p.approvers || []).slice();
+  const idx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+  if (idx < 0) { showToast('承認者ではありません'); return; }
+  if (!confirm('自分の打診承諾を取り消しますか？')) return;
+  approvers[idx] = Object.assign({}, approvers[idx], { approvedAt1: null });
+  const newStatus = computePurchaseStatus(Object.assign({}, p, { approvers: approvers }));
+  await updateDoc(doc(db, 'purchases', id), { approvers: approvers, status: newStatus });
+  showToast('打診承諾を取り消しました');
+  renderPurchaseList();
+};
+window.revertMyApproval2 = async function(id) {
+  if (!checkSession()) return;
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) return;
+  const p = normalizePurchase(snap.data());
+  const approvers = (p.approvers || []).slice();
+  const idx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+  if (idx < 0) { showToast('承認者ではありません'); return; }
+  if (!confirm('自分の本申請承認を取り消しますか？')) return;
+  approvers[idx] = Object.assign({}, approvers[idx], { approvedAt2: null });
+  const newStatus = computePurchaseStatus(Object.assign({}, p, { approvers: approvers }));
+  await updateDoc(doc(db, 'purchases', id), { approvers: approvers, status: newStatus });
+  showToast('本申請承認を取り消しました');
+  renderPurchaseList();
+};
 
 window.cancelPurchase = async function(id) {
   if (!checkSession()) return;
@@ -7055,47 +7189,69 @@ window.cancelPurchase = async function(id) {
   if (!snap.exists()) return;
   const p = snap.data();
   if (p.applicant !== currentStaff) { showToast('自分の申請のみ取り消せます'); return; }
-  if (!confirm('この打診申請を取り消しますか？')) return;
+  if (!confirm('この申請を取り消しますか？')) return;
   await updateDoc(doc(db, 'purchases', id), { status: '取り消し', cancelledAt: Date.now(), cancelledBy: currentStaff });
   showToast('取り消しました');
   renderPurchaseList();
 };
 
-window.revertPurchaseApproval = async function(id) {
-  if (!checkSession()) return;
-  if (!currentUser || currentUser.role < 2) { showToast('承認変更の権限がありません'); return; }
-  if (!confirm('承認を取り消して「打診中」に戻しますか？')) return;
-  await updateDoc(doc(db, 'purchases', id), { status: '打診中', approval1: null });
-  showToast('承認を取り消しました');
-  renderPurchaseList();
-};
-
-window.sendBackPurchase = async function(id) {
-  if (!checkSession()) return;
-  if (!currentUser || currentUser.role < 2) { showToast('差し戻しの権限がありません'); return; }
-  await updateDoc(doc(db, 'purchases', id), { status: '打診中', approval1: null, sentBackAt: Date.now(), sentBackBy: currentStaff });
-  showToast('差し戻しました');
-  renderPurchaseList();
-};
-
+// #37+#38: 多人数承認対応
 window.approvePurchase = async function(id, step) {
-  await updateDoc(doc(db, 'purchases', id), {
-    status: '承認済',
-    ['approval'+step]: { by: currentStaff, at: Date.now() }
-  });
-  showToast('承認しました');
-  renderPurchaseList();
+  if (!checkSession()) return;
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) { showToast('申請が見つかりません'); return; }
+  const p = normalizePurchase(snap.data());
+  if (p.rejectedBy) { showToast('既に却下された申請です'); return; }
+  const approvers = (p.approvers || []).slice();
+  const idx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+  if (idx < 0) { showToast('あなたはこの申請の承認者ではありません'); return; }
+  const field = step === 2 ? 'approvedAt2' : 'approvedAt1';
+  if (approvers[idx][field]) { showToast('既に承認済みです'); return; }
+  if (step === 2 && p.step !== 2) { showToast('まだ本申請に進んでいません'); return; }
+  approvers[idx] = Object.assign({}, approvers[idx], { [field]: Date.now() });
+  const newStatus = computePurchaseStatus(Object.assign({}, p, { approvers: approvers }));
+  try {
+    await updateDoc(doc(db, 'purchases', id), { approvers: approvers, status: newStatus });
+    showToast(step === 2 ? '✓ 本申請承認しました' : '✓ 打診承諾しました');
+    renderPurchaseList();
+  } catch (e) {
+    console.error('approvePurchase failed:', e);
+    showToast('承認失敗: ' + (e.message || e));
+  }
 }
 
 window.rejectPurchase = async function(id) {
-  await updateDoc(doc(db, 'purchases', id), { status: '却下' });
-  showToast('却下しました');
-  renderPurchaseList();
+  if (!checkSession()) return;
+  const reason = prompt('拒否理由を入力してください（空欄でキャンセル）', '');
+  if (reason == null) return;
+  const trimmed = reason.trim();
+  if (!trimmed) { showToast('拒否理由を入力してください'); return; }
+  try {
+    await updateDoc(doc(db, 'purchases', id), {
+      status: '却下',
+      rejectedBy: currentStaff,
+      rejectedReason: trimmed,
+      rejectedAt: Date.now()
+    });
+    showToast('拒否しました');
+    renderPurchaseList();
+  } catch (e) {
+    console.error('rejectPurchase failed:', e);
+    showToast('拒否失敗: ' + (e.message || e));
+  }
 }
 
 window.startStep2 = function(id) {
   getDoc(doc(db, 'purchases', id)).then(snap => {
-    const p = snap.data();
+    const p = normalizePurchase(snap.data());
+    // #37+#38: 全員の打診承諾が揃っていることを確認
+    const approvers = Array.isArray(p.approvers) ? p.approvers : [];
+    if (p.rejectedBy) { showToast('既に却下された申請です'); return; }
+    if (approvers.length === 0 || !approvers.every(function(a){ return a.approvedAt1; })) {
+      showToast('承認者全員の打診承諾が揃っていません'); return;
+    }
+    if (p.applicant !== currentStaff) { showToast('申請者のみ本申請に進めます'); return; }
+    if (p.step !== 1) { showToast('既に本申請済みです'); return; }
     // 本申請フォームを表示
     document.getElementById('purchase-list-area').style.display = 'none';
     document.getElementById('purchase-new-area').style.display = 'block';
