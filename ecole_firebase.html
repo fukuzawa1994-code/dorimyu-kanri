@@ -4385,6 +4385,42 @@ function ssValidateDateRange(startDate, endDate, entryTime, exitTime) {
   if (totalHours > 32) return { ok:false, type:'error', msg:'利用時間が長すぎます（' + totalHours + '時間）。最大 32 時間まで対応しています' };
   return { ok:true };
 }
+
+// #A-3: マトリクスセル ○△× タップ入力
+const SS_CELL_ORDER = ['', '○', '△', '×'];
+function ssCellCycleState(cur) {
+  const i = SS_CELL_ORDER.indexOf(cur || '');
+  return SS_CELL_ORDER[(i < 0 ? 0 : i + 1) % SS_CELL_ORDER.length];
+}
+function ssCellStyle(mark) {
+  if (mark === '○') return { color:'#0288D1', bg:'rgba(2,136,209,0.15)' };
+  if (mark === '△') return { color:'#FBC02D', bg:'rgba(251,192,45,0.15)' };
+  if (mark === '×') return { color:'#E91E63', bg:'rgba(233,30,99,0.15)' };
+  return { color:'', bg:'' };
+}
+// セル1つだけ再描画（マトリクス全体には触らない）
+function ssRedrawCell(cellKey, itemKey) {
+  const td = document.querySelector('[data-ss-cell="' + cellKey + '"][data-ss-item="' + itemKey + '"]');
+  if (!td) return;
+  const d = _shortstayEditCtx && _shortstayEditCtx.data;
+  const row = (d && d.matrix && d.matrix[cellKey]) || {};
+  const mark = row[itemKey] || '';
+  const s = ssCellStyle(mark);
+  td.textContent = mark;
+  td.style.color = s.color || 'var(--text)';
+  td.style.background = s.bg || 'transparent';
+  td.style.fontSize = mark ? '18px' : '12px';
+  td.style.fontWeight = mark ? '700' : '400';
+}
+window.ssOnCellTap = function(cellKey, itemKey) {
+  if (!_shortstayEditCtx) return;
+  const d = _shortstayEditCtx.data;
+  if (!d.matrix) d.matrix = {};
+  if (!d.matrix[cellKey]) d.matrix[cellKey] = {};
+  const cur = d.matrix[cellKey][itemKey] || '';
+  d.matrix[cellKey][itemKey] = ssCellCycleState(cur);
+  ssRedrawCell(cellKey, itemKey);
+};
 function ssFormatSectionHeader(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const dow = ['日','月','火','水','木','金','土'][d.getDay()];
@@ -4677,7 +4713,10 @@ window.renderShortstayEdit = function() {
           + '<th scope="row" style="position:sticky;left:0;background:#fff;z-index:1;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid #F2F2F7;font-weight:600;color:var(--text);text-align:left;white-space:nowrap">' + item.label + '</th>';
         for (const h of sec.hours) {
           const cellKey = sec.date + '_' + (h<10?('0'+h):h);
-          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" style="min-width:44px;min-height:44px;height:44px;padding:0;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;color:var(--text);font-size:12px"></td>';
+          // #A-3: 現在値から表示・色を決定、onclick でサイクル
+          const cur = (d.matrix && d.matrix[cellKey] && d.matrix[cellKey][item.key]) || '';
+          const cs = ssCellStyle(cur);
+          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" onclick="ssOnCellTap(\'' + cellKey + '\',\'' + item.key + '\')" style="min-width:44px;min-height:44px;height:44px;padding:0;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;font-size:' + (cur?'18px':'12px') + ';font-weight:' + (cur?'700':'400') + ';color:' + (cs.color||'var(--text)') + ';background:' + (cs.bg||'transparent') + ';cursor:pointer;user-select:none">' + cur + '</td>';
         }
         html += '</tr>';
       }
