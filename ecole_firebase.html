@@ -5389,13 +5389,86 @@ function ssGeneratePrintHtml(d, userName) {
   return html;
 }
 
+// #A-8.1: 新ウィンドウ向け自己完結 HTML（CSS埋込み + 手動ボタン + 自動 print）
+function ssBuildStandalonePrintDoc(bodyHtml, userName, titleDate) {
+  const titleRaw = '短期入所記録 - ' + (userName || '') + (titleDate ? (' ' + titleDate) : '');
+  const safeTitle = titleRaw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const css = [
+    '@page { size: A4 portrait; margin: 8mm; }',
+    '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }',
+    'body { font-family: "MS Mincho","Hiragino Mincho ProN",serif; color:#000; font-size:9pt; line-height:1.3; margin:0; padding:8mm; background:#fff; }',
+    '.ssp-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:3mm; }',
+    '.ssp-org { font-size:9pt; }',
+    '.ssp-title { font-size:15pt; font-weight:bold; letter-spacing:0.3em; text-align:center; flex:1; }',
+    '.ssp-date { font-size:9pt; }',
+    '.ssp-main, .ssp-matrix { width:100%; border-collapse:collapse; margin-bottom:2mm; }',
+    '.ssp-main th, .ssp-main td { border:0.3mm solid #000; padding:1.4mm 2mm; vertical-align:top; }',
+    '.ssp-main th { background:#f0f0f0; font-weight:bold; width:26mm; font-size:9pt; white-space:nowrap; }',
+    '.ssp-matrix th, .ssp-matrix td { border:0.3mm solid #000; padding:0.6mm; text-align:center; font-size:8pt; height:5.5mm; }',
+    '.ssp-matrix th { background:#f0f0f0; font-weight:bold; }',
+    '.ssp-matrix .ssp-dtitle { text-align:left; min-width:24mm; width:24mm; font-size:9pt; padding:1mm 2mm; }',
+    '.ssp-matrix .ssp-ilabel { text-align:left; min-width:24mm; width:24mm; font-size:8pt; white-space:nowrap; padding:0.8mm 2mm; }',
+    '.ssp-meals th { width:14mm; }',
+    '.ssp-support td { min-height:30mm; }',
+    '.ssp-footer { margin-top:3mm; display:flex; justify-content:space-between; font-size:10pt; padding:2mm 2mm 0; border-top:0.3mm solid #000; }',
+    '.ssp-matrix, .ssp-support { page-break-inside:avoid; }',
+    '.ssp-toolbar { padding:16pt; background:#EEEBFA; text-align:center; margin:-8mm -8mm 6mm -8mm; font-family:"Hiragino Sans","Yu Gothic",sans-serif; }',
+    '.ssp-toolbar button { font-size:15pt; padding:12pt 28pt; background:#5B4FD8; color:#fff; border:none; border-radius:10pt; cursor:pointer; font-weight:bold; -webkit-appearance:none; }',
+    '.ssp-toolbar button:active { opacity:0.7; }',
+    '.ssp-toolbar-help { font-size:10pt; color:#444; margin-top:10pt; line-height:1.6; }',
+    '@media print { .ssp-toolbar { display:none !important; } body { padding:0 !important; } }'
+  ].join('\n');
+  return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>' + safeTitle + '</title>' +
+    '<style>' + css + '</style>' +
+    '</head><body>' +
+    '<div class="ssp-toolbar">' +
+    '<button onclick="window.print()">🖨 印刷する</button>' +
+    '<div class="ssp-toolbar-help">自動で印刷ダイアログが開かない場合は上のボタンをタップしてください。<br>iPhone の場合は画面右上の「共有」→「プリント」でも印刷できます。</div>' +
+    '</div>' +
+    bodyHtml +
+    '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.print();}catch(e){}},500);});<\/script>' +
+    '<\/body><\/html>';
+}
+
+// #A-8.1: iOS Safari/Chrome は window.print() が効きにくいため、新ウィンドウ方式で対応
+function ssIsIOS() {
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent || '')) return true;
+  // iPadOS 13+ は UA で MacIntel と名乗る
+  if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
+  return false;
+}
+
 window.ssPrint = function() {
   if (!_shortstayEditCtx) { showToast('編集対象がありません'); return; }
-  const host = document.getElementById('ss-print-view');
-  if (!host) { showToast('印刷ビューが見つかりません'); return; }
   const d = _shortstayEditCtx.data || {};
   const userName = _shortstayEditCtx.userName || (d.userName || '');
-  host.innerHTML = ssGeneratePrintHtml(d, userName);
+  const bodyHtml = ssGeneratePrintHtml(d, userName);
+
+  if (ssIsIOS()) {
+    // iOS: 新ウィンドウ方式。window.open はタップ同期で呼ぶ（ポップアップブロック回避）
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('ポップアップがブロックされました。\nSafari の設定で「ポップアップブロック」をオフにするか、画面右上のメニューから「ポップアップを許可」してください。');
+      return;
+    }
+    const docHtml = ssBuildStandalonePrintDoc(bodyHtml, userName, d.startDate || '');
+    try {
+      printWin.document.open();
+      printWin.document.write(docHtml);
+      printWin.document.close();
+    } catch (e) {
+      console.error('ssPrint iOS window write failed:', e);
+      showToast('印刷ウィンドウ作成失敗: ' + (e.message || e));
+    }
+    return;
+  }
+
+  // PC: 従来の #ss-print-view 注入方式
+  const host = document.getElementById('ss-print-view');
+  if (!host) { showToast('印刷ビューが見つかりません'); return; }
+  host.innerHTML = bodyHtml;
   document.body.classList.add('ss-printing');
   const cleanup = function() {
     document.body.classList.remove('ss-printing');
