@@ -4432,6 +4432,14 @@ function ssCellFontSize(mark, type) {
   if (type === 'cycle') return mark ? '18px' : '12px';
   return '11px'; // number / temp / text
 }
+// #A-4: セル内 HTML（表示文字 + 備考ありマーカー）
+function ssCellInnerHtml(cellKey, itemKey, mark, type) {
+  const disp = ssCellDisplay(mark, type);
+  const d = _shortstayEditCtx && _shortstayEditCtx.data;
+  const hasNote = !!(d && d.cellNotes && d.cellNotes[cellKey] && d.cellNotes[cellKey][itemKey]);
+  const marker = hasNote ? '<span style="position:absolute;top:2px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--purple);pointer-events:none"></span>' : '';
+  return disp + marker;
+}
 // セル1つだけ再描画（マトリクス全体には触らない）
 function ssRedrawCell(cellKey, itemKey) {
   const td = document.querySelector('[data-ss-cell="' + cellKey + '"][data-ss-item="' + itemKey + '"]');
@@ -4441,13 +4449,126 @@ function ssRedrawCell(cellKey, itemKey) {
   const mark = row[itemKey] || '';
   const type = SS_CELL_INPUT_TYPES[itemKey] || 'cycle';
   const s = ssCellStyle(mark, type);
-  td.textContent = ssCellDisplay(mark, type);
-  td.title = mark || '';
+  const noteTxt = (d && d.cellNotes && d.cellNotes[cellKey] && d.cellNotes[cellKey][itemKey]) || '';
+  td.innerHTML = ssCellInnerHtml(cellKey, itemKey, mark, type);
+  td.title = noteTxt ? (mark ? (mark + ' — ' + noteTxt) : noteTxt) : (mark || '');
   td.style.color = s.color || 'var(--text)';
   td.style.background = s.bg || 'transparent';
   td.style.fontSize = ssCellFontSize(mark, type);
   td.style.fontWeight = mark ? '700' : '400';
 }
+
+// #A-4: 長押し検出 state
+let _ssPressTimer = null;
+let _ssPressCancelled = false;
+let _ssPressStart = null;
+let _ssPressCellKey = null;
+let _ssPressItemKey = null;
+const SS_PRESS_MS = 500;
+const SS_PRESS_MOVE_PX = 10;
+
+window.ssOnCellPointerDown = function(e, cellKey, itemKey) {
+  _ssPressCancelled = false;
+  _ssPressStart = { x: e.clientX, y: e.clientY };
+  _ssPressCellKey = cellKey;
+  _ssPressItemKey = itemKey;
+  if (_ssPressTimer) clearTimeout(_ssPressTimer);
+  _ssPressTimer = setTimeout(function() {
+    _ssPressTimer = null;
+    _ssPressCancelled = true; // 長押し成立、後続のタップは抑制
+    ssOpenNoteModal(_ssPressCellKey, _ssPressItemKey);
+  }, SS_PRESS_MS);
+};
+window.ssOnCellPointerMove = function(e) {
+  if (!_ssPressTimer || !_ssPressStart) return;
+  const dx = Math.abs(e.clientX - _ssPressStart.x);
+  const dy = Math.abs(e.clientY - _ssPressStart.y);
+  if (dx > SS_PRESS_MOVE_PX || dy > SS_PRESS_MOVE_PX) {
+    clearTimeout(_ssPressTimer);
+    _ssPressTimer = null;
+    _ssPressStart = null;
+    _ssPressCellKey = null;
+    _ssPressItemKey = null;
+  }
+};
+window.ssOnCellPointerUp = function(e, cellKey, itemKey) {
+  if (_ssPressTimer) { clearTimeout(_ssPressTimer); _ssPressTimer = null; }
+  const sameCell = (_ssPressCellKey === cellKey && _ssPressItemKey === itemKey);
+  _ssPressStart = null;
+  _ssPressCellKey = null;
+  _ssPressItemKey = null;
+  if (_ssPressCancelled) { _ssPressCancelled = false; return; } // 長押し既に発火
+  if (!sameCell) return; // 別セルに移動して離したらタップ無効
+  ssOnCellTap(cellKey, itemKey);
+};
+window.ssOnCellPointerCancel = function() {
+  if (_ssPressTimer) { clearTimeout(_ssPressTimer); _ssPressTimer = null; }
+  _ssPressStart = null;
+  _ssPressCellKey = null;
+  _ssPressItemKey = null;
+  _ssPressCancelled = false;
+};
+
+// #A-4: 備考モーダル
+function ssOpenNoteModal(cellKey, itemKey) {
+  if (!_shortstayEditCtx) return;
+  const d = _shortstayEditCtx.data;
+  if (!d.cellNotes) d.cellNotes = {};
+  if (!d.cellNotes[cellKey]) d.cellNotes[cellKey] = {};
+  const cur = d.cellNotes[cellKey][itemKey] || '';
+  const itemDef = SS_MATRIX_ITEMS.find(function(i){ return i.key === itemKey; });
+  const itemLabel = itemDef ? itemDef.label : itemKey;
+  const parts = cellKey.split('_');
+  const dateStr = parts[0] || '';
+  const hourStr = parts[1] || '';
+  const existing = document.getElementById('ss-note-modal');
+  if (existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'ss-note-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  const safeCur = cur.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:22px 22px 0 0;width:100%;max-width:460px;padding:0 0 24px">'
+    + '  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:0.5px solid var(--border)">'
+    + '    <div>'
+    + '      <div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">' + dateStr + ' ' + hourStr + ':00 / ' + itemLabel + '</div>'
+    + '      <div style="font-size:16px;font-weight:700;color:var(--text)">備考</div>'
+    + '    </div>'
+    + '    <button onclick="ssCloseNoteModal()" class="close-btn">×</button>'
+    + '  </div>'
+    + '  <div style="padding:14px 18px">'
+    + '    <textarea id="ss-note-input" placeholder="備考を入力（空欄で削除）" style="width:100%;min-height:100px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical">' + safeCur + '</textarea>'
+    + '  </div>'
+    + '  <div style="display:flex;gap:8px;padding:0 18px">'
+    + '    <button onclick="ssCloseNoteModal()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    + '    <button onclick="ssSaveCellNote(\'' + cellKey + '\',\'' + itemKey + '\')" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">保存</button>'
+    + '  </div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+  const ta = document.getElementById('ss-note-input');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+window.ssCloseNoteModal = function() {
+  const el = document.getElementById('ss-note-modal');
+  if (el) el.remove();
+};
+window.ssSaveCellNote = function(cellKey, itemKey) {
+  if (!_shortstayEditCtx) return;
+  const d = _shortstayEditCtx.data;
+  const ta = document.getElementById('ss-note-input');
+  if (!ta) return;
+  const val = ta.value.trim();
+  if (!d.cellNotes) d.cellNotes = {};
+  if (!d.cellNotes[cellKey]) d.cellNotes[cellKey] = {};
+  if (val) {
+    d.cellNotes[cellKey][itemKey] = val;
+  } else {
+    delete d.cellNotes[cellKey][itemKey];
+    if (Object.keys(d.cellNotes[cellKey]).length === 0) delete d.cellNotes[cellKey];
+  }
+  ssCloseNoteModal();
+  ssRedrawCell(cellKey, itemKey);
+};
 window.ssOnCellTap = function(cellKey, itemKey) {
   if (!_shortstayEditCtx) return;
   const d = _shortstayEditCtx.data;
@@ -4505,6 +4626,8 @@ function shortstayDefaultData(user) {
     medicine: { enabled: false, times: medTimes, others: '' },
     // #A-2: 支援記録マトリクス（データ本実装は A-6）、キー形式: "YYYY-MM-DD_HH"
     matrix: {},
+    // #A-4: セル長押しの備考。キー形式: cellNotes[cellKey][itemKey] = "備考テキスト"
+    cellNotes: {},
     // 旧フィールド（既存互換、A-6 で統合方針確定予定）
     stay: { startDate: today(), endDate: today(), checkInTime:'17:00', checkOutTime:'09:00', checkInTransport:'すたぁと', checkOutTransport:'他', overnight:true, daytime:false },
     medicationConfig: { 朝:{enabled:false,timing:'前'}, 昼:{enabled:false,timing:'前'}, 夕:{enabled:false,timing:'前'}, 就寝前:{enabled:false}, その他:{enabled:false,note:''} },
@@ -4770,14 +4893,16 @@ window.renderShortstayEdit = function() {
           + '<th scope="row" style="position:sticky;left:0;background:#fff;z-index:1;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid #F2F2F7;font-weight:600;color:var(--text);text-align:left;white-space:nowrap">' + item.label + '</th>';
         for (const h of sec.hours) {
           const cellKey = sec.date + '_' + (h<10?('0'+h):h);
-          // #A-3.1: 項目別の入力方式に対応
+          // #A-3.1: 項目別の入力方式に対応 / #A-4: 長押し備考 + ● マーカー
           const cur = (d.matrix && d.matrix[cellKey] && d.matrix[cellKey][item.key]) || '';
           const typ = SS_CELL_INPUT_TYPES[item.key] || 'cycle';
           const cs = ssCellStyle(cur, typ);
-          const disp = ssCellDisplay(cur, typ);
           const fs = ssCellFontSize(cur, typ);
-          const safeTitle = cur ? cur.replace(/"/g,'&quot;') : '';
-          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" onclick="ssOnCellTap(\'' + cellKey + '\',\'' + item.key + '\')" title="' + safeTitle + '" style="min-width:44px;min-height:44px;height:44px;padding:0 2px;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;font-size:' + fs + ';font-weight:' + (cur?'700':'400') + ';color:' + (cs.color||'var(--text)') + ';background:' + (cs.bg||'transparent') + ';cursor:pointer;user-select:none;overflow:hidden;white-space:nowrap">' + disp + '</td>';
+          const noteTxt = (d.cellNotes && d.cellNotes[cellKey] && d.cellNotes[cellKey][item.key]) || '';
+          const titleStr = noteTxt ? (cur ? (cur + ' — ' + noteTxt) : noteTxt) : (cur || '');
+          const safeTitle = titleStr.replace(/"/g,'&quot;');
+          const handlers = 'onpointerdown="ssOnCellPointerDown(event,\'' + cellKey + '\',\'' + item.key + '\')" onpointermove="ssOnCellPointerMove(event)" onpointerup="ssOnCellPointerUp(event,\'' + cellKey + '\',\'' + item.key + '\')" onpointercancel="ssOnCellPointerCancel()" onpointerleave="ssOnCellPointerCancel()" oncontextmenu="return false"';
+          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" ' + handlers + ' title="' + safeTitle + '" style="position:relative;min-width:44px;min-height:44px;height:44px;padding:0 2px;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;font-size:' + fs + ';font-weight:' + (cur?'700':'400') + ';color:' + (cs.color||'var(--text)') + ';background:' + (cs.bg||'transparent') + ';cursor:pointer;user-select:none;overflow:hidden;white-space:nowrap;touch-action:manipulation">' + ssCellInnerHtml(cellKey, item.key, cur, typ) + '</td>';
         }
         html += '</tr>';
       }
