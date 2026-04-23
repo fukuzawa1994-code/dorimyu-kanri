@@ -5413,8 +5413,10 @@ function ssBuildStandalonePrintDoc(bodyHtml, userName, titleDate) {
     '.ssp-footer { margin-top:3mm; display:flex; justify-content:space-between; font-size:10pt; padding:2mm 2mm 0; border-top:0.3mm solid #000; }',
     '.ssp-matrix, .ssp-support { page-break-inside:avoid; }',
     '.ssp-toolbar { padding:16pt; background:#EEEBFA; text-align:center; margin:-8mm -8mm 6mm -8mm; font-family:"Hiragino Sans","Yu Gothic",sans-serif; }',
-    '.ssp-toolbar button { font-size:15pt; padding:12pt 28pt; background:#5B4FD8; color:#fff; border:none; border-radius:10pt; cursor:pointer; font-weight:bold; -webkit-appearance:none; }',
+    '.ssp-toolbar button { font-size:15pt; padding:12pt 24pt; color:#fff; border:none; border-radius:10pt; cursor:pointer; font-weight:bold; -webkit-appearance:none; }',
     '.ssp-toolbar button:active { opacity:0.7; }',
+    '.ssp-toolbar .ssp-print-btn { background:#5B4FD8; }',
+    '.ssp-toolbar .ssp-close-btn { background:#8E8E93; margin-left:10pt; }',
     '.ssp-toolbar-help { font-size:10pt; color:#444; margin-top:10pt; line-height:1.6; }',
     '@media print { .ssp-toolbar { display:none !important; } body { padding:0 !important; } }'
   ].join('\n');
@@ -5424,17 +5426,22 @@ function ssBuildStandalonePrintDoc(bodyHtml, userName, titleDate) {
     '<style>' + css + '</style>' +
     '</head><body>' +
     '<div class="ssp-toolbar">' +
-    '<button onclick="window.print()">🖨 印刷する</button>' +
+    '<button class="ssp-print-btn" onclick="window.print()">🖨 印刷する</button>' +
+    '<button class="ssp-close-btn" onclick="ssCloseWin()">✕ 閉じる</button>' +
     '<div class="ssp-toolbar-help">自動で印刷ダイアログが開かない場合は上のボタンをタップしてください。<br>iPhone の場合は画面右上の「共有」→「プリント」でも印刷できます。</div>' +
     '</div>' +
     bodyHtml +
     // #A-8.2: iOS Safari は自動 print で親タブのコンテキストが混在する既知不具合があるため、
     //          iOS Safari のみ手動タップ起動に限定。他ブラウザは従来通り自動起動。
-    '<script>window.addEventListener("load",function(){' +
-      'var ua=navigator.userAgent||"";' +
-      'var isIOSSafari=/iPad|iPhone|iPod/.test(ua)&&/Safari/.test(ua)&&!/CriOS|FxiOS|EdgiOS/.test(ua);' +
-      'if(!isIOSSafari){setTimeout(function(){try{window.print();}catch(e){}},500);}' +
-    '});<\/script>' +
+    // #A-8.3: 閉じるボタン用ヘルパ ssCloseWin（window.close 失敗時は手動案内）
+    '<script>' +
+      'function ssCloseWin(){try{window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert("ブラウザのタブを手動で閉じてください");}},300);}' +
+      'window.addEventListener("load",function(){' +
+        'var ua=navigator.userAgent||"";' +
+        'var isIOSSafari=/iPad|iPhone|iPod/.test(ua)&&/Safari/.test(ua)&&!/CriOS|FxiOS|EdgiOS/.test(ua);' +
+        'if(!isIOSSafari){setTimeout(function(){try{window.print();}catch(e){}},500);}' +
+      '});' +
+    '<\/script>' +
     '<\/body><\/html>';
 }
 
