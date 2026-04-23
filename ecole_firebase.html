@@ -4310,9 +4310,18 @@ const SS_MATRIX_ITEMS = [
 ];
 // #A-2: 入退所から日付ごとの時間帯セクションを算出
 function ssAddDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0,10);
+  // #A-3.1: toISOString は UTC に変換するため JST では日付がずれる → ローカル時刻ベースで組み立て
+  const parts = (dateStr || '').split('-');
+  const y = parseInt(parts[0], 10);
+  const mo = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(mo) || isNaN(d)) return dateStr;
+  const date = new Date(y, mo - 1, d);
+  date.setDate(date.getDate() + n);
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return yy + '-' + mm + '-' + dd;
 }
 function ssRangeHours(from, to) {
   const out = [];
@@ -4386,17 +4395,42 @@ function ssValidateDateRange(startDate, endDate, entryTime, exitTime) {
   return { ok:true };
 }
 
-// #A-3: マトリクスセル ○△× タップ入力
+// #A-3 / A-3.1: マトリクスセル入力。項目別に cycle(○△×) / number(ml) / temp(℃) / text(自由)
 const SS_CELL_ORDER = ['', '○', '△', '×'];
+const SS_CELL_INPUT_TYPES = {
+  kishou:   'cycle',
+  kenkou:   'cycle',
+  fukuyaku: 'cycle',
+  hamigaki: 'cycle',
+  nyuyoku:  'cycle',
+  suibun:   'number',
+  kenon:    'temp',
+  nyouben:  'text'
+};
 function ssCellCycleState(cur) {
   const i = SS_CELL_ORDER.indexOf(cur || '');
   return SS_CELL_ORDER[(i < 0 ? 0 : i + 1) % SS_CELL_ORDER.length];
 }
-function ssCellStyle(mark) {
-  if (mark === '○') return { color:'#0288D1', bg:'rgba(2,136,209,0.15)' };
-  if (mark === '△') return { color:'#FBC02D', bg:'rgba(251,192,45,0.15)' };
-  if (mark === '×') return { color:'#E91E63', bg:'rgba(233,30,99,0.15)' };
+function ssCellStyle(mark, type) {
+  if (type === 'cycle' || !type) {
+    if (mark === '○') return { color:'#0288D1', bg:'rgba(2,136,209,0.15)' };
+    if (mark === '△') return { color:'#FBC02D', bg:'rgba(251,192,45,0.15)' };
+    if (mark === '×') return { color:'#E91E63', bg:'rgba(233,30,99,0.15)' };
+    return { color:'', bg:'' };
+  }
+  // number / temp / text: 値ありは紫系で表示
+  if (mark) return { color:'var(--purple)', bg:'rgba(91,79,216,0.08)' };
   return { color:'', bg:'' };
+}
+function ssCellDisplay(mark, type) {
+  if (!mark) return '';
+  if (type === 'cycle') return mark;
+  if (type === 'text') return mark.length > 6 ? mark.slice(0, 5) + '…' : mark;
+  return mark; // number / temp はそのまま
+}
+function ssCellFontSize(mark, type) {
+  if (type === 'cycle') return mark ? '18px' : '12px';
+  return '11px'; // number / temp / text
 }
 // セル1つだけ再描画（マトリクス全体には触らない）
 function ssRedrawCell(cellKey, itemKey) {
@@ -4405,11 +4439,13 @@ function ssRedrawCell(cellKey, itemKey) {
   const d = _shortstayEditCtx && _shortstayEditCtx.data;
   const row = (d && d.matrix && d.matrix[cellKey]) || {};
   const mark = row[itemKey] || '';
-  const s = ssCellStyle(mark);
-  td.textContent = mark;
+  const type = SS_CELL_INPUT_TYPES[itemKey] || 'cycle';
+  const s = ssCellStyle(mark, type);
+  td.textContent = ssCellDisplay(mark, type);
+  td.title = mark || '';
   td.style.color = s.color || 'var(--text)';
   td.style.background = s.bg || 'transparent';
-  td.style.fontSize = mark ? '18px' : '12px';
+  td.style.fontSize = ssCellFontSize(mark, type);
   td.style.fontWeight = mark ? '700' : '400';
 }
 window.ssOnCellTap = function(cellKey, itemKey) {
@@ -4418,7 +4454,28 @@ window.ssOnCellTap = function(cellKey, itemKey) {
   if (!d.matrix) d.matrix = {};
   if (!d.matrix[cellKey]) d.matrix[cellKey] = {};
   const cur = d.matrix[cellKey][itemKey] || '';
-  d.matrix[cellKey][itemKey] = ssCellCycleState(cur);
+  const type = SS_CELL_INPUT_TYPES[itemKey] || 'cycle';
+  if (type === 'cycle') {
+    d.matrix[cellKey][itemKey] = ssCellCycleState(cur);
+  } else if (type === 'number') {
+    const val = prompt('水分量(ml) を入力してください（空欄で消去）', cur);
+    if (val === null) return;
+    const t = val.trim();
+    if (t === '') { d.matrix[cellKey][itemKey] = ''; }
+    else if (!/^\d+$/.test(t)) { alert('数値（整数）で入力してください'); return; }
+    else { d.matrix[cellKey][itemKey] = t; }
+  } else if (type === 'temp') {
+    const val = prompt('検温(℃) を入力してください 例: 36.5（空欄で消去）', cur);
+    if (val === null) return;
+    const t = val.trim();
+    if (t === '') { d.matrix[cellKey][itemKey] = ''; }
+    else if (!/^\d{1,2}(\.\d)?$/.test(t)) { alert('数値で入力してください 例: 36.5'); return; }
+    else { d.matrix[cellKey][itemKey] = t; }
+  } else if (type === 'text') {
+    const val = prompt('尿・便の記録を入力してください（空欄で消去）', cur);
+    if (val === null) return;
+    d.matrix[cellKey][itemKey] = val.trim();
+  }
   ssRedrawCell(cellKey, itemKey);
 };
 function ssFormatSectionHeader(dateStr) {
@@ -4684,7 +4741,7 @@ window.renderShortstayEdit = function() {
       + '<div style="font-size:12px;color:var(--text-sub)">マトリクスを生成できませんでした</div>'
       + '</div>';
   } else {
-    html += '<div style="font-size:11px;color:var(--text-sub);padding:0 2px 6px">全 ' + sections.length + ' 日・セル入力は A-3 で実装予定</div>';
+    html += '<div style="font-size:11px;color:var(--text-sub);padding:0 2px 6px">全 ' + sections.length + ' 日</div>';
     // #A-2.2: 30 分単位の入退所時の端セル補助表示
     const entryMin = parseInt((d.entryTime||'').split(':')[1] || '0', 10);
     const exitMin  = parseInt((d.exitTime ||'').split(':')[1] || '0', 10);
@@ -4713,10 +4770,14 @@ window.renderShortstayEdit = function() {
           + '<th scope="row" style="position:sticky;left:0;background:#fff;z-index:1;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid #F2F2F7;font-weight:600;color:var(--text);text-align:left;white-space:nowrap">' + item.label + '</th>';
         for (const h of sec.hours) {
           const cellKey = sec.date + '_' + (h<10?('0'+h):h);
-          // #A-3: 現在値から表示・色を決定、onclick でサイクル
+          // #A-3.1: 項目別の入力方式に対応
           const cur = (d.matrix && d.matrix[cellKey] && d.matrix[cellKey][item.key]) || '';
-          const cs = ssCellStyle(cur);
-          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" onclick="ssOnCellTap(\'' + cellKey + '\',\'' + item.key + '\')" style="min-width:44px;min-height:44px;height:44px;padding:0;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;font-size:' + (cur?'18px':'12px') + ';font-weight:' + (cur?'700':'400') + ';color:' + (cs.color||'var(--text)') + ';background:' + (cs.bg||'transparent') + ';cursor:pointer;user-select:none">' + cur + '</td>';
+          const typ = SS_CELL_INPUT_TYPES[item.key] || 'cycle';
+          const cs = ssCellStyle(cur, typ);
+          const disp = ssCellDisplay(cur, typ);
+          const fs = ssCellFontSize(cur, typ);
+          const safeTitle = cur ? cur.replace(/"/g,'&quot;') : '';
+          html += '<td data-ss-cell="' + cellKey + '" data-ss-item="' + item.key + '" onclick="ssOnCellTap(\'' + cellKey + '\',\'' + item.key + '\')" title="' + safeTitle + '" style="min-width:44px;min-height:44px;height:44px;padding:0 2px;border-right:0.5px solid #F2F2F7;border-bottom:0.5px solid #F2F2F7;text-align:center;font-size:' + fs + ';font-weight:' + (cur?'700':'400') + ';color:' + (cs.color||'var(--text)') + ';background:' + (cs.bg||'transparent') + ';cursor:pointer;user-select:none;overflow:hidden;white-space:nowrap">' + disp + '</td>';
         }
         html += '</tr>';
       }
