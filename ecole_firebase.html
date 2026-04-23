@@ -636,6 +636,26 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: currentColor; flex-shrink: 0; display: inline-block; vertical-align: -3px; }
 .tog-label [data-lucide], .ksec-hd [data-lucide], .sec [data-lucide] { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
 [data-lucide] + span, [data-lucide] + b { margin-left: 4px; }
+
+/* #A-7: すたぁと短期入所記録 印刷用レイアウト（A4縦） */
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  body.ss-printing, body.ss-printing #app-root { background: #fff !important; }
+  body.ss-printing .hdr, body.ss-printing .bnav, body.ss-printing .fab, body.ss-printing .fab-label, body.ss-printing .cal, body.ss-printing .ss-screen-only { display: none !important; }
+  body.ss-printing .scr { display: none !important; padding-bottom: 0 !important; overflow: visible !important; height: auto !important; }
+  body.ss-printing .scr#scr-shortstay-edit { display: block !important; }
+  body.ss-printing #shortstay-edit-body { padding: 0 !important; }
+  body.ss-printing .fp { padding-bottom: 0 !important; }
+  body.ss-printing * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  body.ss-printing #shortstay-matrix-area div[style*="overflow-x"] { overflow: visible !important; }
+  body.ss-printing #shortstay-matrix-area table { font-size: 9pt !important; page-break-inside: avoid; }
+  body.ss-printing #shortstay-matrix-area th, body.ss-printing #shortstay-matrix-area td { border: 0.5pt solid #666 !important; position: static !important; }
+  body.ss-printing #shortstay-matrix-area td { min-height: 18pt !important; height: 18pt !important; padding: 2pt !important; }
+  body.ss-printing input, body.ss-printing select, body.ss-printing textarea { border: none !important; background: transparent !important; font-size: 10pt !important; color: #000 !important; }
+  body.ss-printing .ksec-hd { page-break-after: avoid; }
+  body.ss-printing .rcard { page-break-inside: avoid; }
+  body.ss-printing .ss-notes-summary { page-break-before: auto; }
+}
 </style>
 </head>
 <body>
@@ -1125,7 +1145,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-vacation"><div class="fp"><div class="ksec-hd">休暇申請</div><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div><div class="vac-cta-fixed"><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button></div></div>
     <div class="scr" id="scr-shortstay" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-shortstay-hist" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-hist-body"><div class="loading">読み込み中...</div></div></div>
-    <div class="scr" id="scr-shortstay-edit" style="padding-bottom:120px;overflow-y:auto"><div id="shortstay-edit-body"><div class="loading">読み込み中...</div></div><div class="vac-cta-fixed"><button class="sbtn" onclick="doShortstayPublicSave()">保存する</button></div></div>
+    <div class="scr" id="scr-shortstay-edit" style="padding-bottom:120px;overflow-y:auto"><div id="shortstay-edit-body"><div class="loading">読み込み中...</div></div><div class="vac-cta-fixed ss-screen-only" style="display:flex;gap:8px;padding:8px 12px"><button class="sbtn" style="flex:2" onclick="doShortstayPublicSave()">保存する</button><button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="ssPrint()"><i data-lucide="printer"></i> 印刷</button></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
 
@@ -4921,6 +4941,42 @@ window.renderShortstayEdit = function() {
   }
   html += '</div>';
 
+  // #A-7: 備考一覧（印刷時に一目で読める形、画面上にも表示）
+  const noteRows = [];
+  if (d.cellNotes && typeof d.cellNotes === 'object') {
+    for (const cellKey of Object.keys(d.cellNotes)) {
+      const row = d.cellNotes[cellKey] || {};
+      for (const itemKey of Object.keys(row)) {
+        const note = row[itemKey];
+        if (!note) continue;
+        const parts = cellKey.split('_');
+        const dateStr = parts[0] || '';
+        const hourStr = parts[1] || '';
+        const itemDef = SS_MATRIX_ITEMS.find(function(i){ return i.key === itemKey; });
+        const itemLabel = itemDef ? itemDef.label : itemKey;
+        noteRows.push({ dateStr, hourStr, itemLabel, note });
+      }
+    }
+    noteRows.sort(function(a,b){
+      const ka = a.dateStr + '_' + a.hourStr;
+      const kb = b.dateStr + '_' + b.hourStr;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+  }
+  if (noteRows.length) {
+    html += '<div class="ksec-hd ss-notes-summary" style="margin-top:12px">備考一覧（' + noteRows.length + '件）</div>';
+    html += '<div class="ss-notes-summary fsec">';
+    for (const nr of noteRows) {
+      const safeNote = (nr.note || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px">'
+        + '<span style="color:var(--text-sub);white-space:nowrap;min-width:100px">' + nr.dateStr + ' ' + nr.hourStr + ':00</span>'
+        + '<span style="color:var(--purple);font-weight:600;white-space:nowrap;min-width:72px">' + nr.itemLabel + '</span>'
+        + '<span style="flex:1;color:var(--text);word-break:break-word">' + safeNote + '</span>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
   // 食事
   html += '<div class="ksec-hd" style="margin-top:12px">食事</div><div class="fsec">';
   for (const m of ['昼食','夕食','朝食']) {
@@ -5052,6 +5108,19 @@ window.ssDeleteCaseEntry = function(index) {
   if (!confirm('このエントリを削除しますか？')) return;
   _shortstayEditCtx.data.caseEntries.splice(index, 1);
   renderShortstayEdit();
+};
+
+// --- 印刷 (#A-7: A4縦、@media print CSS に連動するため body にクラス付与) ---
+window.ssPrint = function() {
+  if (!_shortstayEditCtx) { showToast('編集対象がありません'); return; }
+  document.body.classList.add('ss-printing');
+  // afterprint で自動解除（ダイアログを閉じた後）
+  const cleanup = function() {
+    document.body.classList.remove('ss-printing');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(function(){ window.print(); }, 50);
 };
 
 // --- 保存 (#A-6: 決定論的 docId + createdAt/updatedAt/updatedBy 管理) ---
