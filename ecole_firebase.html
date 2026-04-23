@@ -637,24 +637,34 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .tog-label [data-lucide], .ksec-hd [data-lucide], .sec [data-lucide] { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
 [data-lucide] + span, [data-lucide] + b { margin-left: 4px; }
 
-/* #A-7: すたぁと短期入所記録 印刷用レイアウト（A4縦） */
+/* #A-7.1: すたぁと短期入所記録 書類原本レイアウト完全準拠 */
+#ss-print-view { display: none; }
 @media print {
-  @page { size: A4 portrait; margin: 10mm; }
-  body.ss-printing, body.ss-printing #app-root { background: #fff !important; }
-  body.ss-printing .hdr, body.ss-printing .bnav, body.ss-printing .fab, body.ss-printing .fab-label, body.ss-printing .cal, body.ss-printing .ss-screen-only { display: none !important; }
-  body.ss-printing .scr { display: none !important; padding-bottom: 0 !important; overflow: visible !important; height: auto !important; }
-  body.ss-printing .scr#scr-shortstay-edit { display: block !important; }
-  body.ss-printing #shortstay-edit-body { padding: 0 !important; }
-  body.ss-printing .fp { padding-bottom: 0 !important; }
-  body.ss-printing * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-  body.ss-printing #shortstay-matrix-area div[style*="overflow-x"] { overflow: visible !important; }
-  body.ss-printing #shortstay-matrix-area table { font-size: 9pt !important; page-break-inside: avoid; }
-  body.ss-printing #shortstay-matrix-area th, body.ss-printing #shortstay-matrix-area td { border: 0.5pt solid #666 !important; position: static !important; }
-  body.ss-printing #shortstay-matrix-area td { min-height: 18pt !important; height: 18pt !important; padding: 2pt !important; }
-  body.ss-printing input, body.ss-printing select, body.ss-printing textarea { border: none !important; background: transparent !important; font-size: 10pt !important; color: #000 !important; }
-  body.ss-printing .ksec-hd { page-break-after: avoid; }
-  body.ss-printing .rcard { page-break-inside: avoid; }
-  body.ss-printing .ss-notes-summary { page-break-before: auto; }
+  @page { size: A4 portrait; margin: 8mm; }
+  body.ss-printing > *:not(#ss-print-view) { display: none !important; }
+  body.ss-printing { background: #fff !important; }
+  body.ss-printing #ss-print-view {
+    display: block !important; position: static !important;
+    background: #fff !important; color: #000 !important;
+    font-family: "MS Mincho","Hiragino Mincho ProN",serif;
+    font-size: 9pt; line-height: 1.3;
+  }
+  body.ss-printing #ss-print-view * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  body.ss-printing .ssp-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3mm; }
+  body.ss-printing .ssp-org { font-size: 9pt; }
+  body.ss-printing .ssp-title { font-size: 15pt; font-weight: bold; letter-spacing: 0.3em; text-align: center; flex: 1; }
+  body.ss-printing .ssp-date { font-size: 9pt; }
+  body.ss-printing .ssp-main, body.ss-printing .ssp-matrix { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
+  body.ss-printing .ssp-main th, body.ss-printing .ssp-main td { border: 0.3mm solid #000; padding: 1.4mm 2mm; vertical-align: top; }
+  body.ss-printing .ssp-main th { background: #f0f0f0; font-weight: bold; width: 26mm; font-size: 9pt; white-space: nowrap; }
+  body.ss-printing .ssp-matrix th, body.ss-printing .ssp-matrix td { border: 0.3mm solid #000; padding: 0.6mm; text-align: center; font-size: 8pt; height: 5.5mm; }
+  body.ss-printing .ssp-matrix th { background: #f0f0f0; font-weight: bold; }
+  body.ss-printing .ssp-matrix .ssp-dtitle { text-align: left; min-width: 24mm; width: 24mm; font-size: 9pt; padding: 1mm 2mm; }
+  body.ss-printing .ssp-matrix .ssp-ilabel { text-align: left; min-width: 24mm; width: 24mm; font-size: 8pt; white-space: nowrap; padding: 0.8mm 2mm; }
+  body.ss-printing .ssp-meals th { width: 14mm; }
+  body.ss-printing .ssp-support td { min-height: 30mm; }
+  body.ss-printing .ssp-footer { margin-top: 3mm; display: flex; justify-content: space-between; font-size: 10pt; padding: 2mm 2mm 0; border-top: 0.3mm solid #000; }
+  body.ss-printing .ssp-matrix, body.ss-printing .ssp-support { page-break-inside: avoid; }
 }
 </style>
 </head>
@@ -5110,17 +5120,168 @@ window.ssDeleteCaseEntry = function(index) {
   renderShortstayEdit();
 };
 
-// --- 印刷 (#A-7: A4縦、@media print CSS に連動するため body にクラス付与) ---
+// --- 印刷 (#A-7.1: 書類原本レイアウトを JS で生成→#ss-print-view に注入→window.print) ---
+function ssFormatDateJp(dateStr) {
+  if (!dateStr) return '';
+  const parts = (dateStr || '').split('-');
+  if (parts.length !== 3) return dateStr;
+  const y = parseInt(parts[0], 10);
+  const mo = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(mo) || isNaN(d)) return dateStr;
+  const date = new Date(y, mo - 1, d);
+  const dow = ['日','月','火','水','木','金','土'][date.getDay()];
+  return mo + '月' + d + '日(' + dow + ')';
+}
+function ssGetReiwaYear(dateStr) {
+  if (!dateStr) return '';
+  const y = parseInt((dateStr || '').split('-')[0], 10);
+  if (isNaN(y)) return '';
+  return (y - 2018);
+}
+function _ssEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+
+function ssGeneratePrintHtml(d, userName) {
+  const chk = function(b) { return b ? '☑' : '☐'; };
+  const nowStr = new Date().toISOString().slice(0,10);
+  const todayJp = ssFormatDateJp(nowStr);
+  const reiwa = d.startDate ? ('令和' + ssGetReiwaYear(d.startDate) + '年 ') : '';
+  const startJp = ssFormatDateJp(d.startDate || '');
+  const endJp = ssFormatDateJp(d.endDate || '');
+  const dateRange = d.startDate
+    ? (reiwa + startJp + (d.endDate && d.endDate !== d.startDate ? ' 〜 ' + endJp : ''))
+    : '（未入力）';
+  const category = d.category || {};
+  const belong = d.belongings || {};
+  const med = d.medicine || {};
+  const medTimes = med.times || {};
+  const transportIn  = (d.stay && d.stay.checkInTransport)  || '';
+  const transportOut = (d.stay && d.stay.checkOutTransport) || '';
+  const recorderName = d.recordedBy || d.updatedBy || currentStaff || '';
+
+  let html = '';
+  // ヘッダー
+  html += '<div class="ssp-header">'
+    + '<div class="ssp-org">地域生活支援センターすたぁと　管理者</div>'
+    + '<div class="ssp-title">短期入所利用個別記録</div>'
+    + '<div class="ssp-date">' + _ssEsc(todayJp) + ' 記録</div>'
+    + '</div>';
+
+  // メタ表
+  html += '<table class="ssp-main"><tbody>';
+  html += '<tr><th>利用年月日</th><td>' + _ssEsc(dateRange) + '</td></tr>';
+  html += '<tr><th>利用時間</th><td>入所: ' + _ssEsc(d.entryTime || '-') + '　退所: ' + _ssEsc(d.exitTime || '-') + '　記入者: ' + _ssEsc(recorderName || '-') + '</td></tr>';
+  html += '<tr><th>送迎・区分</th><td>'
+    + '入所: ' + chk(transportIn === 'すたぁと') + 'すたぁと ' + chk(transportIn === '他') + '他　'
+    + '退所: ' + chk(transportOut === 'すたぁと') + 'すたぁと ' + chk(transportOut === '他') + '他　　'
+    + chk(!!category.overnight) + '宿泊　' + chk(!!category.daytime) + '日中支援'
+    + '</td></tr>';
+  html += '<tr><th>持ち物</th><td>'
+    + chk(!!belong['受給者証']) + '受給者証　'
+    + chk(!!belong['実費票確認印']) + '実費票確認印　'
+    + chk(!!belong['持ち物チェック表']) + '持ち物チェック表　'
+    + chk(!!belong['フェイスシート']) + 'フェイスシート'
+    + '</td></tr>';
+  let medLine = '(有/無): ' + (med.enabled ? '有' : '無');
+  if (med.enabled) {
+    medLine += '　'
+      + chk(!!medTimes['朝前']) + '朝前 '
+      + chk(!!medTimes['朝後']) + '朝後 '
+      + chk(!!medTimes['昼前']) + '昼前 '
+      + chk(!!medTimes['昼後']) + '昼後 '
+      + chk(!!medTimes['夕前']) + '夕前 '
+      + chk(!!medTimes['夕後']) + '夕後 '
+      + chk(!!medTimes['就寝前']) + '就寝前　'
+      + 'その他: ' + _ssEsc(med.others || 'なし');
+  }
+  html += '<tr><th>服薬</th><td>' + medLine + '</td></tr>';
+  html += '</tbody></table>';
+
+  // 支援マトリクス（日付ごとに段分け）
+  const sections = ssCalcSections(d.startDate, d.endDate, d.entryTime, d.exitTime);
+  if (sections.length) {
+    for (const sec of sections) {
+      html += '<table class="ssp-matrix"><thead><tr>'
+        + '<th class="ssp-dtitle">' + _ssEsc(ssFormatDateJp(sec.date)) + '</th>';
+      for (const h of sec.hours) html += '<th>' + (h < 10 ? '0' + h : h) + '</th>';
+      html += '</tr></thead><tbody>';
+      for (const item of SS_MATRIX_ITEMS) {
+        html += '<tr><th class="ssp-ilabel">' + _ssEsc(item.label) + '</th>';
+        for (const h of sec.hours) {
+          const cellKey = sec.date + '_' + (h < 10 ? '0' + h : h);
+          const v = (d.matrix && d.matrix[cellKey] && d.matrix[cellKey][item.key]) || '';
+          html += '<td>' + (v ? _ssEsc(v) : '&nbsp;') + '</td>';
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+  }
+
+  // 食事
+  const meals = d.meals || {};
+  html += '<table class="ssp-main ssp-meals"><tbody>';
+  for (const mkey of ['昼食','夕食','朝食']) {
+    const m = meals[mkey] || {};
+    html += '<tr><th>' + mkey + '</th><td>献立: ' + _ssEsc(m.menu || '') + '</td><th>食欲</th><td>' + _ssEsc(m.appetite || '') + '</td></tr>';
+  }
+  html += '<tr><th>おやつ</th><td colspan="3">' + _ssEsc(meals['おやつ'] || '') + '</td></tr>';
+  html += '</tbody></table>';
+
+  // 個人目標
+  html += '<table class="ssp-main"><tbody><tr><th>すたぁと個人目標</th><td>' + _ssEsc(d.individualGoal || '') + '</td></tr></tbody></table>';
+
+  // 支援内容（ケース記録 + 備考一覧）
+  let casesTxt = '';
+  if (Array.isArray(d.caseEntries) && d.caseEntries.length) {
+    casesTxt = d.caseEntries.map(function(e){
+      const ts = e.timestamp ? new Date(e.timestamp).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+      return '【' + (e.staffName || '-') + ' ' + ts + '】\n' + (e.content || '');
+    }).join('\n\n');
+  }
+  let notesTxt = '';
+  if (d.cellNotes) {
+    const rows = [];
+    for (const ck of Object.keys(d.cellNotes)) {
+      const row = d.cellNotes[ck] || {};
+      for (const ik of Object.keys(row)) {
+        if (!row[ik]) continue;
+        const parts = ck.split('_');
+        const itemDef = SS_MATRIX_ITEMS.find(function(i){ return i.key === ik; });
+        rows.push({ k: parts[0] + '_' + parts[1], text: '・' + parts[0] + ' ' + parts[1] + '時 ' + (itemDef ? itemDef.label : ik) + ': ' + row[ik] });
+      }
+    }
+    rows.sort(function(a,b){ return a.k < b.k ? -1 : a.k > b.k ? 1 : 0; });
+    if (rows.length) notesTxt = '\n\n【備考一覧】\n' + rows.map(function(r){ return r.text; }).join('\n');
+  }
+  const supportTxt = (casesTxt + notesTxt) || '（記録なし）';
+  html += '<table class="ssp-main ssp-support"><tbody><tr><th>支援内容及び<br>利用者の状況</th><td>' + _ssEsc(supportTxt) + '</td></tr></tbody></table>';
+
+  // フッター
+  html += '<div class="ssp-footer">'
+    + '<span>利用者名: <b>' + _ssEsc(userName || '-') + '</b> 様</span>'
+    + '<span>No.___________</span>'
+    + '</div>';
+  return html;
+}
+
 window.ssPrint = function() {
   if (!_shortstayEditCtx) { showToast('編集対象がありません'); return; }
+  const host = document.getElementById('ss-print-view');
+  if (!host) { showToast('印刷ビューが見つかりません'); return; }
+  const d = _shortstayEditCtx.data || {};
+  const userName = _shortstayEditCtx.userName || (d.userName || '');
+  host.innerHTML = ssGeneratePrintHtml(d, userName);
   document.body.classList.add('ss-printing');
-  // afterprint で自動解除（ダイアログを閉じた後）
   const cleanup = function() {
     document.body.classList.remove('ss-printing');
     window.removeEventListener('afterprint', cleanup);
+    host.innerHTML = '';
   };
   window.addEventListener('afterprint', cleanup);
-  setTimeout(function(){ window.print(); }, 50);
+  setTimeout(function(){ window.print(); }, 80);
 };
 
 // --- 保存 (#A-6: 決定論的 docId + createdAt/updatedAt/updatedBy 管理) ---
@@ -7460,5 +7621,7 @@ onSnapshot(doc(db, 'master_current', 'current'), snap => {
       </div>
     </div>
   </div>
+  <!-- #A-7.1: 印刷用 DOM（画面では display:none、body.ss-printing 時のみ表示） -->
+  <div id="ss-print-view"></div>
 </body>
 </html>
