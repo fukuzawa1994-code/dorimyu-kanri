@@ -5428,7 +5428,13 @@ function ssBuildStandalonePrintDoc(bodyHtml, userName, titleDate) {
     '<div class="ssp-toolbar-help">自動で印刷ダイアログが開かない場合は上のボタンをタップしてください。<br>iPhone の場合は画面右上の「共有」→「プリント」でも印刷できます。</div>' +
     '</div>' +
     bodyHtml +
-    '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.print();}catch(e){}},500);});<\/script>' +
+    // #A-8.2: iOS Safari は自動 print で親タブのコンテキストが混在する既知不具合があるため、
+    //          iOS Safari のみ手動タップ起動に限定。他ブラウザは従来通り自動起動。
+    '<script>window.addEventListener("load",function(){' +
+      'var ua=navigator.userAgent||"";' +
+      'var isIOSSafari=/iPad|iPhone|iPod/.test(ua)&&/Safari/.test(ua)&&!/CriOS|FxiOS|EdgiOS/.test(ua);' +
+      'if(!isIOSSafari){setTimeout(function(){try{window.print();}catch(e){}},500);}' +
+    '});<\/script>' +
     '<\/body><\/html>';
 }
 
@@ -5445,27 +5451,29 @@ window.ssPrint = function() {
   const d = _shortstayEditCtx.data || {};
   const userName = _shortstayEditCtx.userName || (d.userName || '');
   const bodyHtml = ssGeneratePrintHtml(d, userName);
+  const docHtml = ssBuildStandalonePrintDoc(bodyHtml, userName, d.startDate || '');
 
-  if (ssIsIOS()) {
-    // iOS: 新ウィンドウ方式。window.open はタップ同期で呼ぶ（ポップアップブロック回避）
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('ポップアップがブロックされました。\nSafari の設定で「ポップアップブロック」をオフにするか、画面右上のメニューから「ポップアップを許可」してください。');
-      return;
-    }
-    const docHtml = ssBuildStandalonePrintDoc(bodyHtml, userName, d.startDate || '');
+  // #A-8.2: PC/iOS 共に新ウィンドウ方式で統一。window.open はタップ同期で呼ぶ
+  let printWin = null;
+  try { printWin = window.open('', '_blank'); } catch (e) { printWin = null; }
+
+  if (printWin) {
     try {
       printWin.document.open();
       printWin.document.write(docHtml);
       printWin.document.close();
     } catch (e) {
-      console.error('ssPrint iOS window write failed:', e);
+      console.error('ssPrint write failed:', e);
       showToast('印刷ウィンドウ作成失敗: ' + (e.message || e));
     }
     return;
   }
 
-  // PC: 従来の #ss-print-view 注入方式
+  // ポップアップブロック時: iOS は案内のみ、PC は従来の #ss-print-view 経路でフォールバック
+  if (ssIsIOS()) {
+    alert('ポップアップがブロックされました。\nSafari の設定で「ポップアップブロック」をオフにしてください。\n（設定 → Safari → ポップアップブロック をオフ）');
+    return;
+  }
   const host = document.getElementById('ss-print-view');
   if (!host) { showToast('印刷ビューが見つかりません'); return; }
   host.innerHTML = bodyHtml;
