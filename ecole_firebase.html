@@ -4327,6 +4327,40 @@ const SHORTSTAY_HEALTH_CHIPS = ['発作なし','発作あり','ぐっすり'];
 // Phase2 A-1: 書類仕様の新フィールド（トップレベル）
 const SHORTSTAY_BELONGINGS_V2 = ['受給者証','実費票確認印','持ち物チェック表','フェイスシート'];
 const SHORTSTAY_MED_TIMES = ['朝前','朝後','昼前','昼後','夕前','夕後','就寝前'];
+// Phase2 A-8: 食事の時間定義（自動判定用、分単位）
+const SS_MEAL_DEFS = [
+  { type:'breakfast', label:'朝食', startMin: 6*60,  endMin: 9*60 },
+  { type:'lunch',     label:'昼食', startMin: 11*60, endMin: 13*60+30 },
+  { type:'dinner',    label:'夕食', startMin: 17*60, endMin: 19*60+30 }
+];
+// 利用期間内に含まれる食事を自動判定（配列: {date, type, label}）
+function ssCalcMealsNeeded(startDate, endDate, entryTime, exitTime) {
+  if (!startDate || !endDate || !entryTime || !exitTime) return [];
+  const entryMin = ssTimeToMinutes(entryTime);
+  const exitMin  = ssTimeToMinutes(exitTime);
+  const [y0,mo0,d0] = startDate.split('-').map(function(x){ return parseInt(x,10); });
+  const [y1,mo1,d1] = endDate.split('-').map(function(x){ return parseInt(x,10); });
+  if (isNaN(y0) || isNaN(y1)) return [];
+  const date0 = new Date(y0, mo0-1, d0);
+  const date1 = new Date(y1, mo1-1, d1);
+  const dayDiff = Math.round((date1 - date0) / 86400000);
+  if (isNaN(dayDiff) || dayDiff < 0 || dayDiff > 31) return [];
+  const exitAbsMin = dayDiff * 1440 + exitMin;
+  if (exitAbsMin <= entryMin) return [];
+  const out = [];
+  for (let i = 0; i <= dayDiff; i++) {
+    const dayDate = ssAddDays(startDate, i);
+    const dayStart = i * 1440;
+    for (const md of SS_MEAL_DEFS) {
+      const ms = dayStart + md.startMin;
+      const me = dayStart + md.endMin;
+      if (me > entryMin && ms < exitAbsMin) {
+        out.push({ date: dayDate, type: md.type, label: md.label });
+      }
+    }
+  }
+  return out;
+}
 // #A-2: 支援記録マトリクスの 8 項目（縦軸固定）
 const SS_MATRIX_ITEMS = [
   { key:'kishou',   label:'起床・就寝' },
@@ -4662,7 +4696,10 @@ function shortstayDefaultData(user) {
     stay: { startDate: today(), endDate: today(), checkInTime:'17:00', checkOutTime:'09:00', checkInTransport:'すたぁと', checkOutTransport:'他', overnight:true, daytime:false },
     medicationConfig: { 朝:{enabled:false,timing:'前'}, 昼:{enabled:false,timing:'前'}, 夕:{enabled:false,timing:'前'}, 就寝前:{enabled:false}, その他:{enabled:false,note:''} },
     supportRecords: sr,
-    meals: { 昼食:{menu:'',appetite:''}, 夕食:{menu:'',appetite:''}, 朝食:{menu:'',appetite:''}, おやつ:'' },
+    // #A-8: 食事は配列化、おやつ/体重 はトップレベルへ
+    meals: [],
+    snack: '',
+    weight: '',
     individualGoal: '',
     caseEntries: [],
     aiSummary: { draft:'', confirmed:'', confirmedAt:null, confirmedBy:'' }
@@ -4707,6 +4744,47 @@ function shortstayNormalizeData(d) {
   if (!d.matrix     || typeof d.matrix     !== 'object') d.matrix = {};
   if (!d.cellNotes  || typeof d.cellNotes  !== 'object') d.cellNotes = {};
   if (!Array.isArray(d.caseEntries)) d.caseEntries = [];
+  // #A-8: 体重・おやつ・食事（配列形式）への正規化
+  if (typeof d.weight !== 'string' && typeof d.weight !== 'number') d.weight = '';
+  if (typeof d.weight === 'number') d.weight = String(d.weight);
+  if (typeof d.snack !== 'string') d.snack = '';
+  // 旧 meals (オブジェクト形式) → 新 meals (配列) + snack にマイグレーション
+  if (!Array.isArray(d.meals)) {
+    const old = (d.meals && typeof d.meals === 'object') ? d.meals : {};
+    // おやつ/snack 抽出
+    if (!d.snack) {
+      d.snack = (typeof old['おやつ'] === 'string' ? old['おやつ'] : '') ||
+                (typeof old.snack     === 'string' ? old.snack     : '') || '';
+    }
+    const arr = [];
+    const typeMap = [
+      { jp:'朝食', en:'breakfast' },
+      { jp:'昼食', en:'lunch' },
+      { jp:'夕食', en:'dinner' }
+    ];
+    for (const tm of typeMap) {
+      const entry = old[tm.jp] || old[tm.en];
+      if (entry && (entry.menu || entry.appetite || entry.status)) {
+        arr.push({
+          date: d.startDate || '',
+          type: tm.en,
+          menu: entry.menu || '',
+          status: entry.status || entry.appetite || ''
+        });
+      }
+    }
+    d.meals = arr;
+  } else {
+    // 既に配列形式。要素の形を整える
+    d.meals = d.meals.filter(function(m){ return m && typeof m === 'object'; }).map(function(m){
+      return {
+        date: m.date || '',
+        type: m.type || '',
+        menu: m.menu || '',
+        status: m.status || m.appetite || ''
+      };
+    });
+  }
   return d;
 }
 
@@ -4824,6 +4902,8 @@ window.renderShortstayEdit = function() {
   html += '<div class="ksec-hd">基本情報</div><div class="fsec">';
   html += '<div class="frow"><span class="flbl">利用者</span><span style="font-size:14px;font-weight:700;color:var(--purple)">' + ctx.userName + '</span></div>';
   html += '<div class="frow"><span class="flbl">記録者</span><span style="font-size:13px;color:var(--text)">' + (d.recordedBy || currentStaff || '-') + '</span></div>';
+  // #A-8: 体重（kg、小数1位）
+  html += '<div class="frow"><span class="flbl">体重 (kg)</span><input type="number" step="0.1" min="0" max="300" placeholder="例: 52.3" value="' + (d.weight || '').toString().replace(/"/g,'&quot;') + '" onchange="ssSet(\'weight\',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:120px"/></div>';
   // ① 利用年月日
   html += '<div class="frow"><span class="flbl">開始日</span><input type="date" onchange="ssOnStartDateChange(this.value)" value="' + (d.startDate || '') + '" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>';
   html += '<div class="frow"><span class="flbl">終了日</span><input type="date" onchange="ssOnEndDateChange(this.value)" value="' + (d.endDate || '') + '" min="' + (d.startDate || '') + '" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>';
@@ -4987,16 +5067,27 @@ window.renderShortstayEdit = function() {
     html += '</div>';
   }
 
-  // 食事
+  // 食事 — #A-8: 利用時間帯に応じて動的生成
   html += '<div class="ksec-hd" style="margin-top:12px">食事</div><div class="fsec">';
-  for (const m of ['昼食','夕食','朝食']) {
-    const mr = d.meals[m] || { menu:'', appetite:'' };
-    html += '<span class="tog-label">' + m + '</span>'
-      + '<input type="text" placeholder="献立" value="' + (mr.menu || '').replace(/"/g,'&quot;') + '" onchange="ssSet(\'meals.' + m + '.menu\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:13px;box-sizing:border-box"/>'
-      + '<div class="togrow" style="margin-bottom:8px">' + SHORTSTAY_APPETITES.map(function(a){ return chip('meals.' + m + '.appetite', a, mr.appetite===a); }).join('') + '</div>';
+  const neededMeals = ssCalcMealsNeeded(d.startDate, d.endDate, d.entryTime, d.exitTime);
+  if (!Array.isArray(d.meals)) d.meals = [];
+  if (!neededMeals.length) {
+    html += '<div style="padding:14px;text-align:center;color:var(--text-sub);font-size:12px">利用時間から食事は不要または未入力です</div>';
+  } else {
+    for (const nm of neededMeals) {
+      const existing = d.meals.find(function(m){ return m.date === nm.date && m.type === nm.type; }) || { menu:'', status:'' };
+      const headerLabel = nm.label + '（' + ssFormatDateJp(nm.date) + '）';
+      html += '<span class="tog-label">' + headerLabel + '</span>'
+        + '<input type="text" placeholder="献立" value="' + (existing.menu || '').replace(/"/g,'&quot;') + '" onchange="ssOnMealMenuChange(\'' + nm.date + '\',\'' + nm.type + '\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:13px;box-sizing:border-box"/>'
+        + '<div class="togrow" style="margin-bottom:8px">'
+        + SHORTSTAY_APPETITES.map(function(a){
+            return '<div class="tog' + (existing.status===a?' son':'') + '" onclick="ssOnMealStatusChange(\'' + nm.date + '\',\'' + nm.type + '\',\'' + a + '\',this)">' + a + '</div>';
+          }).join('')
+        + '</div>';
+    }
   }
   html += '<span class="tog-label">おやつ</span>'
-    + '<input type="text" value="' + (d.meals.おやつ || '').replace(/"/g,'&quot;') + '" onchange="ssSet(\'meals.おやつ\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box"/>';
+    + '<input type="text" value="' + (d.snack || '').replace(/"/g,'&quot;') + '" onchange="ssSet(\'snack\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box"/>';
   html += '</div>';
 
   // 個別目標
@@ -5092,6 +5183,27 @@ window.ssOnExitTimeChange = function(value) {
   _shortstayEditCtx.data.exitTime = value;
   renderShortstayEdit();
 };
+// #A-8: 食事（配列形式）操作ハンドラ
+function _ssFindOrCreateMeal(date, type) {
+  if (!_shortstayEditCtx) return null;
+  const d = _shortstayEditCtx.data;
+  if (!Array.isArray(d.meals)) d.meals = [];
+  let m = d.meals.find(function(x){ return x.date === date && x.type === type; });
+  if (!m) { m = { date: date, type: type, menu: '', status: '' }; d.meals.push(m); }
+  return m;
+}
+window.ssOnMealMenuChange = function(date, type, value) {
+  const m = _ssFindOrCreateMeal(date, type);
+  if (m) m.menu = value;
+};
+window.ssOnMealStatusChange = function(date, type, status, el) {
+  const m = _ssFindOrCreateMeal(date, type);
+  if (!m) return;
+  m.status = status;
+  const row = el.closest('.togrow');
+  if (row) row.querySelectorAll('.tog').forEach(function(t){ t.classList.remove('son'); });
+  el.classList.add('son');
+};
 // A-1: 服薬 有/無 ラジオ変更時
 window.ssOnMedEnabled = function(val) {
   if (!_shortstayEditCtx) return;
@@ -5172,7 +5284,7 @@ function ssGeneratePrintHtml(d, userName) {
   // メタ表
   html += '<table class="ssp-main"><tbody>';
   html += '<tr><th>利用年月日</th><td>' + _ssEsc(dateRange) + '</td></tr>';
-  html += '<tr><th>利用時間</th><td>入所: ' + _ssEsc(d.entryTime || '-') + '　退所: ' + _ssEsc(d.exitTime || '-') + '　記入者: ' + _ssEsc(recorderName || '-') + '</td></tr>';
+  html += '<tr><th>利用時間</th><td>入所: ' + _ssEsc(d.entryTime || '-') + '　退所: ' + _ssEsc(d.exitTime || '-') + '　記入者: ' + _ssEsc(recorderName || '-') + (d.weight ? ('　体重: ' + _ssEsc(d.weight) + 'kg') : '') + '</td></tr>';
   html += '<tr><th>送迎・区分</th><td>'
     + '入所: ' + chk(transportIn === 'すたぁと') + 'すたぁと ' + chk(transportIn === '他') + '他　'
     + '退所: ' + chk(transportOut === 'すたぁと') + 'すたぁと ' + chk(transportOut === '他') + '他　　'
@@ -5220,14 +5332,24 @@ function ssGeneratePrintHtml(d, userName) {
     }
   }
 
-  // 食事
-  const meals = d.meals || {};
+  // 食事 — #A-8: 利用時間帯から動的に
+  const neededPrint = ssCalcMealsNeeded(d.startDate, d.endDate, d.entryTime, d.exitTime);
+  const mealArr = Array.isArray(d.meals) ? d.meals : [];
+  const mealByKey = {};
+  mealArr.forEach(function(m){ if (m && m.date && m.type) mealByKey[m.date + '_' + m.type] = m; });
   html += '<table class="ssp-main ssp-meals"><tbody>';
-  for (const mkey of ['昼食','夕食','朝食']) {
-    const m = meals[mkey] || {};
-    html += '<tr><th>' + mkey + '</th><td>献立: ' + _ssEsc(m.menu || '') + '</td><th>食欲</th><td>' + _ssEsc(m.appetite || '') + '</td></tr>';
+  if (neededPrint.length) {
+    for (const nm of neededPrint) {
+      const m = mealByKey[nm.date + '_' + nm.type] || { menu:'', status:'' };
+      const dayLabel = _ssEsc(ssFormatDateJp(nm.date));
+      html += '<tr><th>' + _ssEsc(nm.label) + '<br><span style="font-weight:normal;font-size:7pt">' + dayLabel + '</span></th>'
+        + '<td>献立: ' + _ssEsc(m.menu || '') + '</td>'
+        + '<th>食欲</th><td>' + _ssEsc(m.status || '') + '</td></tr>';
+    }
+  } else {
+    html += '<tr><th>食事</th><td colspan="3">（利用時間から食事は該当なし）</td></tr>';
   }
-  html += '<tr><th>おやつ</th><td colspan="3">' + _ssEsc(meals['おやつ'] || '') + '</td></tr>';
+  html += '<tr><th>おやつ</th><td colspan="3">' + _ssEsc(d.snack || '') + '</td></tr>';
   html += '</tbody></table>';
 
   // 個人目標
