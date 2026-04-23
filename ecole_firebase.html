@@ -4361,6 +4361,15 @@ function ssCalcTotalHours(startDate, endDate, entryTime, exitTime) {
   if (dayDiff === 0) return Math.max(0, exitH - entryH);
   return (24 - entryH) + (dayDiff - 1) * 24 + exitH;
 }
+// #A-2.2: "HH:MM" を分単位 (int) に変換
+function ssTimeToMinutes(t) {
+  if (!t || typeof t !== 'string') return 0;
+  const parts = t.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1] || '0', 10);
+  if (isNaN(h) || isNaN(m)) return 0;
+  return h * 60 + m;
+}
 // #A-2.1: 入力バリデーション（type='prompt'=軽案内 / 'error'=赤警告）
 function ssValidateDateRange(startDate, endDate, entryTime, exitTime) {
   if (!startDate) return { ok:false, type:'prompt', msg:'開始日を入力してください' };
@@ -4369,7 +4378,8 @@ function ssValidateDateRange(startDate, endDate, entryTime, exitTime) {
   if (!exitTime)  return { ok:false, type:'prompt', msg:'退所時刻を選択してください' };
   if (endDate < startDate) return { ok:false, type:'error', msg:'終了日は開始日以降を選択してください' };
   if (startDate === endDate) {
-    if (exitTime <= entryTime) return { ok:false, type:'error', msg:'同日利用の場合、退所時刻は入所時刻より後にしてください' };
+    // #A-2.2: 30分単位対応、分単位での厳密比較
+    if (ssTimeToMinutes(exitTime) <= ssTimeToMinutes(entryTime)) return { ok:false, type:'error', msg:'同日利用の場合、退所時刻は入所時刻より後にしてください' };
   }
   const totalHours = ssCalcTotalHours(startDate, endDate, entryTime, exitTime);
   if (totalHours > 32) return { ok:false, type:'error', msg:'利用時間が長すぎます（' + totalHours + '時間）。最大 32 時間まで対応しています' };
@@ -4561,12 +4571,15 @@ window.renderShortstayEdit = function() {
   // ① 利用年月日
   html += '<div class="frow"><span class="flbl">開始日</span><input type="date" onchange="ssOnStartDateChange(this.value)" value="' + (d.startDate || '') + '" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>';
   html += '<div class="frow"><span class="flbl">終了日</span><input type="date" onchange="ssOnEndDateChange(this.value)" value="' + (d.endDate || '') + '" min="' + (d.startDate || '') + '" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div>';
-  // ② 利用時間（0:00〜23:00 の 24 択プルダウン）
+  // ② 利用時間（#A-2.2: 00:00〜23:30 の 48 択、30分単位）
   const hourOpts = function(sel) {
     let o = '';
     for (let h = 0; h < 24; h++) {
-      const v = (h<10 ? '0'+h : ''+h) + ':00';
-      o += '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + v + '</option>';
+      const hs = h<10 ? '0'+h : ''+h;
+      for (const mm of ['00','30']) {
+        const v = hs + ':' + mm;
+        o += '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + v + '</option>';
+      }
     }
     return o;
   };
@@ -4636,7 +4649,11 @@ window.renderShortstayEdit = function() {
       + '</div>';
   } else {
     html += '<div style="font-size:11px;color:var(--text-sub);padding:0 2px 6px">全 ' + sections.length + ' 日・セル入力は A-3 で実装予定</div>';
-    for (const sec of sections) {
+    // #A-2.2: 30 分単位の入退所時の端セル補助表示
+    const entryMin = parseInt((d.entryTime||'').split(':')[1] || '0', 10);
+    const exitMin  = parseInt((d.exitTime ||'').split(':')[1] || '0', 10);
+    for (let si = 0; si < sections.length; si++) {
+      const sec = sections[si];
       html += '<div style="margin-bottom:12px;border:0.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff">'
         + '<div style="padding:8px 12px;background:#F8F6FF;font-size:12px;font-weight:700;color:var(--purple);border-bottom:0.5px solid var(--border)">' + ssFormatSectionHeader(sec.date) + '</div>'
         + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative">'
@@ -4644,8 +4661,14 @@ window.renderShortstayEdit = function() {
       // 時刻ヘッダー
       html += '<thead><tr>'
         + '<th style="position:sticky;left:0;background:#F8F6FF;z-index:2;min-width:88px;padding:6px 8px;border-right:1px solid var(--border);border-bottom:0.5px solid var(--border);font-weight:600;color:#666;text-align:left">時刻 →</th>';
-      for (const h of sec.hours) {
-        html += '<th style="min-width:44px;padding:6px 4px;border-bottom:0.5px solid var(--border);border-right:0.5px solid #F2F2F7;font-weight:600;color:#666;text-align:center">' + (h<10?('0'+h):h) + '</th>';
+      for (let hi = 0; hi < sec.hours.length; hi++) {
+        const h = sec.hours[hi];
+        const isFirstCell = (si === 0 && hi === 0);
+        const isLastCell  = (si === sections.length - 1 && hi === sec.hours.length - 1);
+        let hintHtml = '';
+        if (isFirstCell && entryMin !== 0) hintHtml = '<div style="font-size:9px;color:#8E8E93;font-weight:400;margin-top:2px;white-space:nowrap">(' + d.entryTime + '〜)</div>';
+        else if (isLastCell && exitMin !== 0) hintHtml = '<div style="font-size:9px;color:#8E8E93;font-weight:400;margin-top:2px;white-space:nowrap">〜' + d.exitTime + '</div>';
+        html += '<th style="min-width:44px;padding:6px 4px;border-bottom:0.5px solid var(--border);border-right:0.5px solid #F2F2F7;font-weight:600;color:#666;text-align:center">' + (h<10?('0'+h):h) + hintHtml + '</th>';
       }
       html += '</tr></thead><tbody>';
       // 項目行 × 8
