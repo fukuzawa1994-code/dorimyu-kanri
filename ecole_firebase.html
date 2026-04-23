@@ -1152,6 +1152,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-shortstay" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-shortstay-hist" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-hist-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-shortstay-edit" style="padding-bottom:120px;overflow-y:auto"><div id="shortstay-edit-body"><div class="loading">読み込み中...</div></div><div class="vac-cta-fixed ss-screen-only" style="display:flex;gap:8px;padding:8px 12px"><button class="sbtn" style="flex:2" onclick="doShortstayPublicSave()">保存する</button><button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="ssPrint()"><i data-lucide="printer"></i> 印刷</button></div></div>
+    <div class="scr" id="scr-cashbook" style="padding-bottom:100px;overflow-y:auto"><div id="cashbook-body"><div class="loading">読み込み中...</div></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
 
@@ -1298,14 +1299,16 @@ const scrTitles = {
   kyushoku: '給食管理', absence: '欠席一覧', distance: '走行距離',
   case: 'ケース記録', purchase: '購入申請', admin: 'アカウント管理', vacation: '休暇申請', startkyushoku: 'すたぁと給食連絡',
     inspection: '車両点検', alcohol: 'アルコールチェック', master: 'マスター一覧',
-    shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録'
+    shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録',
+    cashbook: 'ぱぁとなぁ金銭出納帳'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
   kyushoku: '給食数確認', absence: '欠席・遅刻・早退',
   distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理', admin: '職員アカウント管理', vacation: '休暇・送迎自動除外', startkyushoku: 'レストラン連絡',
     inspection: '月次点検記録', alcohol: '朝夕測定値', master: '登録データ確認',
-    shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集'
+    shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集',
+    cashbook: '紬/ひまわり/事務費'
 };
 
 // ── ユーティリティ ──
@@ -1448,7 +1451,7 @@ window.getStaffAffiliation = getStaffAffiliation;
 window.goScr = function(s) {
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -1477,6 +1480,7 @@ window.goScr = function(s) {
   if (s==='shortstay')      renderShortstayList();
   if (s==='shortstay-hist') renderShortstayHist();
   if (s==='shortstay-edit') renderShortstayEdit();
+  if (s==='cashbook')       renderCashbook();
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
@@ -3234,6 +3238,7 @@ window.showSubMenu = function(type) {
       { icon: 'list', label: 'マスター一覧', action: "goScr('master')" },
       { icon: 'file-text', label: 'すたぁと給食連絡', action: "goScr('startkyushoku')" },
       { icon: 'home', label: 'すたぁと短期入所記録', action: "goScr('shortstay')" },
+      { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
@@ -5525,6 +5530,324 @@ window.doShortstayPublicSave = async function() {
   } catch (e) {
     console.error('shortstay save failed:', e);
     showToast('保存失敗: ' + (e.message || e));
+  }
+};
+
+// ═══ ぱぁとなぁ 金銭出納帳 ═══
+const CB_HOMES = ['紬','ひまわり','事務費'];
+const CB_CATEGORIES = ['給食費','日用品費','消耗器具備品費','雑費','器具什器費','教養娯楽費','修繕費','賃借料'];
+let _cbHome = '紬';
+let _cbYm = null; // 'YYYY-MM'
+let _cbAllEntries = []; // 現 _cbHome の全件キャッシュ
+let _cbEdit = null; // {id, data, mode:'new'|'edit'}
+
+function _cbCurYm() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function _cbFilterMonth(all, ym) {
+  return all.filter(function(e){ return (e.date||'').startsWith(ym); }).sort(function(a,b){
+    if (a.date < b.date) return -1;
+    if (a.date > b.date) return 1;
+    return (a.recordedAt || 0) - (b.recordedAt || 0);
+  });
+}
+function _cbComputeMonthClosing(all, ym) {
+  const entries = _cbFilterMonth(all, ym);
+  let bal = 0;
+  for (const e of entries) bal += (parseInt(e.income)||0) - (parseInt(e.expense)||0);
+  return bal;
+}
+function _cbPrevYm(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+window.renderCashbook = async function() {
+  const body = document.getElementById('cashbook-body');
+  if (!body) return;
+  if (!_cbYm) _cbYm = _cbCurYm();
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'cashbook'), orderBy('date', 'asc')));
+    const all = [];
+    snap.forEach(function(d){
+      const x = d.data();
+      if (x && x.home === _cbHome) all.push(Object.assign({ _id: d.id }, x));
+    });
+    _cbAllEntries = all;
+    const monthEntries = _cbFilterMonth(all, _cbYm);
+    // 月内の running balance（0 から開始、月ごとに独立）
+    let bal = 0;
+    for (const e of monthEntries) {
+      bal += (parseInt(e.income)||0) - (parseInt(e.expense)||0);
+      e._balance = bal;
+    }
+    const prevClosing = _cbComputeMonthClosing(all, _cbPrevYm(_cbYm));
+    body.innerHTML = _cbRenderHtml(monthEntries, prevClosing);
+    if (window.refreshIcons) window.refreshIcons();
+  } catch (e) {
+    console.error('renderCashbook failed:', e);
+    body.innerHTML = '<div style="color:#FF3B30;padding:14px;font-size:12px">読込失敗: ' + (e.message||e) + '</div>';
+  }
+};
+
+function _cbRenderHtml(entries, prevClosing) {
+  const [yy, mm] = _cbYm.split('-').map(Number);
+  const incomeSum = entries.reduce(function(s,e){ return s + (parseInt(e.income)||0); }, 0);
+  const expenseSum = entries.reduce(function(s,e){ return s + (parseInt(e.expense)||0); }, 0);
+  const closingBal = entries.length ? entries[entries.length-1]._balance : 0;
+  let html = '';
+  // ホームタブ（ptab 流用）
+  html += '<div class="ptabs" style="display:flex;gap:4px;padding:8px 12px 0">';
+  for (const h of CB_HOMES) {
+    html += '<div class="ptab' + (_cbHome===h?' on':'') + '" onclick="cbSetHome(\'' + h + '\')" style="flex:1;text-align:center">' + h + '</div>';
+  }
+  html += '</div>';
+  // 月切替 + アクションボタン
+  html += '<div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  html += '<div style="display:flex;align-items:center;gap:6px">'
+    + '<button onclick="cbMonthMove(-1)" style="width:36px;height:36px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:16px">＜</button>'
+    + '<span style="font-size:15px;font-weight:700;min-width:110px;text-align:center">' + yy + '年' + mm + '月分</span>'
+    + '<button onclick="cbMonthMove(1)"  style="width:36px;height:36px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:16px">＞</button>'
+    + '</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<button onclick="cbOpenEditor(null)" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規入力</button>'
+    + '<button onclick="cbCarryOver()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer"><i data-lucide="calendar"></i> 月繰越</button>'
+    + '</div></div>';
+  // 前月残高参考表示
+  html += '<div style="padding:4px 14px;font-size:11px;color:var(--text-sub)">前月末残高（参考）: <b style="color:var(--text)">' + prevClosing.toLocaleString() + '</b> 円</div>';
+  // テーブル
+  if (!entries.length) {
+    html += '<div style="padding:36px 12px;text-align:center;color:var(--text-sub);font-size:12px">記録はありません。「+ 新規入力」または「月繰越」から始めてください</div>';
+  } else {
+    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 12px;border:0.5px solid var(--border);border-radius:8px;background:#fff">';
+    html += '<table style="border-collapse:collapse;width:100%;min-width:640px;font-size:11px">';
+    html += '<thead><tr style="background:#F8F6FF;color:#666">'
+      + '<th style="padding:8px;text-align:left;white-space:nowrap;border-bottom:0.5px solid #ddd">月/日</th>'
+      + '<th style="padding:8px;text-align:left;white-space:nowrap;border-bottom:0.5px solid #ddd">科目</th>'
+      + '<th style="padding:8px;text-align:left;border-bottom:0.5px solid #ddd">摘要</th>'
+      + '<th style="padding:8px;text-align:left;white-space:nowrap;border-bottom:0.5px solid #ddd">仕入先</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">収入</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">支出</th>'
+      + '<th style="padding:8px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #ddd">残高</th>'
+      + '</tr></thead><tbody>';
+    for (const e of entries) {
+      const parts = (e.date||'').split('-');
+      const dlabel = (parseInt(parts[1])||0) + '/' + (parseInt(parts[2])||0);
+      const income = parseInt(e.income) || 0;
+      const expense = parseInt(e.expense) || 0;
+      const safeDesc = (e.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const safeSup = (e.supplier || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const catCell = e.isCarryOver ? '<span style="color:var(--purple);font-weight:600">繰越</span>' : (e.category || '');
+      html += '<tr onclick="cbOpenEditor(\'' + e._id + '\')" style="cursor:pointer;border-bottom:0.5px solid #eee">'
+        + '<td style="padding:6px 8px;white-space:nowrap">' + dlabel + '</td>'
+        + '<td style="padding:6px 8px;white-space:nowrap">' + catCell + '</td>'
+        + '<td style="padding:6px 8px">' + safeDesc + '</td>'
+        + '<td style="padding:6px 8px;white-space:nowrap;color:#666">' + safeSup + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#0288D1">' + (income ? income.toLocaleString() : '') + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#C53030">' + (expense ? expense.toLocaleString() : '') + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:700">' + (e._balance||0).toLocaleString() + '</td>'
+        + '</tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+  // 月末合計
+  html += '<div style="margin:10px 12px;padding:12px 14px;background:#F8F6FF;border-radius:10px;font-size:13px">'
+    + '<div style="display:flex;justify-content:space-between"><span>当月収入合計:</span><b>' + incomeSum.toLocaleString() + ' 円</b></div>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:4px"><span>当月支出合計:</span><b>' + expenseSum.toLocaleString() + ' 円</b></div>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border);font-weight:700;color:var(--purple)"><span>月末残高:</span><b>' + closingBal.toLocaleString() + ' 円</b></div>'
+    + '</div>';
+  return html;
+}
+
+window.cbSetHome = function(h) {
+  if (CB_HOMES.indexOf(h) < 0) return;
+  _cbHome = h;
+  renderCashbook();
+};
+window.cbMonthMove = function(delta) {
+  const [y, m] = _cbYm.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _cbYm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  renderCashbook();
+};
+
+window.cbOpenEditor = function(id) {
+  let data;
+  let mode = 'new';
+  if (id) {
+    const existing = _cbAllEntries.find(function(e){ return e._id === id; });
+    if (!existing) { showToast('エントリが見つかりません'); return; }
+    data = JSON.parse(JSON.stringify(existing));
+    delete data._balance;
+    mode = 'edit';
+  } else {
+    const today = new Date();
+    const [yy, mm] = _cbYm.split('-').map(Number);
+    const curY = today.getFullYear(), curM = today.getMonth()+1, curD = today.getDate();
+    const dateStr = (yy === curY && mm === curM) ? _cbYm + '-' + String(curD).padStart(2,'0') : _cbYm + '-01';
+    data = {
+      home: _cbHome,
+      date: dateStr,
+      category: '',
+      description: '',
+      supplier: '',
+      income: '',
+      expense: '',
+      isCarryOver: false
+    };
+  }
+  _cbEdit = { id: id, data: data, mode: mode };
+  _cbRenderEditor();
+};
+
+function _cbRenderEditor() {
+  if (!_cbEdit) return;
+  const d = _cbEdit.data;
+  const existing = document.getElementById('cb-editor-bg');
+  if (existing) existing.remove();
+  const isAdmin = currentUser && currentUser.role >= 3;
+  let catOpts = '<option value="">選択してください</option>';
+  for (const c of CB_CATEGORIES) {
+    catOpts += '<option value="' + c + '"' + (d.category === c ? ' selected' : '') + '>' + c + '</option>';
+  }
+  const title = _cbEdit.mode === 'new' ? '新規入力' : '編集';
+  const deleteBtnHtml = (_cbEdit.mode === 'edit' && isAdmin)
+    ? '<button onclick="cbDelete()" style="width:100%;margin-top:8px;padding:10px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:10px;font-weight:600;cursor:pointer">この記録を削除（管理者のみ）</button>'
+    : '';
+  const safeDesc = (d.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const safeSup = (d.supplier || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const wrap = document.createElement('div');
+  wrap.id = 'cb-editor-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:22px 22px 0 0;width:100%;max-width:460px;max-height:92vh;display:flex;flex-direction:column">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:0.5px solid var(--border)">'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:var(--text-sub)">' + d.home + ' 金銭出納帳' + (d.isCarryOver?'・繰越':'') + '</div>'
+    +     '<div style="font-size:15px;font-weight:700">' + title + '</div>'
+    +   '</div>'
+    +   '<button onclick="cbCloseEditor()" class="close-btn">×</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:10px 16px">'
+    +   '<div class="frow"><span class="flbl">年月日</span><input type="date" id="cb-f-date" value="' + (d.date || '') + '" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right"/></div>'
+    +   '<div class="frow"><span class="flbl">科目</span><select id="cb-f-category" style="font-size:13px;border:none;background:transparent;outline:none">' + catOpts + '</select></div>'
+    +   '<div style="margin-top:8px"><label style="font-size:12px;color:var(--text-sub);display:block;margin-bottom:4px">摘要（品名等）</label><input type="text" id="cb-f-description" value="' + safeDesc + '" placeholder="例: ラーメン、サラダ 他" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box"/></div>'
+    +   '<div style="margin-top:8px"><label style="font-size:12px;color:var(--text-sub);display:block;margin-bottom:4px">仕入先（任意）</label><input type="text" id="cb-f-supplier" value="' + safeSup + '" placeholder="例: カツマート" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box"/></div>'
+    +   '<div class="frow" style="margin-top:8px"><span class="flbl">収入金額</span><input type="number" id="cb-f-income" value="' + (d.income||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
+    +   '<div class="frow"><span class="flbl">支払金額</span><input type="number" id="cb-f-expense" value="' + (d.expense||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
+    +   '<div style="font-size:10px;color:var(--text-sub);margin-top:6px">※ 収入 or 支払 どちらか必須</div>'
+    +   deleteBtnHtml
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:10px 16px;border-top:0.5px solid var(--border)">'
+    +   '<button onclick="cbCloseEditor()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    +   '<button onclick="cbSaveEditor()" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">保存</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+}
+
+window.cbCloseEditor = function() {
+  _cbEdit = null;
+  const el = document.getElementById('cb-editor-bg');
+  if (el) el.remove();
+};
+
+window.cbSaveEditor = async function() {
+  if (!_cbEdit) return;
+  const d = _cbEdit.data;
+  const dateV = (document.getElementById('cb-f-date') || {}).value || '';
+  const categoryV = (document.getElementById('cb-f-category') || {}).value || '';
+  const descV = (document.getElementById('cb-f-description') || {}).value.trim() || '';
+  const supplierV = (document.getElementById('cb-f-supplier') || {}).value.trim() || '';
+  const incomeV = (document.getElementById('cb-f-income') || {}).value || '';
+  const expenseV = (document.getElementById('cb-f-expense') || {}).value || '';
+  if (!dateV) { showToast('年月日を入力してください'); return; }
+  if (!categoryV && !d.isCarryOver) { showToast('科目を選択してください'); return; }
+  if (!descV) { showToast('摘要を入力してください'); return; }
+  const inc = parseInt(incomeV, 10) || 0;
+  const exp = parseInt(expenseV, 10) || 0;
+  if (inc === 0 && exp === 0) { showToast('収入金額または支払金額を入力してください'); return; }
+  const payload = {
+    home: d.home,
+    date: dateV,
+    category: categoryV,
+    description: descV,
+    supplier: supplierV,
+    income: inc,
+    expense: exp,
+    isCarryOver: !!d.isCarryOver,
+    recordedBy: currentStaff || '-',
+    recordedAt: Date.now()
+  };
+  try {
+    if (_cbEdit.mode === 'new') {
+      await addDoc(collection(db, 'cashbook'), payload);
+      showToast('✓ 記録しました');
+    } else {
+      await updateDoc(doc(db, 'cashbook', _cbEdit.id), payload);
+      showToast('✓ 更新しました');
+    }
+    cbCloseEditor();
+    renderCashbook();
+  } catch (e) {
+    console.error('cbSaveEditor failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+  }
+};
+
+window.cbDelete = async function() {
+  if (!_cbEdit || _cbEdit.mode !== 'edit') return;
+  if (!currentUser || currentUser.role < 3) { showToast('削除権限がありません（管理者のみ）'); return; }
+  if (!confirm('この記録を削除しますか？\nこの操作は元に戻せません。')) return;
+  try {
+    await deleteDoc(doc(db, 'cashbook', _cbEdit.id));
+    showToast('削除しました');
+    cbCloseEditor();
+    renderCashbook();
+  } catch (e) {
+    console.error('cbDelete failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
+  }
+};
+
+window.cbCarryOver = async function() {
+  if (!checkSession()) return;
+  const prevYm = _cbPrevYm(_cbYm);
+  const prevClosing = _cbComputeMonthClosing(_cbAllEntries, prevYm);
+  // 既存の当月繰越行チェック
+  const existing = _cbAllEntries.find(function(e){ return e.isCarryOver && (e.date||'').startsWith(_cbYm); });
+  const prevLabel = prevYm.split('-')[1] + '月分繰越';
+  const msg = '前月末残高（' + prevClosing.toLocaleString() + '円）を繰越行として\n'
+            + _cbYm + '-01 に追加します。\n'
+            + (existing ? '\n既に繰越行があります。上書きします。' : '')
+            + '\nよろしいですか？';
+  if (!confirm(msg)) return;
+  try {
+    const payload = {
+      home: _cbHome,
+      date: _cbYm + '-01',
+      category: '',
+      description: prevLabel,
+      supplier: '',
+      income: prevClosing,
+      expense: 0,
+      isCarryOver: true,
+      recordedBy: currentStaff || '-',
+      recordedAt: Date.now()
+    };
+    if (existing) {
+      await updateDoc(doc(db, 'cashbook', existing._id), payload);
+    } else {
+      await addDoc(collection(db, 'cashbook'), payload);
+    }
+    showToast('✓ 繰越行を追加しました');
+    renderCashbook();
+  } catch (e) {
+    console.error('cbCarryOver failed:', e);
+    showToast('繰越失敗: ' + (e.message || e));
   }
 };
 
