@@ -637,6 +637,62 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .tog-label [data-lucide], .ksec-hd [data-lucide], .sec [data-lucide] { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
 [data-lucide] + span, [data-lucide] + b { margin-left: 4px; }
 
+/* ═══ PC レイアウト対応: 左サイドバー + 広メインエリア (1024px 以上) ═══ */
+@media (min-width: 1024px) {
+  /* コンテナ: max-width 解除、左にサイドバー分の余白 */
+  #app {
+    max-width: none;
+    padding-left: 88px;
+  }
+  /* 下ナビ → 左サイドバー化 */
+  .bnav {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: 88px;
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    border-top: none;
+    border-right: 1px solid rgba(0,0,0,0.04);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .ni {
+    width: 88px;
+    min-width: 88px;
+    padding: 14px 4px 12px;
+    gap: 3px;
+  }
+  .ni svg { width: 24px; height: 24px; }
+  .ni span { font-size: 10px; letter-spacing: 0; }
+  .ni.on::after { bottom: 6px; }
+  /* ヘッダー: 内側を 1200px で中央寄せ */
+  .header-inner { max-width: 1200px; margin-left: auto; margin-right: auto; }
+  /* 各画面: 1200px で中央寄せ (overflow-y:auto スクロール画面も同居可) */
+  .scr { max-width: 1200px; margin-left: auto; margin-right: auto; }
+  /* メインスクロール領域: 下部の bnav クリアランス不要 */
+  .scroll { padding-bottom: 24px; }
+  /* 休暇申請の固定 CTA: bnav が左にあるので下部クリアランスと中央寄せを PC 用に再計算 */
+  #scr-vacation .vac-cta-fixed {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    left: calc(50% + 44px); /* #app padding-left 88px の半分ぶん中央を右寄せ */
+    transform: translateX(-50%);
+    max-width: 640px;
+  }
+  #scr-vacation .fp { padding-bottom: 140px; }
+  /* FAB: bnav 下部の 76px オフセット不要、右寄せのまま少し内側に */
+  .fab {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    right: 32px;
+  }
+  /* ログイン画面は PC でも中央表示を維持 */
+  #login-screen { max-width: none; }
+}
+
 /* #A-7.1: すたぁと短期入所記録 書類原本レイアウト完全準拠 */
 #ss-print-view { display: none; }
 @media print {
