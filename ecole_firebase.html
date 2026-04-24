@@ -7742,24 +7742,43 @@ function normalizePurchase(p) {
       if (!a) return a;
       return Object.assign({}, a, { name: resolveLegacyApproverName(a.name) });
     });
-    return p;
+  } else {
+    const arr = [];
+    if (p.approver) {
+      arr.push({
+        name: resolveLegacyApproverName(p.approver),
+        approvedAt1: (p.approval1 && p.approval1.at) ? p.approval1.at : null,
+        approvedAt2: (p.approval2 && p.approval2.at) ? p.approval2.at : null
+      });
+    }
+    p.approvers = arr;
   }
-  const arr = [];
-  if (p.approver) {
-    arr.push({
-      name: resolveLegacyApproverName(p.approver),
-      approvedAt1: (p.approval1 && p.approval1.at) ? p.approval1.at : null,
-      approvedAt2: (p.approval2 && p.approval2.at) ? p.approval2.at : null
-    });
+  // #37+#38 追補: 旧 sentBackAt/By (単数形式) → sentBackHistory 配列にマイグレート
+  if (!Array.isArray(p.sentBackHistory)) {
+    p.sentBackHistory = [];
+    if (p.sentBackAt && p.sentBackBy) {
+      p.sentBackHistory.push({
+        by: p.sentBackBy,
+        at: p.sentBackAt,
+        reason: p.sentBackReason || '(旧データ)',
+        atStep: p.step || 1
+      });
+    }
   }
-  p.approvers = arr;
   return p;
 }
-// 計算 status: '却下' / '打診中' / '打診承諾済' / '本申請中' / '完了' / '取り消し'
+// 計算 status: '却下' / '取り消し' / '差戻し中' / '打診中' / '打診承諾済' / '本申請中' / '完了'
 function computePurchaseStatus(p) {
   if (!p) return '';
-  if (p.status === '取り消し') return '取り消し';
+  if (p.status === '取り消し' || p.cancelledAt) return '取り消し';
   if (p.rejectedBy) return '却下';
+  // 差戻し中: sentBackHistory に未解決 (resubmittedAt より後の差戻し) があれば
+  if (Array.isArray(p.sentBackHistory) && p.sentBackHistory.length) {
+    const lastBack = p.sentBackHistory[p.sentBackHistory.length - 1];
+    const lastBackAt = (lastBack && lastBack.at) || 0;
+    const resubAt = p.resubmittedAt || 0;
+    if (lastBackAt > resubAt) return '差戻し中';
+  }
   const approvers = Array.isArray(p.approvers) ? p.approvers : [];
   if (approvers.length === 0) return p.status || '打診中';
   const all1 = approvers.every(function(a){ return a.approvedAt1; });
@@ -7888,7 +7907,7 @@ window.renderPurchaseList = function() {
     body.innerHTML = list.map(p => {
       const approvers = Array.isArray(p.approvers) ? p.approvers : [];
       const st = computePurchaseStatus(p);
-      const statusColor = st==='完了' ? 'var(--green-dark)' : (st==='却下' || st==='取り消し') ? 'var(--red-dark)' : 'var(--amber-dark)';
+      const statusColor = st==='完了' ? 'var(--green-dark)' : (st==='却下' || st==='取り消し') ? 'var(--red-dark)' : st==='差戻し中' ? '#FF9500' : 'var(--amber-dark)';
       const isApplicant = p.applicant === currentStaff;
       const myIdx = approvers.findIndex(function(a){ return a.name === currentStaff; });
       const isMyApprover = myIdx >= 0;
@@ -7899,6 +7918,10 @@ window.renderPurchaseList = function() {
       const canReject = (canApproveStep1 || canApproveStep2);
       const canStep2 = isApplicant && p.step===1 && st==='打診承諾済' && !p.rejectedBy;
       const canEdit = canEditPurchase(p); // 本申請中かつ上司/管理者
+      // 取消(申請者)・差戻し(上司/管理者)・再提出(申請者)
+      const canCancel = isApplicant && !p.cancelledAt && !p.rejectedBy && st !== '取り消し';
+      const canSendBack = currentUser && currentUser.role >= 2 && (st === '打診中' || st === '本申請中') && !p.cancelledAt && !p.rejectedBy;
+      const canResubmit = isApplicant && st === '差戻し中';
       // 承認者進捗行
       const progressItems = approvers.map(function(a){
         const isRejected = p.rejectedBy === a.name;
@@ -7908,6 +7931,15 @@ window.renderPurchaseList = function() {
         return '<span style="color:var(--text-sub)">⏳ ' + a.name + '（待ち）</span>';
       }).join(' / ');
       const rejectedLine = p.rejectedBy ? '<div style="font-size:11px;color:var(--red-dark);margin-top:4px">✕ 拒否: ' + p.rejectedBy + (p.rejectedReason ? '（' + p.rejectedReason + '）' : '') + '</div>' : '';
+      const cancelledLine = p.cancelledAt ? '<div style="font-size:11px;color:var(--text-sub);margin-top:4px">⊘ 取消: ' + (p.cancelledBy||'-') + (p.cancelReason ? '（' + (p.cancelReason).replace(/</g,'&lt;') + '）' : '') + '</div>' : '';
+      // 差戻し中: 最新コメントを目立つ枠で表示
+      let sentBackLine = '';
+      if (st === '差戻し中' && Array.isArray(p.sentBackHistory) && p.sentBackHistory.length) {
+        const last = p.sentBackHistory[p.sentBackHistory.length - 1];
+        const ts = last.at ? new Date(last.at).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+        const safeReason = (last.reason || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        sentBackLine = '<div style="background:#FFF4E5;border:1px solid #FF9500;color:#9A5200;padding:8px 10px;border-radius:8px;margin-top:6px;font-size:11px"><b>↩ 差戻し理由（' + (last.by||'-') + ' / ' + ts + '）</b><br>' + safeReason + '</div>';
+      }
       return `<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:0.5px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <span style="font-size:12px;font-weight:700">${p.applicant} / ${p.date}</span>
@@ -7919,12 +7951,17 @@ window.renderPurchaseList = function() {
         ${!p.itemsV2 && p.purpose ? `<div style="font-size:11px;color:var(--gray-dark);margin-top:4px">${p.purpose}</div>` : ''}
         ${progressItems ? `<div style="font-size:11px;margin-top:6px;line-height:1.6">${progressItems}</div>` : ''}
         ${rejectedLine}
+        ${cancelledLine}
+        ${sentBackLine}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          ${canResubmit ? `<button class="sbtn" style="flex:1;background:var(--purple)" onclick="resubmitPurchase('${p.id}')">🔄 再提出</button>` : ''}
           ${canEdit ? `<button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="openPurchaseEditor('${p.id}')">✏ 編集</button>` : ''}
           ${canApproveStep1 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',1)">打診承諾 <i data-lucide="check-circle-2"></i></button>` : ''}
           ${canApproveStep2 ? `<button class="sbtn" style="flex:1;background:var(--green-dark)" onclick="approvePurchase('${p.id}',2)">本申請承認 <i data-lucide="check-circle-2"></i></button>` : ''}
+          ${canSendBack ? `<button class="sbtn" style="flex:1;background:#fff;color:#9A5200;border:1px solid #FF9500" onclick="sendBackPurchase('${p.id}')">↩ 差戻し</button>` : ''}
           ${canReject ? `<button class="sbtn" style="flex:1;background:var(--red-dark)" onclick="rejectPurchase('${p.id}')">拒否</button>` : ''}
           ${canStep2 ? `<button class="sbtn" style="flex:1" onclick="startStep2('${p.id}')">本申請へ進む →</button>` : ''}
+          ${canCancel ? `<button class="sbtn" style="flex:1;background:#fff;color:#8E8E93;border:1px solid #C7C7CC" onclick="cancelPurchase('${p.id}')">取消</button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -8033,10 +8070,88 @@ window.cancelPurchase = async function(id) {
   if (!snap.exists()) return;
   const p = snap.data();
   if (p.applicant !== currentStaff) { showToast('自分の申請のみ取り消せます'); return; }
-  if (!confirm('この申請を取り消しますか？')) return;
-  await updateDoc(doc(db, 'purchases', id), { status: '取り消し', cancelledAt: Date.now(), cancelledBy: currentStaff });
-  showToast('取り消しました');
-  renderPurchaseList();
+  if (p.cancelledAt) { showToast('既に取り消し済みです'); return; }
+  if (p.rejectedBy) { showToast('却下済みの申請は操作できません'); return; }
+  if (!confirm('この申請を取り消しますか？\n打診中・打診承諾済・本申請中・完了 いずれの段階でも可能ですが、元に戻せません。')) return;
+  const reason = prompt('取り消し理由（任意、空欄可）', '');
+  if (reason === null) return; // prompt キャンセルは中止
+  try {
+    await updateDoc(doc(db, 'purchases', id), {
+      status: '取り消し',
+      cancelledAt: Date.now(),
+      cancelledBy: currentStaff,
+      cancelReason: (reason || '').trim() || null
+    });
+    showToast('取り消しました');
+    renderPurchaseList();
+  } catch (e) {
+    console.error('cancelPurchase failed:', e);
+    showToast('取消失敗: ' + (e.message || e));
+  }
+};
+
+// #差戻し: 上司/管理者(role>=2)が打診中/本申請中の申請を差戻し、コメント必須
+window.sendBackPurchase = async function(id) {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 2) { showToast('差戻し権限がありません（上司または管理者のみ）'); return; }
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) { showToast('申請が見つかりません'); return; }
+  const p = normalizePurchase(snap.data());
+  const st = computePurchaseStatus(p);
+  if (st !== '打診中' && st !== '本申請中') { showToast('このステータスでは差戻しできません'); return; }
+  const reason = prompt('差戻し理由を入力してください（必須、申請者に表示されます）', '');
+  if (reason === null) return;
+  const trimmed = (reason || '').trim();
+  if (!trimmed) { showToast('差戻し理由を入力してください（必須）'); return; }
+  const approvers = (p.approvers || []).slice();
+  const myIdx = approvers.findIndex(function(a){ return a.name === currentStaff; });
+  // 差戻し本人の承認のみクリア（該当ステップ）
+  if (myIdx >= 0) {
+    const field = p.step === 2 ? 'approvedAt2' : 'approvedAt1';
+    approvers[myIdx] = Object.assign({}, approvers[myIdx], { [field]: null });
+  }
+  const history = Array.isArray(p.sentBackHistory) ? p.sentBackHistory.slice() : [];
+  history.push({
+    by: currentStaff,
+    at: Date.now(),
+    reason: trimmed,
+    atStep: p.step || 1
+  });
+  try {
+    await updateDoc(doc(db, 'purchases', id), {
+      approvers: approvers,
+      sentBackHistory: history,
+      resubmittedAt: null,
+      resubmittedBy: null
+    });
+    showToast('↩ 差戻しました');
+    renderPurchaseList();
+  } catch (e) {
+    console.error('sendBackPurchase failed:', e);
+    showToast('差戻し失敗: ' + (e.message || e));
+  }
+};
+
+// #再提出: 差戻し中の申請を申請者が修正完了して再提出（ステップは維持）
+window.resubmitPurchase = async function(id) {
+  if (!checkSession()) return;
+  const snap = await getDoc(doc(db, 'purchases', id));
+  if (!snap.exists()) { showToast('申請が見つかりません'); return; }
+  const p = normalizePurchase(snap.data());
+  if (p.applicant !== currentStaff) { showToast('申請者本人のみ再提出できます'); return; }
+  if (computePurchaseStatus(p) !== '差戻し中') { showToast('差戻し中の申請のみ再提出できます'); return; }
+  if (!confirm('修正を終えて再提出しますか？\n差戻した承認者に再度レビュー依頼されます。')) return;
+  try {
+    await updateDoc(doc(db, 'purchases', id), {
+      resubmittedAt: Date.now(),
+      resubmittedBy: currentStaff
+    });
+    showToast('🔄 再提出しました');
+    renderPurchaseList();
+  } catch (e) {
+    console.error('resubmitPurchase failed:', e);
+    showToast('再提出失敗: ' + (e.message || e));
+  }
 };
 
 // #37+#38: 多人数承認対応
