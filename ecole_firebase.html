@@ -7526,6 +7526,14 @@ window.doCaseSubmit = async function() {
 
 
 // ── 購入申請 ──
+// 打診フォームの原本 HTML をキャッシュ (startStep2 が innerHTML を書き換えるため、復元用に保持)
+let _purchaseFormOriginalHtml = null;
+function _ensurePurchaseFormCached() {
+  if (_purchaseFormOriginalHtml === null) {
+    const area = document.getElementById('purchase-new-area');
+    if (area) _purchaseFormOriginalHtml = area.innerHTML;
+  }
+}
 window.setPurchaseTab = function(tab) {
   document.getElementById('ptab-list').classList.toggle('on', tab==='list');
   document.getElementById('ptab-new').classList.toggle('on', tab==='new');
@@ -7533,6 +7541,12 @@ window.setPurchaseTab = function(tab) {
   document.getElementById('purchase-new-area').style.display = tab==='new' ? 'block' : 'none';
   if (tab==='list') renderPurchaseList();
   if (tab==='new') {
+    // startStep2 で本申請フォームに上書きされた場合、原本の打診フォームを復元
+    _ensurePurchaseFormCached();
+    const area = document.getElementById('purchase-new-area');
+    if (area && !document.getElementById('p-applicant') && _purchaseFormOriginalHtml !== null) {
+      area.innerHTML = _purchaseFormOriginalHtml;
+    }
     document.getElementById('p-applicant').textContent = currentStaff || '未設定';
     document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
     initPurchaseFormListeners();
@@ -7541,6 +7555,7 @@ window.setPurchaseTab = function(tab) {
     // #37+#38: 承認者ピッカー初期化
     _purchaseApprovers = [];
     renderApproverPicker();
+    if (window.refreshIcons) window.refreshIcons();
   }
 }
 
