@@ -192,8 +192,8 @@ html, body {
 }
 .fab-label.show { opacity: 1; transform: translateY(0); }
 
-/* 休暇申請 下固定 CTA + 上部余白詰め + 最下段バッファ確保 */
-#scr-vacation .fp { padding: 0 14px 200px; }
+/* 休暇申請 下固定 CTA + 上部余白詰め + 最下段バッファ確保 (300px: CTA ~118px + bnav 80+safe-area + 余裕) */
+#scr-vacation .fp { padding: 0 14px 300px; }
 #scr-vacation .vac-cta-fixed {
   position: fixed;
   bottom: env(safe-area-inset-bottom, 0px);
