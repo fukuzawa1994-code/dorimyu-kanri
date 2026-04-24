@@ -1238,6 +1238,9 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
           <button class="sbtn" style="width:100%;margin-top:4px" onclick="submitPurchase1()">打診申請を提出</button>
         </div>
       </div>
+
+      <!-- 本申請フォーム (#A-2: 打診フォームと独立、複数申請の並行進行を可能にする) -->
+      <div id="purchase-step2-area" style="display:none"></div>
     </div>
   </div>
 
@@ -7784,29 +7787,22 @@ window.doCaseSubmit = async function() {
 
 
 // ── 購入申請 ──
-// 打診フォームの原本 HTML をキャッシュ (startStep2 が innerHTML を書き換えるため、復元用に保持)
-let _purchaseFormOriginalHtml = null;
-function _ensurePurchaseFormCached() {
-  if (_purchaseFormOriginalHtml === null) {
-    const area = document.getElementById('purchase-new-area');
-    if (area) _purchaseFormOriginalHtml = area.innerHTML;
-  }
-}
+// #A-2: 打診/本申請を独立コンテナで管理。旧 _purchaseFormOriginalHtml キャッシュは不要。
 window.setPurchaseTab = function(tab) {
   document.getElementById('ptab-list').classList.toggle('on', tab==='list');
   document.getElementById('ptab-new').classList.toggle('on', tab==='new');
   document.getElementById('purchase-list-area').style.display = tab==='list' ? 'block' : 'none';
-  document.getElementById('purchase-new-area').style.display = tab==='new' ? 'block' : 'none';
+  document.getElementById('purchase-new-area').style.display  = tab==='new'  ? 'block' : 'none';
+  // 本申請エリアはタブ切替で常に hide (startStep2 の時だけ show)
+  const step2Area = document.getElementById('purchase-step2-area');
+  if (step2Area) { step2Area.style.display = 'none'; step2Area.innerHTML = ''; }
+  _step2Ctx = null;
   if (tab==='list') renderPurchaseList();
   if (tab==='new') {
-    // startStep2 で本申請フォームに上書きされた場合、原本の打診フォームを復元
-    _ensurePurchaseFormCached();
-    const area = document.getElementById('purchase-new-area');
-    if (area && !document.getElementById('p-applicant') && _purchaseFormOriginalHtml !== null) {
-      area.innerHTML = _purchaseFormOriginalHtml;
-    }
+    // 打診フォームは静的 HTML のまま破壊されないので、値のリセットのみ
     document.getElementById('p-applicant').textContent = currentStaff || '未設定';
     document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
+    resetPurchaseForm();
     initPurchaseFormListeners();
     renumberPurchaseItems();
     recalcPurchaseTotal();
@@ -8165,7 +8161,14 @@ window.renderPurchaseList = function() {
     body.innerHTML = list.map(p => {
       const approvers = Array.isArray(p.approvers) ? p.approvers : [];
       const st = computePurchaseStatus(p);
-      const statusColor = st==='完了' ? 'var(--green-dark)' : (st==='却下' || st==='取り消し') ? 'var(--red-dark)' : st==='差戻し中' ? '#FF9500' : 'var(--amber-dark)';
+      // #A-2: ステータス 7 区分で色分け (打診中/本申請中は amber、打診承諾済 purple、完了 green、差戻し orange、却下 red、取消 gray)
+      const statusColor =
+        st==='完了'       ? 'var(--green-dark)' :
+        st==='却下'       ? '#E53935' :
+        st==='取り消し'   ? '#8E8E93' :
+        st==='差戻し中'   ? '#FF9500' :
+        st==='打診承諾済' ? '#5B4FD8' :
+        'var(--amber-dark)'; // 打診中 / 本申請中 / その他
       const isApplicant = p.applicant === currentStaff;
       const myIdx = approvers.findIndex(function(a){ return a.name === currentStaff; });
       const isMyApprover = myIdx >= 0;
@@ -8686,11 +8689,12 @@ window.startStep2 = function(id) {
     }
     if (p.applicant !== currentStaff) { showToast('申請者のみ本申請に進めます'); return; }
     if (p.step !== 1) { showToast('既に本申請済みです'); return; }
-    // 本申請フォームを表示
+    // #A-2: 本申請フォームを step2 専用エリアに表示 (打診フォームは温存)
     document.getElementById('purchase-list-area').style.display = 'none';
-    document.getElementById('purchase-new-area').style.display = 'block';
+    document.getElementById('purchase-new-area').style.display = 'none';
+    document.getElementById('purchase-step2-area').style.display = 'block';
     document.getElementById('ptab-list').classList.remove('on');
-    document.getElementById('ptab-new').classList.add('on');
+    document.getElementById('ptab-new').classList.remove('on');
 
     // state 初期化: 打診時の items をコピー(deep copy)
     const srcItems = Array.isArray(p.items) ? p.items : [];
@@ -8780,7 +8784,7 @@ function renderStep2Form() {
       </div>
       <button class="sbtn" style="width:100%" onclick="submitPurchase2('${ctx.id}')">本申請を提出</button>`;
 
-  document.getElementById('purchase-new-area').innerHTML = step2html;
+  document.getElementById('purchase-step2-area').innerHTML = step2html;
   if (window.refreshIcons) window.refreshIcons();
 }
 
