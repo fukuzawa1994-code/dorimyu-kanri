@@ -8512,8 +8512,12 @@ function renderStep2Form() {
       ${itemsHtml}
       <div class="ksec-hd" style="margin-top:12px">レシート写真</div>
       <div style="margin-bottom:12px">
-        <input type="file" id="step2-receipt" accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
-        <button class="sbtn" onclick="document.getElementById('step2-receipt').click()"><i data-lucide="camera"></i> カメラで撮影</button>
+        <input type="file" id="step2-receipt"     accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
+        <input type="file" id="step2-receipt-lib" accept="image/*" style="display:none" onchange="previewReceipt(this)"/>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="sbtn" style="flex:1;min-width:140px" onclick="document.getElementById('step2-receipt').click()"><i data-lucide="camera"></i> カメラで撮影</button>
+          <button class="sbtn ghost" style="flex:1;min-width:140px;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="document.getElementById('step2-receipt-lib').click()"><i data-lucide="image"></i> 写真を選択</button>
+        </div>
         <div id="receipt-preview-wrap">${receiptPreviewHtml}</div>
       </div>
       <button class="sbtn" style="width:100%" onclick="submitPurchase2('${ctx.id}')">本申請を提出</button>`;
@@ -8558,20 +8562,77 @@ window.s2RemoveReceipt = function() {
   renderStep2Form();
 };
 
-window.previewReceipt = function(input) {
-  if (input.files && input.files[0]) {
+// コミット5: レシート画像を圧縮して Base64 Data URL を返す (最大 maxWidthPx / quality JPEG)
+function compressReceiptImage(file, maxWidthPx, quality) {
+  return new Promise(function(resolve, reject) {
     const reader = new FileReader();
-    reader.onload = e => {
-      if (_step2Ctx) {
-        _step2Ctx.receipt = e.target.result;
-        renderStep2Form();
-      } else {
-        // フォールバック: ctx が無い場合は DOM に反映
-        const img = document.getElementById('receipt-preview');
-        if (img) { img.src = e.target.result; img.style.display = 'block'; }
-      }
+    reader.onerror = function(){ reject(new Error('画像読込失敗')); };
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onerror = function(){ reject(new Error('画像解析失敗')); };
+      img.onload = function() {
+        const mw = maxWidthPx || 1600;
+        const mh = mw; // 最大の幅/高さを揃える(縦長写真も同じ上限)
+        let w = img.width, h = img.height;
+        const scale = Math.min(1, mw / w, mh / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality || 0.7));
+      };
+      img.src = ev.target.result;
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(file);
+  });
+}
+
+// 1MB (Firestore field 上限) を超えないよう段階的に再圧縮
+const _FIRESTORE_FIELD_LIMIT = 1040000; // 1048487 より少し低めの安全マージン
+async function compressReceiptForFirestore(file) {
+  // Base64 Data URL 長 ≈ 実バイト数 として判定
+  const attempts = [
+    { w: 1600, q: 0.7 },
+    { w: 1400, q: 0.65 },
+    { w: 1200, q: 0.6 },
+    { w: 1000, q: 0.55 },
+    { w: 800,  q: 0.5 }
+  ];
+  let last = '';
+  for (const a of attempts) {
+    const b64 = await compressReceiptImage(file, a.w, a.q);
+    last = b64;
+    if (b64.length <= _FIRESTORE_FIELD_LIMIT) return { data: b64, tried: a };
+  }
+  // 最終圧縮でも超過する場合はエラー
+  throw new Error('この画像は Firestore 保存上限(1MB)を超過するため添付できません。より解像度の低い画像をお試しください。');
+}
+
+window.previewReceipt = async function(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  showToast('画像を圧縮中...');
+  try {
+    const result = await compressReceiptForFirestore(file);
+    const b64 = result.data;
+    const sizeKb = Math.round(b64.length / 1024);
+    if (_step2Ctx) {
+      _step2Ctx.receipt = b64;
+      renderStep2Form();
+    } else {
+      const img = document.getElementById('receipt-preview');
+      if (img) { img.src = b64; img.style.display = 'block'; }
+    }
+    showToast('✓ レシート添付（約 ' + sizeKb + ' KB、' + result.tried.w + 'px）');
+  } catch (e) {
+    console.error('previewReceipt compress failed:', e);
+    alert('画像添付失敗:\n' + (e.message || e));
+  } finally {
+    // 同じファイルを再選択できるよう input をリセット
+    try { input.value = ''; } catch (_) {}
   }
 }
 
