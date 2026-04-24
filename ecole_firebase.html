@@ -196,7 +196,7 @@ html, body {
 #scr-vacation .fp { padding: 0 14px 300px; }
 #scr-vacation .vac-cta-fixed {
   position: fixed;
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* bnav 80px + safe-area 分、下ナビの真上に配置 */
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
