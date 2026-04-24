@@ -691,6 +691,24 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   }
   /* ログイン画面は PC でも中央表示を維持 */
   #login-screen { max-width: none; }
+  /* 金銭出納帳・短期入所記録各種・お小遣い帳: 他画面と揃えて外枠を 1200px まで広く表示
+     （inline の overflow-y:auto により独自スクロール領域になっているため ID 指定で明示上書き） */
+  #scr-cashbook, #scr-allowance,
+  #scr-shortstay, #scr-shortstay-hist, #scr-shortstay-edit {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #cashbook-body, #allowance-body,
+  #shortstay-body, #shortstay-hist-body, #shortstay-edit-body {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+  /* shortstay-edit の保存/印刷ボタンバー: 入力行と揃えて 1200px 内でフル幅 */
+  #scr-shortstay-edit .vac-cta-fixed { max-width: none; }
 }
 
 /* #A-7.1: すたぁと短期入所記録 書類原本レイアウト完全準拠 */
