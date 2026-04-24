@@ -224,6 +224,12 @@ html, body {
 }
 .scr { display: none; }
 .scr.on { display: block; }
+
+/* #D-1: 職員マスタ一覧 — 権限バッジ + スマホカード（デフォルト） / PC テーブル (@media で切替) */
+.ssl-role { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.ssl-table-wrap { display: none; }
+.ssl-cards { display: block; }
+.ssl-card { background: #fff; margin: 8px 12px; padding: 12px 14px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .fp { padding: 14px; }
 .fsec { margin-bottom: 20px; border: none; border-radius: var(--radius-card); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-card); animation: cardIn 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 .tog-label { font-size: 13px; font-weight: 600; color: var(--text); padding: 18px 20px 10px; display: block; letter-spacing: 0; }
@@ -700,7 +706,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   #login-screen { max-width: none; }
   /* 金銭出納帳・短期入所記録各種・お小遣い帳: 他画面と揃えて外枠を 1200px まで広く表示
      （inline の overflow-y:auto により独自スクロール領域になっているため ID 指定で明示上書き） */
-  #scr-cashbook, #scr-allowance,
+  #scr-cashbook, #scr-allowance, #scr-staff-list,
   #scr-shortstay, #scr-shortstay-hist, #scr-shortstay-edit {
     max-width: 1200px;
     margin-left: auto;
@@ -708,7 +714,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     width: 100%;
     box-sizing: border-box;
   }
-  #cashbook-body, #allowance-body,
+  #cashbook-body, #allowance-body, #staff-list-body,
   #shortstay-body, #shortstay-hist-body, #shortstay-edit-body {
     width: 100%;
     max-width: none;
@@ -716,6 +722,13 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   }
   /* shortstay-edit の保存/印刷ボタンバー: 入力行と揃えて 1200px 内でフル幅 */
   #scr-shortstay-edit .vac-cta-fixed { max-width: none; }
+  /* #D-1: 職員一覧 PC 表示 — テーブル表示、カードは隠す */
+  .ssl-table-wrap { display: block; overflow-x: auto; margin: 0 12px; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .ssl-cards { display: none; }
+  .ssl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ssl-table th, .ssl-table td { padding: 10px 14px; border-bottom: 0.5px solid var(--border); text-align: left; }
+  .ssl-table th { background: #F8F6FF; font-size: 12px; color: #666; font-weight: 600; }
+  .ssl-table tr:last-child td { border-bottom: none; }
 }
 
 /* #A-7.1: すたぁと短期入所記録 書類原本レイアウト完全準拠 */
@@ -1235,6 +1248,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-shortstay-edit" style="padding-bottom:120px;overflow-y:auto"><div id="shortstay-edit-body"><div class="loading">読み込み中...</div></div><div class="vac-cta-fixed ss-screen-only" style="display:flex;gap:8px;padding:8px 12px"><button class="sbtn" style="flex:2" onclick="doShortstayPublicSave()">保存する</button><button class="sbtn" style="flex:1;background:#fff;color:var(--purple);border:1px solid var(--purple)" onclick="ssPrint()"><i data-lucide="printer"></i> 印刷</button></div></div>
     <div class="scr" id="scr-cashbook" style="padding-bottom:100px;overflow-y:auto"><div id="cashbook-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-allowance" style="padding-bottom:100px;overflow-y:auto"><div id="allowance-body"><div class="loading">読み込み中...</div></div></div>
+    <div class="scr" id="scr-staff-list" style="padding-bottom:100px;overflow-y:auto"><div id="staff-list-body"><div class="loading">読み込み中...</div></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
 
@@ -1429,7 +1443,8 @@ const scrTitles = {
     inspection: '車両点検', alcohol: 'アルコールチェック', master: 'マスター一覧',
     shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録',
     cashbook: 'ぱぁとなぁ金銭出納帳',
-    allowance: 'ぱぁとなぁお小遣い帳'
+    allowance: 'ぱぁとなぁお小遣い帳',
+    'staff-list': '職員一覧'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
@@ -1438,7 +1453,8 @@ const scrSubs = {
     inspection: '月次点検記録', alcohol: '朝夕測定値', master: '登録データ確認',
     shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集',
     cashbook: '紬/ひまわり/事務費',
-    allowance: '紬/ひまわり 利用者別'
+    allowance: '紬/ひまわり 利用者別',
+    'staff-list': '読み取り専用（管理者のみ）'
 };
 
 // ── ユーティリティ ──
@@ -1581,7 +1597,7 @@ window.getStaffAffiliation = getStaffAffiliation;
 window.goScr = function(s) {
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -1612,6 +1628,7 @@ window.goScr = function(s) {
   if (s==='shortstay-edit') renderShortstayEdit();
   if (s==='cashbook')       renderCashbook();
   if (s==='allowance')      renderAllowance();
+  if (s==='staff-list')     renderStaffList();
   if (s==='vacation')       {
     const applicantEl = document.getElementById('vac-applicant');
     if (applicantEl) applicantEl.textContent = currentStaff || '';
@@ -2545,6 +2562,117 @@ window.ssmDelete = async function(name) {
   }
 };
 
+// ═════════════════════════════════════════════════════════════
+// #D-1: 職員マスタ一覧（読み取り専用ビュー） — scr-staff-list
+// データは ssmLoadAllStaff() を再利用、並び: 事業所 → 名前(五十音)
+// フィルタ: 権限 / 事業所 (AND)、件数バッジ表示
+// ═════════════════════════════════════════════════════════════
+const SSL_DEPT_ORDER = {'童里夢':1, '奏楽':2, 'すたぁと':3, 'ぱぁとなぁ':4};
+let _sslList = [];
+let _sslRoleFilter = 'all';
+let _sslDeptFilter = 'all';
+
+function _sslEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _sslFmtLastLogin(v) {
+  if (!v) return '未ログイン';
+  try {
+    const d = (typeof v === 'string') ? new Date(v) : (v && v.toDate ? v.toDate() : new Date(v));
+    if (isNaN(d.getTime())) return '未ログイン';
+    const z = function(n){ return n<10?'0'+n:''+n; };
+    return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes());
+  } catch (_) { return '未ログイン'; }
+}
+function _sslRoleBadge(role) {
+  const m = {'管理者':['#E53935','#fff'], '上司':['#FF9500','#fff'], '一般':['#8E8E93','#fff']};
+  const c = m[role] || m['一般'];
+  return '<span class="ssl-role" style="background:'+c[0]+';color:'+c[1]+'">'+role+'</span>';
+}
+function _sslDeptKey(depts) {
+  if (!depts || !depts.length) return 99;
+  let min = 99;
+  for (const d of depts) { const k = SSL_DEPT_ORDER[d] || 98; if (k < min) min = k; }
+  return min;
+}
+
+window.renderStaffList = async function() {
+  const body = document.getElementById('staff-list-body');
+  if (!body) return;
+  if (!currentUser || currentUser.role < 3) {
+    body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#FF3B30;font-size:13px">この画面は管理者のみアクセスできます</div>';
+    return;
+  }
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    _sslList = await ssmLoadAllStaff();
+    _sslList.sort(function(a,b){
+      const ka = _sslDeptKey(a.departments), kb = _sslDeptKey(b.departments);
+      if (ka !== kb) return ka - kb;
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    _sslRender();
+  } catch (e) {
+    console.error('renderStaffList failed:', e);
+    body.innerHTML = '<div style="color:#FF3B30;padding:14px;font-size:12px">読込失敗: ' + (e.message||e) + '</div>';
+  }
+};
+
+function _sslRender() {
+  const body = document.getElementById('staff-list-body');
+  if (!body) return;
+  const filtered = _sslList.filter(function(s){
+    if (_sslRoleFilter !== 'all' && s.adminRole !== _sslRoleFilter) return false;
+    if (_sslDeptFilter !== 'all' && !(s.departments||[]).some(function(d){ return d === _sslDeptFilter; })) return false;
+    return true;
+  });
+  const roleOpt = function(v,l){ return '<option value="'+v+'"'+(_sslRoleFilter===v?' selected':'')+'>'+l+'</option>'; };
+  const deptOpt = function(v,l){ return '<option value="'+v+'"'+(_sslDeptFilter===v?' selected':'')+'>'+l+'</option>'; };
+  let html = '';
+  html += '<div style="padding:14px 12px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  html += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+  html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">権限 <select onchange="_sslSetRoleFilter(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
+    + roleOpt('all','すべて') + roleOpt('管理者','管理者') + roleOpt('上司','上司') + roleOpt('一般','一般') + '</select></label>';
+  html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">事業所 <select onchange="_sslSetDeptFilter(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
+    + deptOpt('all','すべて') + deptOpt('童里夢','童里夢') + deptOpt('奏楽','奏楽') + deptOpt('すたぁと','すたぁと') + deptOpt('ぱぁとなぁ','ぱぁとなぁ') + '</select></label>';
+  html += '</div>';
+  html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_sslList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
+  html += '</div>';
+  if (!filtered.length) {
+    html += '<div style="padding:40px 20px;text-align:center;color:var(--text-sub);font-size:13px">条件に一致する職員がいません</div>';
+    body.innerHTML = html;
+    return;
+  }
+  // PC テーブル
+  html += '<div class="ssl-table-wrap"><table class="ssl-table"><thead><tr>'
+    + '<th>名前</th><th>事業所</th><th>権限</th><th>最終ログイン</th>'
+    + '</tr></thead><tbody>';
+  for (const s of filtered) {
+    html += '<tr data-staff-name="'+_sslEsc(s.name)+'">'
+      + '<td>'+_sslEsc(s.name)+'</td>'
+      + '<td>'+_sslEsc((s.departments||[]).join(', ') || '-')+'</td>'
+      + '<td>'+_sslRoleBadge(s.adminRole)+'</td>'
+      + '<td>'+_sslEsc(_sslFmtLastLogin(s.lastLogin))+'</td>'
+      + '</tr>';
+  }
+  html += '</tbody></table></div>';
+  // スマホカード
+  html += '<div class="ssl-cards">';
+  for (const s of filtered) {
+    html += '<div class="ssl-card" data-staff-name="'+_sslEsc(s.name)+'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+      + '<div style="font-size:15px;font-weight:700">'+_sslEsc(s.name)+'</div>'
+      + _sslRoleBadge(s.adminRole)
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--text-sub)">事業所: '+_sslEsc((s.departments||[]).join(', ') || '-')+'</div>'
+      + '<div style="font-size:11px;color:var(--text-sub);margin-top:2px">最終ログイン: '+_sslEsc(_sslFmtLastLogin(s.lastLogin))+'</div>'
+      + '</div>';
+  }
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+window._sslSetRoleFilter = function(v) { _sslRoleFilter = v; _sslRender(); };
+window._sslSetDeptFilter = function(v) { _sslDeptFilter = v; _sslRender(); };
+
 // 職員追加（管理者のみ）— 実装漏れ修正
 window.adminAddUser = async function() {
   if (!checkSession()) return;
@@ -3378,6 +3506,7 @@ window.showSubMenu = function(type) {
       { icon: 'home', label: 'すたぁと短期入所記録', action: "goScr('shortstay')" },
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
       { icon: 'wallet', label: 'ぱぁとなぁお小遣い帳', action: "goScr('allowance')" },
+      { icon: 'id-card', label: '職員一覧', action: "goScr('staff-list')", adminOnly: true },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
@@ -7291,6 +7420,8 @@ window.doLogin = async function() {
     sessionStorage.setItem('ecole_session', JSON.stringify(sessionData));
     // localStorageからパスワード情報を削除
     localStorage.removeItem('ecole_login');
+    // #D-1: 最終ログイン日時を Firestore に記録（失敗してもログイン自体は続行）
+    try { await setDoc(doc(db, 'staff_accounts', name), { lastLogin: new Date().toISOString() }, { merge: true }); } catch (_) {}
     
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-root').style.display = 'block';
