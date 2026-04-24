@@ -1485,6 +1485,13 @@ window.goScr = function(s) {
   if (s==='shortstay-edit') renderShortstayEdit();
   if (s==='cashbook')       renderCashbook();
   if (s==='allowance')      renderAllowance();
+  if (s==='vacation')       {
+    const applicantEl = document.getElementById('vac-applicant');
+    if (applicantEl) applicantEl.textContent = currentStaff || '';
+    const dateEl = document.getElementById('vac-date');
+    if (dateEl && !dateEl.value) dateEl.value = today();
+    renderVacationList();
+  }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
@@ -3747,6 +3754,54 @@ window.getMealLocation = function(targetName, date) {
 };
 // ═══ 休暇申請 ═══
 window.setVacType = function(el) { document.querySelectorAll('#scr-vacation .tog').forEach(function(t){ t.classList.remove('on'); }); el.classList.add('on'); var hoursRow = document.getElementById('vac-hours-row'); if (hoursRow) hoursRow.style.display = el.textContent.indexOf('時間') >= 0 ? '' : 'none'; };
+
+// 申請済み休暇一覧レンダ (自分の申請のみ、日付降順)
+window.renderVacationList = function() {
+  const body = document.getElementById('vacation-list');
+  if (!body) return;
+  const mine = (Array.isArray(logs) ? logs : []).filter(function(l){ return l && l.type === 'vacation' && l.applicant === currentStaff; });
+  mine.sort(function(a,b){
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+  if (!mine.length) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub);font-size:12px">申請履歴はまだありません</div>';
+    return;
+  }
+  let html = '';
+  for (const v of mine) {
+    const ts = v.createdAt ? new Date(v.createdAt).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+    const hoursLabel = v.hours ? ' ' + v.hours : '';
+    const safeNote = (v.note || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeId = (v.id || '').replace(/'/g, "\\'");
+    html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      +   '<div><span style="font-size:14px;font-weight:700">' + (v.date || '-') + '</span>'
+      +   '<span style="font-size:11px;color:var(--purple);margin-left:8px;font-weight:600">' + (v.vacType || '-') + hoursLabel + '</span></div>'
+      +   '<button onclick="deleteVacation(\'' + safeId + '\')" style="background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">削除</button>'
+      + '</div>'
+      + (v.note ? '<div style="font-size:12px;color:var(--text);margin-top:2px">' + safeNote + '</div>' : '')
+      + '<div style="font-size:10px;color:var(--text-sub);margin-top:4px">送信: ' + ts + '</div>'
+      + '</div>';
+  }
+  body.innerHTML = html;
+};
+
+window.deleteVacation = async function(logId) {
+  if (!checkSession()) return;
+  if (!logId) { showToast('対象が不明です'); return; }
+  const target = (Array.isArray(logs) ? logs : []).find(function(l){ return l && l.id === logId; });
+  if (target && target.applicant !== currentStaff) { showToast('自分の申請のみ取り消しできます'); return; }
+  if (!confirm('この休暇申請を取り消しますか？\nこの操作は元に戻せません。')) return;
+  try {
+    await deleteDoc(doc(db, 'logs', logId));
+    showToast('✓ 取り消しました');
+    // onSnapshot が logs を更新して自動再描画
+  } catch (e) {
+    console.error('deleteVacation failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
+  }
+};
 window.doVacationSubmit = async function() { if (!checkSession()) return; const date = document.getElementById('vac-date').value; const applicantEl = document.getElementById('vac-applicant'); const applicant = applicantEl ? (applicantEl.value || applicantEl.textContent.trim() || currentStaff) : currentStaff; const typeEl = document.querySelector('#scr-vacation .tog.on'); const vacType = typeEl ? typeEl.textContent.trim() : '全日有給'; const hours = document.getElementById('vac-hours') ? document.getElementById('vac-hours').value : ''; const note = document.getElementById('vac-note') ? document.getElementById('vac-note').value : ''; if (!date) { showToast('日付を入力してください'); return; } try { await addDoc(collection(db, 'logs'), { type: 'vacation', date: date, applicant: applicant, vacType: vacType, hours: hours, note: note, recordedBy: currentStaff, ts: tsNow(), createdAt: Date.now() }); showToast('✓ 休暇申請を送信しました'); if (document.getElementById('vac-note')) document.getElementById('vac-note').value = ''; if (document.getElementById('vac-hours')) document.getElementById('vac-hours').value = ''; } catch(e) { showToast('失敗: ' + e.message); } };
 
 // ═══ 食事計画ロジック（複雑条件対応）═══
@@ -8913,6 +8968,7 @@ onSnapshot(query(collection(db, 'logs'), orderBy('createdAt', 'desc')), snap => 
   if (currentScr === 'hist') renderHist('');
   if (currentScr === 'kyushoku') renderKyushoku();
   if (currentScr === 'absence') renderAbsence();
+  if (currentScr === 'vacation') renderVacationList();
   updateDot();
 });
 
