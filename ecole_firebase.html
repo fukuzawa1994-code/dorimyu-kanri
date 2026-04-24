@@ -8248,9 +8248,11 @@ function renderPurchaseEditor() {
     const on = (p.categories||[]).indexOf(c) >= 0;
     catHtml += '<div class="tog' + (on?' son':'') + '" onclick="pePillCat(\'' + c + '\')">' + c + '</div>';
   }
-  // 各品目
+  // 各品目 — #39拡張: 品名編集可 + 削除ボタン(items.length>=2) + 行追加
+  const itemsArr = Array.isArray(p.items) ? p.items : (p.items = []);
+  const canDeleteItem = itemsArr.length >= 2;
   let itemsHtml = '';
-  (p.items || []).forEach(function(item, i) {
+  itemsArr.forEach(function(item, i) {
     let taxH = '';
     for (const t of PURCHASE_TAXES) {
       taxH += '<div class="tog' + (item.tax===t?' son':'') + '" onclick="pePillTax(' + i + ',\'' + t + '\')">' + t + '</div>';
@@ -8262,8 +8264,15 @@ function renderPurchaseEditor() {
       usageH += '<div class="tog' + (on?' son':'') + '" onclick="pePillUsage(' + i + ',\'' + u + '\')">' + u + '</div>';
     }
     const safePurpose = (item.purpose||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const safeName = (item.name||'-').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    itemsHtml += '<div class="ksec-hd" style="margin-top:12px">品目' + (i+1) + '：' + safeName + ' <span style="font-size:10px;font-weight:400;color:var(--text-sub)">（品名は編集不可）</span></div>';
+    const safeNameAttr = (item.name||'').replace(/"/g,'&quot;');
+    const delBtn = canDeleteItem
+      ? '<button onclick="peDeleteItem(' + i + ')" style="margin-left:8px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">🗑 削除</button>'
+      : '';
+    itemsHtml += '<div style="display:flex;align-items:center;margin-top:12px;gap:6px">'
+      + '<span style="font-size:12px;font-weight:700;color:var(--text-sub);white-space:nowrap">品目' + (i+1) + '</span>'
+      + '<input type="text" placeholder="品名（例: コピー用紙）" value="' + safeNameAttr + '" onchange="peSetName(' + i + ',this.value)" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text);box-sizing:border-box"/>'
+      + delBtn
+      + '</div>';
     itemsHtml += '<div class="fsec">';
     itemsHtml += '<div class="frow"><span class="flbl">数量</span><input type="number" value="' + (item.qty||0) + '" min="1" onchange="peSetQty(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>';
     itemsHtml += '<div class="frow"><span class="flbl">単価</span><input type="number" value="' + (item.unitPrice||0) + '" min="0" onchange="peSetUnit(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>';
@@ -8272,6 +8281,8 @@ function renderPurchaseEditor() {
     itemsHtml += '<span class="tog-label" style="margin-top:4px">購入目的</span><textarea onchange="peSetPurpose(' + i + ',this.value)" placeholder="購入目的（任意）" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-height:44px;box-sizing:border-box;font-family:inherit;resize:vertical">' + safePurpose + '</textarea>';
     itemsHtml += '</div>';
   });
+  // 行追加ボタン
+  itemsHtml += '<button onclick="peAddItem()" style="width:100%;margin-top:10px;padding:10px;background:#fff;color:var(--purple);border:1px dashed var(--purple);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">+ 行追加</button>';
   // 編集履歴サマリ（もしあれば）
   let historyHtml = '';
   if (Array.isArray(p.editHistory) && p.editHistory.length) {
@@ -8340,19 +8351,43 @@ window.peSetPurpose = function(idx, v) {
   if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
   _purchaseEdit.data.items[idx].purpose = v;
 };
+// #39拡張: 品名編集 / 行追加 / 行削除
+window.peSetName = function(idx, v) {
+  if (!_purchaseEdit || !_purchaseEdit.data.items[idx]) return;
+  _purchaseEdit.data.items[idx].name = (v || '').trim();
+};
+window.peAddItem = function() {
+  if (!_purchaseEdit) return;
+  if (!Array.isArray(_purchaseEdit.data.items)) _purchaseEdit.data.items = [];
+  _purchaseEdit.data.items.push({ name:'', qty:1, unitPrice:0, tax:'10%', usage:[], purpose:'' });
+  renderPurchaseEditor();
+};
+window.peDeleteItem = function(idx) {
+  if (!_purchaseEdit) return;
+  const items = _purchaseEdit.data.items;
+  if (!Array.isArray(items) || items.length < 2) { showToast('最低1品目は必要です'); return; }
+  if (idx < 0 || idx >= items.length) return;
+  const name = items[idx].name || '(無名)';
+  if (!confirm('品目「' + name + '」を削除しますか？')) return;
+  items.splice(idx, 1);
+  renderPurchaseEditor();
+};
 
 window.savePurchaseEdit = async function() {
   if (!_purchaseEdit) return;
   const p = _purchaseEdit.data;
   if (!Array.isArray(p.categories) || p.categories.length === 0) { showToast('事業区分を1つ以上選択してください'); return; }
   if (!Array.isArray(p.items) || p.items.length === 0) { showToast('品目が空です'); return; }
-  for (const it of p.items) {
-    const name = it.name || '(無名)';
-    if ((it.qty||0) < 1) { showToast('「' + name + '」の数量は1以上にしてください'); return; }
-    if ((it.unitPrice||0) < 0) { showToast('「' + name + '」の単価は0以上にしてください'); return; }
-    if (!it.tax) { showToast('「' + name + '」の税を選んでください'); return; }
+  for (let i = 0; i < p.items.length; i++) {
+    const it = p.items[i];
+    const nameTrimmed = (it.name || '').trim();
+    if (!nameTrimmed) { showToast('品目' + (i+1) + 'の品名を入力してください'); return; }
+    it.name = nameTrimmed;
+    if ((it.qty||0) < 1) { showToast('「' + nameTrimmed + '」の数量は1以上にしてください'); return; }
+    if ((it.unitPrice||0) < 0) { showToast('「' + nameTrimmed + '」の単価は0以上にしてください'); return; }
+    if (!it.tax) { showToast('「' + nameTrimmed + '」の税を選んでください'); return; }
     const usageArr = Array.isArray(it.usage) ? it.usage : (it.usage ? [it.usage] : []);
-    if (usageArr.length === 0) { showToast('「' + name + '」の用途を1つ以上選んでください'); return; }
+    if (usageArr.length === 0) { showToast('「' + nameTrimmed + '」の用途を1つ以上選んでください'); return; }
     it.usage = usageArr;
   }
   const subtotal = p.items.reduce(function(s, i){ return s + (i.qty||0) * (i.unitPrice||0); }, 0);
