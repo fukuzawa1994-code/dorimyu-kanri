@@ -5,9 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#5B4FD8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="エコール">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>École 送迎管理</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
@@ -1320,6 +1325,17 @@ document.addEventListener('visibilitychange', function() {
   sessionStorage.setItem('_cbLastCheck', String(Date.now()));
   _cacheBustCheck();
 });
+
+// ── Service Worker 登録 (PWA インストール要件満たすための最小構成) ──
+// sw.js は network-only パススルーでキャッシュしない。登録失敗は致命ではないので握り潰す。
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+      // 起動ごとに SW 自身の更新チェック → 将来 sw.js を変更した時に古い版が居座らないように
+      if (reg && typeof reg.update === 'function') { try { reg.update(); } catch (e) {} }
+    }).catch(function(e) { console.warn('[sw] register failed:', e); });
+  });
+}
 
 // ── Firebase設定（あなたのプロジェクトの値）──
 const firebaseConfig = {
