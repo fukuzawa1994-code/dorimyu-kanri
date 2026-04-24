@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1283,6 +1285,41 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, addDoc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── 自動キャッシュバスト ──
+// APP_VERSION は push 時に GitHub Actions が自動書換 (.github/workflows/bump-version.yml)。
+// version.txt と比較して差分があれば ?v=<remote> 付きで location.replace() → 常に最新 HTML を取得。
+const APP_VERSION = 'bootstrap'; // @auto-bump
+const _CB_THROTTLE_MS = 30000;
+async function _cacheBustCheck() {
+  try {
+    const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const remote = (await res.text()).trim();
+    if (!remote || remote === APP_VERSION) return;
+    // 無限ループ防止ガード (2 段):
+    //  ① URL の ?v= が既に remote と一致 → リロード後も HTML キャッシュが剥がれていない状態。諦める
+    const urlV = new URLSearchParams(location.search).get('v');
+    if (urlV === remote) { console.warn('[cacheBust] stale cache even after reload, giving up:', remote); return; }
+    //  ② 同セッション内で同 version へリロード試行済み → 無限ループ回避
+    if (sessionStorage.getItem('_cbTargetVersion') === remote) { console.warn('[cacheBust] already attempted reload to', remote); return; }
+    sessionStorage.setItem('_cbTargetVersion', remote);
+    const url = new URL(location.href);
+    url.searchParams.set('v', remote);
+    console.info('[cacheBust] reloading: ' + APP_VERSION + ' → ' + remote);
+    location.replace(url.toString());
+  } catch (e) { console.warn('[cacheBust] check failed:', e); }
+}
+// 起動時 1 回チェック (Firebase init 開始と並行、完了を待たず即発火)
+_cacheBustCheck();
+// タブ再表示時チェック (30 秒スロットル)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState !== 'visible') return;
+  const last = parseInt(sessionStorage.getItem('_cbLastCheck') || '0', 10);
+  if (Date.now() - last < _CB_THROTTLE_MS) return;
+  sessionStorage.setItem('_cbLastCheck', String(Date.now()));
+  _cacheBustCheck();
+});
 
 // ── Firebase設定（あなたのプロジェクトの値）──
 const firebaseConfig = {

@@ -1,0 +1,40 @@
+name: Auto-bump APP_VERSION
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bump:
+    # bot 自身の push では再発火しない (無限ループ防止)
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Write version.txt
+        run: echo "${{ steps.sha.outputs.short }}" > version.txt
+
+      - name: Update APP_VERSION in ecole_firebase.html
+        run: |
+          sed -i "s/const APP_VERSION = '[^']*'; \/\/ @auto-bump/const APP_VERSION = '${{ steps.sha.outputs.short }}'; \/\/ @auto-bump/" ecole_firebase.html
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet version.txt ecole_firebase.html; then
+            echo "No change (APP_VERSION already up to date)"
+            exit 0
+          fi
+          git add version.txt ecole_firebase.html
+          git commit -m "chore: bump APP_VERSION to ${{ steps.sha.outputs.short }}"
+          git push
