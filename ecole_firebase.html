@@ -8414,6 +8414,9 @@ window.savePurchaseEdit = async function() {
   }
 };
 
+// 本申請フォームの state (コミット4: 品目追加/削除/品名編集を state 駆動で対応)
+let _step2Ctx = null;
+
 window.startStep2 = function(id) {
   getDoc(doc(db, 'purchases', id)).then(snap => {
     const p = normalizePurchase(snap.data());
@@ -8430,98 +8433,204 @@ window.startStep2 = function(id) {
     document.getElementById('purchase-new-area').style.display = 'block';
     document.getElementById('ptab-list').classList.remove('on');
     document.getElementById('ptab-new').classList.add('on');
-    
-    const editRows = p.itemsV2
-      ? (p.items||[]).map((item,i) => `
-          <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
-            <div class="frow"><span class="flbl">${item.name}（数量${item.qty||1} / ${item.tax||'10%'} / ${Array.isArray(item.usage) ? item.usage.join('・') : (item.usage||'')}）</span></div>
-            <div class="frow"><span class="flbl">実際の単価</span><input type="number" id="step2-unit-${i}" value="${item.unitPrice||0}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
-          </div>`).join('')
-      : (p.items||[]).map((item,i) => `
-          <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:8px">
-            <div class="frow"><span class="flbl">${item.name}</span></div>
-            <div class="frow"><span class="flbl">実際の金額</span><input type="number" id="step2-price-${i}" value="${item.price||0}" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px">円</span></div>
-          </div>`).join('');
 
-    const step2html = `<div class="ksec-hd">本申請（2回目）- ${p.applicant} / ${p.date}</div>
+    // state 初期化: 打診時の items をコピー(deep copy)
+    const srcItems = Array.isArray(p.items) ? p.items : [];
+    _step2Ctx = {
+      id: id,
+      applicant: p.applicant,
+      date: p.date,
+      origItems: JSON.parse(JSON.stringify(srcItems)),
+      origItemsV2: !!p.itemsV2,
+      approval1By: p.approval1 ? p.approval1.by : (approvers[0] && approvers[0].name) || '',
+      items: srcItems.map(function(it){
+        return {
+          name: it.name || '',
+          qty: parseInt(it.qty, 10) || 1,
+          unitPrice: parseInt(it.unitPrice, 10) || 0,
+          tax: it.tax || '10%',
+          usage: Array.isArray(it.usage) ? it.usage.slice() : (it.usage ? [it.usage] : []),
+          purpose: it.purpose || ''
+        };
+      }),
+      receipt: null
+    };
+    renderStep2Form();
+  });
+}
+
+function renderStep2Form() {
+  if (!_step2Ctx) return;
+  const ctx = _step2Ctx;
+  const canDeleteItem = ctx.items.length >= 2;
+  // 各品目 UI 生成 (編集モーダルと同パターン)
+  let itemsHtml = '';
+  ctx.items.forEach(function(item, i) {
+    let taxH = '';
+    for (const t of PURCHASE_TAXES) {
+      taxH += '<div class="tog' + (item.tax===t?' son':'') + '" onclick="s2PillTax(' + i + ',\'' + t + '\')">' + t + '</div>';
+    }
+    let usageH = '';
+    const usageArr = Array.isArray(item.usage) ? item.usage : (item.usage ? [item.usage] : []);
+    for (const u of PURCHASE_USAGES) {
+      const on = usageArr.indexOf(u) >= 0;
+      usageH += '<div class="tog' + (on?' son':'') + '" onclick="s2PillUsage(' + i + ',\'' + u + '\')">' + u + '</div>';
+    }
+    const safePurpose = (item.purpose||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeNameAttr = (item.name||'').replace(/"/g,'&quot;');
+    const delBtn = canDeleteItem
+      ? '<button onclick="s2DeleteItem(' + i + ')" style="margin-left:8px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">🗑 削除</button>'
+      : '';
+    itemsHtml += '<div style="display:flex;align-items:center;margin-top:12px;gap:6px">'
+      + '<span style="font-size:12px;font-weight:700;color:var(--text-sub);white-space:nowrap">品目' + (i+1) + '</span>'
+      + '<input type="text" placeholder="品名（例: 手袋）" value="' + safeNameAttr + '" onchange="s2SetName(' + i + ',this.value)" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text);box-sizing:border-box"/>'
+      + delBtn
+      + '</div>';
+    itemsHtml += '<div class="fsec">';
+    itemsHtml += '<div class="frow"><span class="flbl">数量</span><input type="number" value="' + (item.qty||0) + '" min="1" onchange="s2SetQty(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>';
+    itemsHtml += '<div class="frow"><span class="flbl">実際の単価</span><input type="number" value="' + (item.unitPrice||0) + '" min="0" onchange="s2SetUnit(' + i + ',this.value)" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">税</span><div class="togrow">' + taxH + '</div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">用途（複数選択可）</span><div class="togrow" style="flex-wrap:wrap">' + usageH + '</div>';
+    itemsHtml += '<span class="tog-label" style="margin-top:4px">購入目的</span><textarea onchange="s2SetPurpose(' + i + ',this.value)" placeholder="購入目的（任意）" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-height:44px;box-sizing:border-box;font-family:inherit;resize:vertical">' + safePurpose + '</textarea>';
+    itemsHtml += '</div>';
+  });
+  itemsHtml += '<button onclick="s2AddItem()" style="width:100%;margin-top:10px;padding:10px;background:#fff;color:var(--purple);border:1px dashed var(--purple);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">+ 行追加</button>';
+
+  const receiptPreviewHtml = ctx.receipt
+    ? '<img src="' + ctx.receipt + '" style="display:block;width:100%;border-radius:10px;margin-top:8px"/><button onclick="s2RemoveReceipt()" style="margin-top:4px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">レシートを削除</button>'
+    : '';
+
+  const origSummary = renderPurchaseItemsSummary({ items: ctx.origItems, itemsV2: ctx.origItemsV2 });
+  const step2html = `<div class="ksec-hd">本申請（2回目）- ${ctx.applicant} / ${ctx.date}</div>
       <div style="background:var(--green-light);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px">
-        <div>打診承認済: ${p.approval1 ? p.approval1.by : ''}</div>
-        <div style="margin-top:4px">${(p.items||[]).map(i=>i.name).join('、')}</div>
+        <div>打診承認済: ${ctx.approval1By || ''}</div>
+        <div style="margin-top:4px">${ctx.origItems.map(i=>i.name).join('、')}</div>
       </div>
-      <div class="ksec-hd">打診時の内容</div>
-      <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:12px">${renderPurchaseItemsSummary(p)}</div>
-      <div class="ksec-hd">実際の金額（修正可）</div>
-      ${editRows}
+      <div class="ksec-hd">打診時の内容（参考）</div>
+      <div style="background:var(--surface);border-radius:10px;padding:10px;margin-bottom:12px">${origSummary}</div>
+      <div class="ksec-hd">実際の買い物（編集・行追加可）</div>
+      ${itemsHtml}
       <div class="ksec-hd" style="margin-top:12px">レシート写真</div>
       <div style="margin-bottom:12px">
         <input type="file" id="step2-receipt" accept="image/*" capture="environment" style="display:none" onchange="previewReceipt(this)"/>
         <button class="sbtn" onclick="document.getElementById('step2-receipt').click()"><i data-lucide="camera"></i> カメラで撮影</button>
-        <img id="receipt-preview" style="display:none;width:100%;border-radius:10px;margin-top:8px"/>
+        <div id="receipt-preview-wrap">${receiptPreviewHtml}</div>
       </div>
-      <button class="sbtn" style="width:100%" onclick="submitPurchase2('${id}')">本申請を提出</button>`;
-    
-    document.getElementById('purchase-new-area').innerHTML = step2html;
-    if (window.refreshIcons) window.refreshIcons();
-  });
+      <button class="sbtn" style="width:100%" onclick="submitPurchase2('${ctx.id}')">本申請を提出</button>`;
+
+  document.getElementById('purchase-new-area').innerHTML = step2html;
+  if (window.refreshIcons) window.refreshIcons();
 }
+
+// s2* ハンドラ (本申請フォーム内の state 操作)
+window.s2SetName = function(idx, v) { if (!_step2Ctx || !_step2Ctx.items[idx]) return; _step2Ctx.items[idx].name = (v||'').trim(); };
+window.s2SetQty = function(idx, v) { if (!_step2Ctx || !_step2Ctx.items[idx]) return; _step2Ctx.items[idx].qty = parseInt(v,10) || 0; };
+window.s2SetUnit = function(idx, v) { if (!_step2Ctx || !_step2Ctx.items[idx]) return; _step2Ctx.items[idx].unitPrice = parseInt(v,10) || 0; };
+window.s2SetPurpose = function(idx, v) { if (!_step2Ctx || !_step2Ctx.items[idx]) return; _step2Ctx.items[idx].purpose = v; };
+window.s2PillTax = function(idx, t) { if (!_step2Ctx || !_step2Ctx.items[idx]) return; _step2Ctx.items[idx].tax = t; renderStep2Form(); };
+window.s2PillUsage = function(idx, u) {
+  if (!_step2Ctx || !_step2Ctx.items[idx]) return;
+  const item = _step2Ctx.items[idx];
+  if (!Array.isArray(item.usage)) item.usage = item.usage ? [item.usage] : [];
+  const i = item.usage.indexOf(u);
+  if (i >= 0) item.usage.splice(i, 1); else item.usage.push(u);
+  renderStep2Form();
+};
+window.s2AddItem = function() {
+  if (!_step2Ctx) return;
+  _step2Ctx.items.push({ name:'', qty:1, unitPrice:0, tax:'10%', usage:[], purpose:'' });
+  renderStep2Form();
+};
+window.s2DeleteItem = function(idx) {
+  if (!_step2Ctx) return;
+  if (_step2Ctx.items.length < 2) { showToast('最低1品目は必要です'); return; }
+  if (idx < 0 || idx >= _step2Ctx.items.length) return;
+  const name = _step2Ctx.items[idx].name || '(無名)';
+  if (!confirm('品目「' + name + '」を削除しますか？')) return;
+  _step2Ctx.items.splice(idx, 1);
+  renderStep2Form();
+};
+window.s2RemoveReceipt = function() {
+  if (!_step2Ctx) return;
+  _step2Ctx.receipt = null;
+  const input = document.getElementById('step2-receipt');
+  if (input) input.value = '';
+  renderStep2Form();
+};
 
 window.previewReceipt = function(input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();
     reader.onload = e => {
-      const img = document.getElementById('receipt-preview');
-      img.src = e.target.result;
-      img.style.display = 'block';
+      if (_step2Ctx) {
+        _step2Ctx.receipt = e.target.result;
+        renderStep2Form();
+      } else {
+        // フォールバック: ctx が無い場合は DOM に反映
+        const img = document.getElementById('receipt-preview');
+        if (img) { img.src = e.target.result; img.style.display = 'block'; }
+      }
     };
     reader.readAsDataURL(input.files[0]);
   }
 }
 
 window.submitPurchase2 = async function(id) {
-  const snap = await getDoc(doc(db, 'purchases', id));
-  const p = snap.data();
-  const origItems = p.items || [];
-  const isV2 = !!p.itemsV2;
+  if (!_step2Ctx || _step2Ctx.id !== id) { showToast('本申請フォームの状態が不正です'); return; }
+  const ctx = _step2Ctx;
+  // バリデーション
+  if (!Array.isArray(ctx.items) || ctx.items.length === 0) { showToast('品目が空です'); return; }
+  for (let i = 0; i < ctx.items.length; i++) {
+    const it = ctx.items[i];
+    const nameTrimmed = (it.name || '').trim();
+    if (!nameTrimmed) { showToast('品目' + (i+1) + 'の品名を入力してください'); return; }
+    it.name = nameTrimmed;
+    if ((it.qty||0) < 1) { showToast('「' + nameTrimmed + '」の数量は1以上にしてください'); return; }
+    if ((it.unitPrice||0) < 0) { showToast('「' + nameTrimmed + '」の単価は0以上にしてください'); return; }
+    if (!it.tax) { showToast('「' + nameTrimmed + '」の税を選んでください'); return; }
+    const usageArr = Array.isArray(it.usage) ? it.usage : (it.usage ? [it.usage] : []);
+    if (usageArr.length === 0) { showToast('「' + nameTrimmed + '」の用途を1つ以上選んでください'); return; }
+    it.usage = usageArr;
+  }
+  // items2 を既存形式で構築 (互換性維持)
+  const items2 = ctx.items.map(function(it){
+    const qty = parseInt(it.qty, 10) || 1;
+    const unit = parseInt(it.unitPrice, 10) || 0;
+    const rate = it.tax === '8%' ? 0.08 : 0.10;
+    const lineSub = qty * unit;
+    const lineTotal = Math.round(lineSub * (1 + rate));
+    return {
+      name: it.name,
+      qty: qty,
+      unitPrice: unit,
+      tax: it.tax,
+      usage: it.usage,
+      purpose: it.purpose || '',
+      actualUnitPrice: unit,
+      actualLineSub: lineSub,
+      actualLineTotal: lineTotal
+    };
+  });
+  const subtotalActual = items2.reduce(function(s, i){ return s + (i.actualLineSub || 0); }, 0);
+  const totalActual = items2.reduce(function(s, i){ return s + (i.actualLineTotal || 0); }, 0);
 
-  let items, totalActual, subtotalActual = null;
-  if (isV2) {
-    items = origItems.map((item, i) => {
-      const newUnit = parseInt(document.getElementById('step2-unit-'+i).value) || 0;
-      const qty = parseInt(item.qty) || 1;
-      const rate = item.tax === '8%' ? 0.08 : 0.10;
-      const lineSub = qty * newUnit;
-      const lineTotal = Math.round(lineSub * (1 + rate));
-      return { ...item, actualUnitPrice: newUnit, actualLineSub: lineSub, actualLineTotal: lineTotal };
+  try {
+    await updateDoc(doc(db, 'purchases', id), {
+      step: 2,
+      status: '本申請中',
+      items2: items2,
+      totalActual: totalActual,
+      subtotalActual: subtotalActual,
+      receipt: ctx.receipt || null,
+      step2At: Date.now()
     });
-    subtotalActual = items.reduce((s, i) => s + (i.actualLineSub || 0), 0);
-    totalActual = items.reduce((s, i) => s + (i.actualLineTotal || 0), 0);
-  } else {
-    items = origItems.map((item, i) => ({
-      ...item,
-      actualPrice: parseInt(document.getElementById('step2-price-'+i).value) || 0
-    }));
-    totalActual = items.reduce((s, i) => s + (i.actualPrice || 0), 0);
+    showToast('✓ 本申請を提出しました');
+    _step2Ctx = null;
+    setPurchaseTab('list');
+  } catch (e) {
+    console.error('submitPurchase2 failed:', e);
+    showToast('提出失敗: ' + (e.message || e));
   }
-
-  let receiptData = null;
-  const fileInput = document.getElementById('step2-receipt');
-  if (fileInput && fileInput.files[0]) {
-    receiptData = document.getElementById('receipt-preview').src;
-  }
-
-  const update = {
-    step: 2,
-    status: '本申請中',
-    items2: items,
-    totalActual,
-    receipt: receiptData,
-    step2At: Date.now()
-  };
-  if (subtotalActual !== null) update.subtotalActual = subtotalActual;
-
-  await updateDoc(doc(db, 'purchases', id), update);
-  showToast('本申請を提出しました');
-  setPurchaseTab('list');
 }
 
 // ── ケースまとめ ──
