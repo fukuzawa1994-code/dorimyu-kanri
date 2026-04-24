@@ -1,0 +1,4 @@
+node_modules/
+sa-key.json
+*.log
+backup-*.json

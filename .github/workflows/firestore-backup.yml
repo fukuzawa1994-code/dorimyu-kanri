@@ -1,0 +1,76 @@
+name: Firestore monthly backup
+
+on:
+  schedule:
+    # 毎月 1 日 UTC 15:00 = JST 2 日 00:00 (月初の深夜帯)
+    - cron: '0 15 1 * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo (backup script)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-admin
+        working-directory: tools
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Write service account key
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > /tmp/sa-key.json
+          chmod 600 /tmp/sa-key.json
+
+      - name: Dump Firestore to JSON
+        working-directory: tools
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa-key.json
+          BACKUP_OUT_DIR: /tmp/backup-out
+        run: |
+          mkdir -p "$BACKUP_OUT_DIR"
+          node backup-firestore.js
+
+      - name: Checkout backup repo (private)
+        uses: actions/checkout@v4
+        with:
+          repository: fukuzawa1994-code/dorimyu-kanri-backup
+          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          path: backup-repo
+
+      - name: Copy new backup and prune to last 12
+        run: |
+          mkdir -p backup-repo/backups
+          cp /tmp/backup-out/backup-*.json backup-repo/backups/
+          cd backup-repo/backups
+          # backup-YYYY-MM-DD.json は ISO 日付 → 文字列降順 = 日付降順
+          # 13 個目以降を削除 (直近 12 ヶ月分を保持)
+          ls -1 backup-????-??-??.json 2>/dev/null | sort -r | tail -n +13 | xargs -r rm -f
+          ls -1 backup-????-??-??.json | wc -l | awk '{print "Files kept: " $1}'
+
+      - name: Commit and push to backup repo
+        working-directory: backup-repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          if git diff --cached --quiet; then
+            echo "No changes to commit (backup unchanged)"
+            exit 0
+          fi
+          DATE=$(date -u +%Y-%m-%d)
+          git commit -m "chore: monthly Firestore backup $DATE"
+          git push
+
+      - name: Cleanup temp files
+        if: always()
+        run: |
+          rm -f /tmp/sa-key.json
+          rm -rf /tmp/backup-out

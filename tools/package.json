@@ -1,0 +1,9 @@
+{
+  "name": "dorimyu-kanri-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backup and maintenance tools for dorimyu-kanri",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
