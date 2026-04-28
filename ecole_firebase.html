@@ -225,6 +225,9 @@ html, body {
 .scr { display: none; }
 .scr.on { display: block; }
 
+/* #D-2: 自動入力された数値フィールドは薄グレー、手入力で通常色に戻る */
+input[data-autofill="1"] { color: #8E8E93; }
+
 /* #D-1: 職員マスタ一覧 — 権限バッジ + スマホカード（デフォルト） / PC テーブル (@media で切替) */
 .ssl-role { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
 .ssl-table-wrap { display: none; }
@@ -976,7 +979,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
         <div class="fsec">
           <div class="frow"><span class="flbl">日付</span><input type="date" id="d-date"/></div>
           <div class="frow"><span class="flbl">使用車</span>
-            <select id="d-car">
+            <select id="d-car" onchange="autofillDStart()">
               <option>セレナ</option><option>HA</option><option>ノア</option>
               <option>新ノア</option><option>エブリー</option><option>パン缶号</option>
               <option>NV</option><option>マイクロ</option>
@@ -985,7 +988,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
           <div class="frow"><span class="flbl">利用者数</span><input type="number" id="d-count" min="0" value="0" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:80px"/></div>
         </div>
         <div class="fsec">
-          <div class="frow"><span class="flbl">出発時距離 (km)</span><input type="number" id="d-start" placeholder="0" oninput="updateDistanceCalc()" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/></div>
+          <div class="frow"><span class="flbl">出発時距離 (km)</span><input type="number" id="d-start" placeholder="0" oninput="this.removeAttribute('data-autofill');updateDistanceCalc()" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/></div>
           <div class="frow"><span class="flbl">到着時距離 (km)</span><input type="number" id="d-end" placeholder="0" oninput="updateDistanceCalc()" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:100px"/></div>
           <div class="frow"><span class="flbl">走行距離</span><span id="d-calc" style="font-size:15px;font-weight:700;color:var(--purple)">0 km</span></div>
         </div>
@@ -7620,6 +7623,42 @@ function buildUserHanMap() {
 // ── 距離記録 ──
 let distanceLogs = [];
 
+// #D-2: 同じ車両の最新の distance ログを返す (date, createdAt 降順で 1 件)
+function _findPrevDistanceLog(car) {
+  if (!car) return null;
+  const candidates = (logs || []).filter(function(l){
+    if (!l || l.type !== 'distance' || l.car !== car) return false;
+    const e = parseFloat(l.end);
+    return !isNaN(e);
+  });
+  if (!candidates.length) return null;
+  candidates.sort(function(a, b){
+    if ((a.date||'') !== (b.date||'')) return (b.date||'').localeCompare(a.date||'');
+    const sa = (a.createdAt && a.createdAt.seconds) || 0;
+    const sb = (b.createdAt && b.createdAt.seconds) || 0;
+    return sb - sa;
+  });
+  return candidates[0];
+}
+
+// #D-2: 乗車メーター自動入力 (車変更時 / 初期化時に発火)
+window.autofillDStart = function() {
+  const carEl = document.getElementById('d-car');
+  const startEl = document.getElementById('d-start');
+  if (!carEl || !startEl) return;
+  // ユーザーが手入力した値があれば保護 (autofill フラグ無し + 値あり = 手入力)
+  if (startEl.dataset.autofill !== '1' && startEl.value) return;
+  const prev = _findPrevDistanceLog(carEl.value);
+  if (prev && prev.end != null) {
+    startEl.value = parseFloat(prev.end);
+    startEl.dataset.autofill = '1';
+  } else {
+    startEl.value = '';
+    startEl.removeAttribute('data-autofill');
+  }
+  updateDistanceCalc();
+};
+
 function initDistanceForm() {
   const today = new Date();
   const ds = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -7631,6 +7670,8 @@ function initDistanceForm() {
       if (staffSel.options[i].value === currentStaff) { staffSel.selectedIndex = i; break; }
     }
   }
+  // #D-2: 乗車メーター自動入力
+  autofillDStart();
   updateDistanceCalc();
   renderDistanceLog();
 }
@@ -7655,7 +7696,26 @@ window.doDistanceSubmit = async function() {
   const dist = Math.max(0, end - start);
 
   if (!date || !start || !end) { showToast('日付・距離を入力してください'); return; }
-  if (end < start) { showToast('到着距離が出発距離より小さいです'); return; }
+
+  // #D-2: メーター値バリデーション
+  const prevLog = _findPrevDistanceLog(car);
+  // Rule A: マイナス進行 (前回降車 > 今回乗車)
+  if (prevLog && start < parseFloat(prevLog.end)) {
+    showToast('メーターが減っています。前回降車 ' + prevLog.end + 'km → 今回乗車 ' + start + 'km'); return;
+  }
+  // Rule B: 前回降車から +200km 超
+  if (prevLog) {
+    const gap = start - parseFloat(prevLog.end);
+    if (gap > 200) {
+      showToast('前回降車との差が大きすぎます (+' + gap + 'km)。前回 ' + prevLog.end + ' → 今回 ' + start); return;
+    }
+  }
+  // Rule C: 降車 < 乗車
+  if (end < start) { showToast('降車メーター(' + end + ')が乗車メーター(' + start + ')より小さくなっています'); return; }
+  // Rule D: 1 走行 +200km 超
+  if ((end - start) > 200) {
+    showToast('1回の走行距離が大きすぎます (+' + (end - start) + 'km)。確認してください'); return;
+  }
 
   const entry = {
     ts: tsNow(), date, car, staff, count, start, end, dist, purpose, bin,
@@ -7665,7 +7725,10 @@ window.doDistanceSubmit = async function() {
   try {
     await addDoc(collection(db, 'logs'), entry);
     showToast('送信しました');
-    document.getElementById('d-start').value = end;
+    // 次のレコード用に乗車メーターを今回降車値で上書き (autofill 扱い、手入力で通常色に戻る)
+    const startEl = document.getElementById('d-start');
+    startEl.value = end;
+    startEl.dataset.autofill = '1';
     document.getElementById('d-end').value = '';
     updateDistanceCalc();
     renderDistanceLog();
