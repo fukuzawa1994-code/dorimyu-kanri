@@ -1247,7 +1247,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     </div>
   </div>
 
-    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div id="admin-staff-master" style="display:none;margin-top:12px"></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">事業所</span><select id="admin-new-han" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"><option value="">選択してください</option><option value="童里夢">童里夢</option><option value="奏楽">奏楽</option><option value="ぱぁとなぁ">ぱぁとなぁ</option><option value="すたぁと">すたぁと</option></select></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div><div id="backup-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">バックアップ（MASTER / USER_MASTER スナップショット）</div><div class="fsec"><div class="frow"><span class="flbl">説明（任意）</span><input type="text" id="backup-description" placeholder="手動バックアップ" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:200px"/></div><button class="sbtn" onclick="manualSaveBackup()">現状をバックアップ</button></div><div id="backup-list-body" style="margin-top:8px"></div></div><div id="import-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">適正送迎マスター インポート</div><div class="fsec"><div class="frow"><span class="flbl">JSON ファイル</span><label for="import-file" style="cursor:pointer;padding:8px 14px;background:var(--fill-chip);color:var(--purple);border-radius:12px;font-size:13px;font-weight:600">ファイルを選択</label><input type="file" id="import-file" accept=".json,application/json" style="display:none"/><span id="import-filename" style="font-size:11px;color:var(--text-sub);flex:1;text-align:right;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div><div id="import-preview" style="padding:14px 18px;font-size:13px;color:var(--text-sub)">JSON ファイルを選択してください</div><button class="sbtn" id="import-start-btn" onclick="startImport()" disabled style="opacity:0.5">インポート</button></div></div></div></div>
+    <div class="scr" id="scr-admin" style="padding-bottom:100px;overflow-y:auto"><div class="fp"><div class="ksec-hd">職員アカウント管理</div><div id="admin-account-list"><div class="loading">読み込み中...</div></div><div id="admin-staff-master" style="display:none;margin-top:12px"></div><div class="fsec" style="margin-top:12px"><span class="tog-label">新規職員追加</span><div class="frow"><span class="flbl">名前（ID）</span><input type="text" id="admin-new-name" placeholder="例：山田" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:130px"/></div><div class="frow"><span class="flbl">事業所</span><select id="admin-new-han" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"><option value="">選択してください</option><option value="童里夢">童里夢</option><option value="奏楽">奏楽</option><option value="ぱぁとなぁ">ぱぁとなぁ</option><option value="すたぁと">すたぁと</option></select></div><div class="frow"><span class="flbl">権限</span><select id="admin-new-role" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option value="1">一般職員</option><option value="2">上司</option><option value="3">管理者</option></select></div><button class="sbtn" onclick="adminAddUser()">職員を追加する</button></div><div id="backup-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">バックアップ（MASTER / USER_MASTER スナップショット）</div><div class="fsec"><div class="frow"><span class="flbl">説明（任意）</span><input type="text" id="backup-description" placeholder="手動バックアップ" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:200px"/></div><button class="sbtn" onclick="manualSaveBackup()">現状をバックアップ</button></div><div id="backup-list-body" style="margin-top:8px"></div></div><div id="import-section" style="display:none"><div class="ksec-hd" style="margin-top:8px">適正送迎マスター インポート</div><div class="fsec"><div class="frow"><span class="flbl">JSON ファイル</span><label for="import-file" style="cursor:pointer;padding:8px 14px;background:var(--fill-chip);color:var(--purple);border-radius:12px;font-size:13px;font-weight:600">ファイルを選択</label><input type="file" id="import-file" accept=".json,application/json" style="display:none"/><span id="import-filename" style="font-size:11px;color:var(--text-sub);flex:1;text-align:right;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div><div id="import-preview" style="padding:14px 18px;font-size:13px;color:var(--text-sub)">JSON ファイルを選択してください</div><button class="sbtn" id="import-start-btn" onclick="startImport()" disabled style="opacity:0.5">インポート</button></div></div><div id="testdata-section" style="display:none"><div class="ksec-hd" style="margin-top:8px;color:#FF3B30">⚠ テストデータ管理（試験運用フェーズ）</div><div class="fsec"><div class="frow"><span class="flbl">送迎メーター記録</span><span id="td-distance-count" style="font-size:13px;color:var(--text)">-</span></div><button class="sbtn" style="background:#FF3B30" onclick="wipeDistanceTestData()">送迎テストデータ全削除</button><div style="font-size:11px;color:var(--text-sub);padding:8px 14px 0">本格運用開始時にテスト入力分のメーター記録を一括削除します。取り消し不可。</div></div></div></div></div>
     <div class="scr" id="scr-vacation" style="overflow-y:auto"><div class="fp"><div class="fsec"><div class="frow"><span class="flbl">日付</span><input type="date" id="vac-date" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"/></div><div class="frow"><span class="flbl">申請者</span><span id="vac-applicant" style="font-size:13px;color:var(--text)"></span></div><span class="tog-label">休暇種別</span><div class="togrow"><div class="tog son" data-v="全日有給" onclick="setVacType(this)">全日有給</div><div class="tog" data-v="午前有給" onclick="setVacType(this)">半日（午前）</div><div class="tog" data-v="午後有給" onclick="setVacType(this)">半日（午後）</div><div class="tog" data-v="時間有給" onclick="setVacType(this)">時間有給</div></div><div class="frow" id="vac-hours-row" style="display:none"><span class="flbl">時間数</span><select id="vac-hours" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none"><option>1時間</option><option>2時間</option><option>3時間</option><option>4時間</option><option>5時間</option><option>6時間</option></select></div><div class="frow"><span class="flbl">備考</span><input type="text" id="vac-note" placeholder="任意" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:150px"/></div></div><div class="ksec-hd" style="margin-top:12px">申請済み休暇</div><div id="vacation-list"></div></div><div class="vac-cta-fixed"><button class="sbtn" onclick="doVacationSubmit()">休暇申請する</button></div></div>
     <div class="scr" id="scr-shortstay" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-shortstay-hist" style="padding-bottom:100px;overflow-y:auto"><div id="shortstay-hist-body"><div class="loading">読み込み中...</div></div></div>
@@ -1628,7 +1628,7 @@ window.goScr = function(s) {
     if (typeof renderStartHistory === 'function') renderStartHistory();
     if (typeof renderStartMonth === 'function') renderStartMonth();
   }
-  if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); if (typeof initImportSection === 'function') initImportSection(); }
+  if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); if (typeof initImportSection === 'function') initImportSection(); if (typeof initTestDataSection === 'function') initTestDataSection(); }
   if (s==='shortstay')      renderShortstayList();
   if (s==='shortstay-hist') renderShortstayHist();
   if (s==='shortstay-edit') renderShortstayEdit();
@@ -2831,6 +2831,44 @@ window.initBackupSection = function() {
     renderBackupList();
   } else {
     sec.style.display = 'none';
+  }
+};
+
+// #D-2: 試験運用フェーズ用テストデータ管理セクション (管理者のみ表示)
+window.initTestDataSection = function() {
+  const sec = document.getElementById('testdata-section');
+  if (!sec) return;
+  if (currentUser && currentUser.role >= 3) {
+    sec.style.display = 'block';
+    updateTestDataCount();
+  } else {
+    sec.style.display = 'none';
+  }
+};
+function updateTestDataCount() {
+  const el = document.getElementById('td-distance-count');
+  if (!el) return;
+  const cnt = (logs || []).filter(function(l){ return l && l.type === 'distance'; }).length;
+  el.textContent = cnt + ' 件';
+}
+window.wipeDistanceTestData = async function() {
+  if (!checkSession()) return;
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ実行できます'); return; }
+  const targets = (logs || []).filter(function(l){ return l && l.type === 'distance'; });
+  if (!targets.length) { showToast('削除対象のメーター記録がありません'); return; }
+  // 1 回目: 件数確認
+  if (!confirm('本当に削除しますか？\n\n対象: ' + targets.length + ' 件のメーター記録\n\n（試験運用フェーズ用、本番では使用しません）')) return;
+  // 2 回目: 不可逆性確認
+  if (!confirm('この操作は取り消せません。\n\n' + targets.length + ' 件のメーター記録を完全に削除します。\n本当に続行しますか？')) return;
+  showToast('削除中... (' + targets.length + ' 件)');
+  try {
+    const tasks = targets.map(function(t){ return deleteDoc(doc(db, 'logs', t.id)); });
+    await Promise.all(tasks);
+    showToast('✓ ' + targets.length + ' 件のメーター記録を削除しました');
+    updateTestDataCount();
+  } catch (e) {
+    console.error('wipeDistanceTestData failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
   }
 };
 
@@ -7642,6 +7680,8 @@ function _findPrevDistanceLog(car) {
 }
 
 // #D-2: 乗車メーター自動入力 (車変更時 / 初期化時に発火)
+// 試験運用フェーズ用フォールバック: 直前レコード無し or 値が異常な場合は「100」をデフォルト表示
+const _D_TEST_DEFAULT_KM = 100;
 window.autofillDStart = function() {
   const carEl = document.getElementById('d-car');
   const startEl = document.getElementById('d-start');
@@ -7649,13 +7689,22 @@ window.autofillDStart = function() {
   // ユーザーが手入力した値があれば保護 (autofill フラグ無し + 値あり = 手入力)
   if (startEl.dataset.autofill !== '1' && startEl.value) return;
   const prev = _findPrevDistanceLog(carEl.value);
-  if (prev && prev.end != null) {
-    startEl.value = parseFloat(prev.end);
-    startEl.dataset.autofill = '1';
-  } else {
-    startEl.value = '';
-    startEl.removeAttribute('data-autofill');
+  // フォールバック判定: 直前レコード無し / NaN / 負値 / 異常レコード自体 (start>end or 走行+200km超)
+  let useDefault = false;
+  if (!prev) useDefault = true;
+  else {
+    const pe = parseFloat(prev.end);
+    const ps = parseFloat(prev.start);
+    if (isNaN(pe)) useDefault = true;
+    else if (pe < 0) useDefault = true;
+    else if (!isNaN(ps) && (pe < ps || (pe - ps) > 200)) useDefault = true; // 直前レコード自体が異常
   }
+  if (useDefault) {
+    startEl.value = _D_TEST_DEFAULT_KM;
+  } else {
+    startEl.value = parseFloat(prev.end);
+  }
+  startEl.dataset.autofill = '1';
   updateDistanceCalc();
 };
 
