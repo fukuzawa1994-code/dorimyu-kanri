@@ -7712,14 +7712,14 @@ function initDistanceForm() {
   const today = new Date();
   const ds = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('d-date').value = ds;
-  // 自分の名前をデフォルトに
+  // 自分の名前をデフォルトに (#d-staff は HTML 削除済み・残骸ガード)
   const staffSel = document.getElementById('d-staff');
-  if (currentStaff) {
+  if (staffSel && currentStaff) {
     for (let i=0; i<staffSel.options.length; i++) {
       if (staffSel.options[i].value === currentStaff) { staffSel.selectedIndex = i; break; }
     }
   }
-  // #D-2: 乗車メーター自動入力
+  // #D-2: 乗車メーター自動入力 (上の dead code を抜けてここに必ず到達するよう null ガード追加済み)
   autofillDStart();
   updateDistanceCalc();
   renderDistanceLog();
