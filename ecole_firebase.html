@@ -228,6 +228,22 @@ html, body {
 /* #D-2: 自動入力された数値フィールドは薄グレー、手入力で通常色に戻る */
 input[data-autofill="1"] { color: #8E8E93; }
 
+/* #StartUsers Phase 1-1: すたぁと利用者マスタ — バッジ + モーダル + テーブル/カード */
+.su-badge { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; margin-right: 4px; letter-spacing: 0.02em; }
+.su-status-active   { background: #E4F8E8; color: #1B7C2E; }
+.su-status-inactive { background: #E5E5EA; color: #636366; }
+.su-svc-shortstay   { background: #FFF4E5; color: #9A5200; }
+.su-svc-gh          { background: #EAE7FB; color: #5B4FD8; }
+.su-table-wrap { display: none; }
+.su-cards { display: block; }
+.su-card { background: #fff; margin: 8px 12px; padding: 12px 14px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; }
+.su-card:hover { background: #FAFAFA; }
+.su-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.su-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+.su-modal h3 { margin: 0; padding: 16px 18px; border-bottom: 0.5px solid var(--border); font-size: 16px; font-weight: 700; }
+.su-modal .ksec-hd { margin-top: 0; padding-top: 14px; }
+.su-modal-foot { display: flex; gap: 8px; padding: 12px 14px 16px; border-top: 0.5px solid var(--border); }
+
 /* #D-1: 職員マスタ一覧 — 権限バッジ + スマホカード（デフォルト） / PC テーブル (@media で切替) */
 .ssl-role { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
 .ssl-table-wrap { display: none; }
@@ -709,7 +725,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   #login-screen { max-width: none; }
   /* 金銭出納帳・短期入所記録各種・お小遣い帳: 他画面と揃えて外枠を 1200px まで広く表示
      （inline の overflow-y:auto により独自スクロール領域になっているため ID 指定で明示上書き） */
-  #scr-cashbook, #scr-allowance, #scr-staff-list,
+  #scr-cashbook, #scr-allowance, #scr-staff-list, #scr-start-users,
   #scr-shortstay, #scr-shortstay-hist, #scr-shortstay-edit {
     max-width: 1200px;
     margin-left: auto;
@@ -717,12 +733,21 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     width: 100%;
     box-sizing: border-box;
   }
-  #cashbook-body, #allowance-body, #staff-list-body,
+  #cashbook-body, #allowance-body, #staff-list-body, #start-users-body,
   #shortstay-body, #shortstay-hist-body, #shortstay-edit-body {
     width: 100%;
     max-width: none;
     box-sizing: border-box;
   }
+  /* #StartUsers PC: テーブル表示 */
+  .su-table-wrap { display: block; overflow-x: auto; margin: 0 12px; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .su-cards { display: none; }
+  .su-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .su-table th, .su-table td { padding: 10px 14px; border-bottom: 0.5px solid var(--border); text-align: left; vertical-align: middle; }
+  .su-table th { background: #F8F6FF; font-size: 12px; color: #666; font-weight: 600; }
+  .su-table tr:last-child td { border-bottom: none; }
+  .su-table tbody tr { cursor: pointer; }
+  .su-table tbody tr:hover { background: #FAFAFA; }
   /* shortstay-edit の保存/印刷ボタンバー: 入力行と揃えて 1200px 内でフル幅 */
   #scr-shortstay-edit .vac-cta-fixed { max-width: none; }
   /* #D-1: 職員一覧 PC 表示 — テーブル表示、カードは隠す */
@@ -1255,6 +1280,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
     <div class="scr" id="scr-cashbook" style="padding-bottom:100px;overflow-y:auto"><div id="cashbook-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-allowance" style="padding-bottom:100px;overflow-y:auto"><div id="allowance-body"><div class="loading">読み込み中...</div></div></div>
     <div class="scr" id="scr-staff-list" style="padding-bottom:100px;overflow-y:auto"><div id="staff-list-body"><div class="loading">読み込み中...</div></div></div>
+    <div class="scr" id="scr-start-users" style="padding-bottom:100px;overflow-y:auto"><div id="start-users-body"><div class="loading">読み込み中...</div></div></div>
   <button class="fab" id="fab"><i data-lucide="plus"></i></button>
   <div class="fab-label" id="fab-label"></div>
 
@@ -1450,7 +1476,8 @@ const scrTitles = {
     shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録',
     cashbook: 'ぱぁとなぁ金銭出納帳',
     allowance: 'ぱぁとなぁお小遣い帳',
-    'staff-list': '職員一覧'
+    'staff-list': '職員一覧',
+    'start-users': 'すたぁと利用者マスタ'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
@@ -1460,7 +1487,8 @@ const scrSubs = {
     shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集',
     cashbook: '紬/ひまわり/事務費',
     allowance: '紬/ひまわり 利用者別',
-    'staff-list': '読み取り専用（管理者のみ）'
+    'staff-list': '読み取り専用（管理者のみ）',
+    'start-users': '管理者のみ・登録/編集'
 };
 
 // ── ユーティリティ ──
@@ -1603,7 +1631,7 @@ window.getStaffAffiliation = getStaffAffiliation;
 window.goScr = function(s) {
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list','start-users'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -1635,6 +1663,7 @@ window.goScr = function(s) {
   if (s==='cashbook')       renderCashbook();
   if (s==='allowance')      renderAllowance();
   if (s==='staff-list')     renderStaffList();
+  if (s==='start-users')    renderStartUsers();
   if (s==='vacation')       {
     const applicantEl = document.getElementById('vac-applicant');
     if (applicantEl) applicantEl.textContent = currentStaff || '';
@@ -2679,6 +2708,240 @@ function _sslRender() {
 window._sslSetRoleFilter = function(v) { _sslRoleFilter = v; _sslRender(); };
 window._sslSetDeptFilter = function(v) { _sslDeptFilter = v; _sslRender(); };
 
+// ═════════════════════════════════════════════════════════════
+// #StartUsers Phase 1-1: すたぁと利用者マスタ (start_users コレクション)
+// 管理者のみ閲覧・編集。論理削除 (is_active=false) のみ、物理削除無し。
+// ═════════════════════════════════════════════════════════════
+const SU_RELATIONS = ['父','母','兄','姉','弟','妹','夫','妻','子','祖父','祖母','後見人','その他'];
+let _suList = [];
+let _suStatusFilter = 'active';   // 'all' | 'active' | 'inactive'
+let _suServiceFilter = 'all';     // 'all' | 'short_stay' | 'gh'
+let _suSearch = '';
+let _suEditCtx = null;            // {mode:'new'|'edit', id?, data}
+
+function _suEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+window.renderStartUsers = async function() {
+  const body = document.getElementById('start-users-body');
+  if (!body) return;
+  if (!currentUser || currentUser.role < 3) {
+    body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#FF3B30;font-size:13px">この画面は管理者のみアクセスできます</div>';
+    return;
+  }
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'start_users'));
+    const list = [];
+    snap.forEach(function(d){ list.push(Object.assign({ id: d.id }, d.data())); });
+    list.sort(function(a, b){
+      // 利用中 → 退所、ふりがな昇順
+      const aActive = a.is_active !== false ? 0 : 1;
+      const bActive = b.is_active !== false ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+    });
+    _suList = list;
+    _suRender();
+  } catch (e) {
+    console.error('renderStartUsers failed:', e);
+    body.innerHTML = '<div style="color:#FF3B30;padding:14px;font-size:12px">読込失敗: ' + (e.message||e) + '</div>';
+  }
+};
+
+function _suRender() {
+  const body = document.getElementById('start-users-body');
+  if (!body) return;
+  const q = _suSearch.toLowerCase();
+  const filtered = _suList.filter(function(u){
+    if (_suStatusFilter === 'active'   && u.is_active === false) return false;
+    if (_suStatusFilter === 'inactive' && u.is_active !== false) return false;
+    if (_suServiceFilter === 'short_stay' && !u.is_short_stay) return false;
+    if (_suServiceFilter === 'gh'         && !u.is_gh) return false;
+    if (q) {
+      const hay = ((u.name||'') + ' ' + (u.furigana||'')).toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  const sOpt = function(v,l){ return '<option value="'+v+'"'+(_suStatusFilter===v?' selected':'')+'>'+l+'</option>'; };
+  const vOpt = function(v,l){ return '<option value="'+v+'"'+(_suServiceFilter===v?' selected':'')+'>'+l+'</option>'; };
+  let html = '';
+  // フィルタバー
+  html += '<div style="padding:14px 12px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">ステータス <select onchange="_suSetStatus(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
+    + sOpt('active','利用中') + sOpt('inactive','退所') + sOpt('all','全て') + '</select></label>';
+  html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">サービス <select onchange="_suSetService(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
+    + vOpt('all','全て') + vOpt('short_stay','短期入所') + vOpt('gh','GH') + '</select></label>';
+  html += '<input type="search" placeholder="氏名/ふりがな" value="' + _suEsc(_suSearch) + '" oninput="_suSetSearch(this.value)" style="font-size:12px;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;background:#fff;width:160px"/>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;align-items:center">';
+  html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_suList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
+  html += '<button onclick="_suOpenNew()" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規登録</button>';
+  html += '</div></div>';
+
+  if (!filtered.length) {
+    if (_suList.length === 0) {
+      html += '<div style="padding:60px 20px;text-align:center;color:var(--text-sub);font-size:13px">'
+        + '<i data-lucide="user-plus" style="width:48px;height:48px;color:var(--purple);margin-bottom:12px"></i>'
+        + '<div style="margin-top:12px">利用者がまだ登録されていません</div>'
+        + '<div style="margin-top:6px;font-size:11px">右上の「+ 新規登録」から始めてください</div>'
+        + '</div>';
+    } else {
+      html += '<div style="padding:40px 20px;text-align:center;color:var(--text-sub);font-size:13px">条件に一致する利用者がいません</div>';
+    }
+    body.innerHTML = html;
+    if (window.refreshIcons) window.refreshIcons();
+    return;
+  }
+
+  // PC テーブル
+  html += '<div class="su-table-wrap"><table class="su-table"><thead><tr>'
+    + '<th>氏名</th><th>ふりがな</th><th>サービス</th><th>連絡先</th><th>ステータス</th>'
+    + '</tr></thead><tbody>';
+  for (const u of filtered) {
+    const svc = (u.is_short_stay ? '<span class="su-badge su-svc-shortstay">短期入所</span>' : '')
+              + (u.is_gh         ? '<span class="su-badge su-svc-gh">GH</span>' : '');
+    const contact = (u.contact_name || u.contact_phone)
+      ? _suEsc((u.contact_name||'') + (u.contact_relation?' ('+u.contact_relation+')':'') + (u.contact_phone?' / '+u.contact_phone:''))
+      : '<span style="color:var(--text-sub)">-</span>';
+    const statusBadge = u.is_active === false
+      ? '<span class="su-badge su-status-inactive">退所</span>'
+      : '<span class="su-badge su-status-active">利用中</span>';
+    html += '<tr onclick="_suOpenEdit(\'' + _suEsc(u.id) + '\')">'
+      + '<td><b>'+_suEsc(u.name||'-')+'</b></td>'
+      + '<td style="color:var(--text-sub);font-size:12px">'+_suEsc(u.furigana||'-')+'</td>'
+      + '<td>'+(svc || '<span style="color:var(--text-sub)">-</span>')+'</td>'
+      + '<td style="font-size:12px">'+contact+'</td>'
+      + '<td>'+statusBadge+'</td>'
+      + '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  // モバイルカード
+  html += '<div class="su-cards">';
+  for (const u of filtered) {
+    const svc = (u.is_short_stay ? '<span class="su-badge su-svc-shortstay">短期入所</span>' : '')
+              + (u.is_gh         ? '<span class="su-badge su-svc-gh">GH</span>' : '');
+    const statusBadge = u.is_active === false
+      ? '<span class="su-badge su-status-inactive">退所</span>'
+      : '<span class="su-badge su-status-active">利用中</span>';
+    html += '<div class="su-card" onclick="_suOpenEdit(\'' + _suEsc(u.id) + '\')">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+      + '<div><div style="font-size:15px;font-weight:700">'+_suEsc(u.name||'-')+'</div>'
+      + '<div style="font-size:11px;color:var(--text-sub)">'+_suEsc(u.furigana||'')+'</div></div>'
+      + statusBadge + '</div>'
+      + (svc ? '<div style="margin-bottom:4px">'+svc+'</div>' : '')
+      + ((u.contact_name || u.contact_phone) ? '<div style="font-size:11px;color:var(--text-sub)">連絡先: '+_suEsc((u.contact_name||'') + (u.contact_relation?' ('+u.contact_relation+')':'') + (u.contact_phone?' / '+u.contact_phone:''))+'</div>' : '')
+      + '</div>';
+  }
+  html += '</div>';
+  body.innerHTML = html;
+  if (window.refreshIcons) window.refreshIcons();
+}
+
+window._suSetStatus  = function(v) { _suStatusFilter = v; _suRender(); };
+window._suSetService = function(v) { _suServiceFilter = v; _suRender(); };
+window._suSetSearch  = function(v) { _suSearch = (v||'').trim(); _suRender(); };
+
+window._suOpenNew = function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, is_short_stay:false, is_gh:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
+  _suRenderModal();
+};
+window._suOpenEdit = function(id) {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const u = _suList.find(function(x){ return x.id === id; });
+  if (!u) { showToast('利用者が見つかりません'); return; }
+  _suEditCtx = { mode:'edit', id: id, data: Object.assign({}, u) };
+  _suRenderModal();
+};
+window._suCloseModal = function() {
+  const bg = document.getElementById('su-modal-bg');
+  if (bg) bg.remove();
+  _suEditCtx = null;
+};
+
+function _suRenderModal() {
+  const ex = document.getElementById('su-modal-bg');
+  if (ex) ex.remove();
+  if (!_suEditCtx) return;
+  const ctx = _suEditCtx;
+  const d = ctx.data;
+  const relOpts = SU_RELATIONS.map(function(r){ return '<option value="'+r+'"'+(d.contact_relation===r?' selected':'')+'>'+r+'</option>'; }).join('');
+  const bg = document.createElement('div');
+  bg.id = 'su-modal-bg';
+  bg.className = 'su-modal-bg';
+  bg.onclick = function(e){ if (e.target === bg) _suCloseModal(); };
+  bg.innerHTML = '<div class="su-modal">'
+    + '<h3>' + (ctx.mode==='new' ? '新規利用者登録' : '利用者情報を編集') + '</h3>'
+    + '<div class="fp" style="padding-bottom:0">'
+    + '<div class="fsec">'
+    + '<div class="frow"><span class="flbl">氏名 <span style="color:#FF3B30">*</span></span><input id="su-f-name" type="text" value="'+_suEsc(d.name||'')+'" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
+    + '<div class="frow"><span class="flbl">ふりがな <span style="color:#FF3B30">*</span></span><input id="su-f-furigana" type="text" value="'+_suEsc(d.furigana||'')+'" placeholder="ひらがな" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
+    + '<div class="frow"><span class="flbl">ステータス</span>'
+    + '<div style="display:flex;gap:14px"><label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-yes" value="1"'+(d.is_active!==false?' checked':'')+'/>利用中</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-no" value="0"'+(d.is_active===false?' checked':'')+'/>退所</label></div></div>'
+    + '<span class="tog-label">サービス種別（複数可）</span>'
+    + '<div style="display:flex;gap:14px;padding:4px 0 8px"><label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-short" '+(d.is_short_stay?'checked':'')+'/>短期入所</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-gh" '+(d.is_gh?'checked':'')+'/>GH</label></div>'
+    + '</div>'
+    + '<div class="fsec">'
+    + '<span class="tog-label">緊急連絡先（任意）</span>'
+    + '<div class="frow"><span class="flbl">氏名</span><input id="su-f-cname" type="text" value="'+_suEsc(d.contact_name||'')+'" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
+    + '<div class="frow"><span class="flbl">続柄</span><select id="su-f-crel" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right"><option value="">選択</option>'+relOpts+'</select></div>'
+    + '<div class="frow"><span class="flbl">電話番号</span><input id="su-f-cphone" type="tel" value="'+_suEsc(d.contact_phone||'')+'" placeholder="090-1234-5678" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
+    + '</div>'
+    + '<div class="fsec">'
+    + '<span class="tog-label">特記事項</span>'
+    + '<textarea id="su-f-notes" placeholder="アレルギー・注意事項等" style="width:calc(100% - 24px);margin:4px 12px 12px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-height:60px;box-sizing:border-box;font-family:inherit;resize:vertical">'+_suEsc(d.notes||'')+'</textarea>'
+    + '</div>'
+    + '</div>'
+    + '<div class="su-modal-foot">'
+    + '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="_suCloseModal()">キャンセル</button>'
+    + '<button class="sbtn" style="flex:2" onclick="_suSave()">保存</button>'
+    + '</div></div>';
+  document.body.appendChild(bg);
+}
+
+window._suSave = async function() {
+  if (!_suEditCtx) return;
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const name     = document.getElementById('su-f-name').value.trim();
+  const furigana = document.getElementById('su-f-furigana').value.trim();
+  if (!name)     { showToast('氏名を入力してください'); return; }
+  if (!furigana) { showToast('ふりがなを入力してください'); return; }
+  const payload = {
+    name: name,
+    furigana: furigana,
+    is_active:     document.getElementById('su-f-active-yes').checked,
+    is_short_stay: document.getElementById('su-f-short').checked,
+    is_gh:         document.getElementById('su-f-gh').checked,
+    contact_name:     document.getElementById('su-f-cname').value.trim(),
+    contact_relation: document.getElementById('su-f-crel').value,
+    contact_phone:    document.getElementById('su-f-cphone').value.trim(),
+    notes:            document.getElementById('su-f-notes').value.trim(),
+    updatedAt: serverTimestamp(),
+    updatedBy: currentStaff || ''
+  };
+  try {
+    if (_suEditCtx.mode === 'new') {
+      payload.createdAt = serverTimestamp();
+      payload.createdBy = currentStaff || '';
+      await addDoc(collection(db, 'start_users'), payload);
+      showToast('✓ 利用者を登録しました');
+    } else {
+      await updateDoc(doc(db, 'start_users', _suEditCtx.id), payload);
+      showToast('✓ 利用者情報を更新しました');
+    }
+    _suCloseModal();
+    renderStartUsers();
+  } catch (e) {
+    console.error('_suSave failed:', e);
+    showToast('保存失敗: ' + (e.message||e));
+  }
+};
+
 // 職員追加（管理者のみ）— 実装漏れ修正
 window.adminAddUser = async function() {
   if (!checkSession()) return;
@@ -3551,6 +3814,7 @@ window.showSubMenu = function(type) {
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
       { icon: 'wallet', label: 'ぱぁとなぁお小遣い帳', action: "goScr('allowance')" },
       { icon: 'id-card', label: '職員一覧', action: "goScr('staff-list')", adminOnly: true },
+      { icon: 'user-plus', label: 'すたぁと利用者マスタ', action: "goScr('start-users')", adminOnly: true },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
