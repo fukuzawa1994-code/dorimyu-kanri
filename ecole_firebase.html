@@ -2775,8 +2775,9 @@ function _suRender() {
     + vOpt('all','全て') + vOpt('short_stay','短期入所') + vOpt('gh','GH') + '</select></label>';
   html += '<input type="search" placeholder="氏名/ふりがな" value="' + _suEsc(_suSearch) + '" oninput="_suSetSearch(this.value)" style="font-size:12px;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;background:#fff;width:160px"/>';
   html += '</div>';
-  html += '<div style="display:flex;gap:8px;align-items:center">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
   html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_suList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
+  html += '<button onclick="_suOpenImport()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV インポート</button>';
   html += '<button onclick="_suOpenNew()" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規登録</button>';
   html += '</div></div>';
 
@@ -2941,6 +2942,208 @@ window._suSave = async function() {
     showToast('保存失敗: ' + (e.message||e));
   }
 };
+
+// ─── #StartUsers: CSV 一括インポート ───
+const SU_CSV_COLS = ['name','furigana','is_short_stay','is_gh','contact_name','contact_relation','contact_phone','notes'];
+let _suImportCtx = null;  // {step:1|2, parsed: [...rows], summary: {...}}
+
+function _suParseBool(s) {
+  if (s == null) return false;
+  const v = String(s).trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'y' || v === '○' || v === 'はい';
+}
+function _suParseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = [];
+  let cur = '', row = [], inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cur += '"'; i++; } else { inQuote = false; }
+      } else { cur += ch; }
+    } else {
+      if (ch === '"') inQuote = true;
+      else if (ch === ',') { row.push(cur); cur = ''; }
+      else if (ch === '\r') { /* skip */ }
+      else if (ch === '\n') { row.push(cur); cur = ''; lines.push(row); row = []; }
+      else { cur += ch; }
+    }
+  }
+  if (cur !== '' || row.length) { row.push(cur); lines.push(row); }
+  return lines.filter(function(r){ return r.length > 0 && r.some(function(c){ return c && c.trim() !== ''; }); });
+}
+
+window._suOpenImport = function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  _suImportCtx = { step: 1, parsed: [], summary: null };
+  _suRenderImportModal();
+};
+window._suCloseImport = function() {
+  const bg = document.getElementById('su-import-bg');
+  if (bg) bg.remove();
+  _suImportCtx = null;
+};
+window._suDownloadTemplate = function() {
+  const sample = SU_CSV_COLS.join(',') + '\n'
+    + '山田太郎,やまだたろう,1,0,山田花子,母,090-1234-5678,アレルギー：卵\n'
+    + '鈴木一郎,すずきいちろう,0,1,,,,\n';
+  // UTF-8 BOM 付与で Excel が文字化けせず開ける
+  const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'start_users_template.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+};
+
+window._suOnImportFile = async function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  let text;
+  try {
+    const buf = await file.arrayBuffer();
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (_) { text = new TextDecoder('shift-jis').decode(buf); }
+  } catch (e) { showToast('ファイル読込失敗: ' + (e.message||e)); return; }
+  const rows = _suParseCSV(text);
+  if (rows.length < 2) { showToast('データ行がありません（ヘッダー1行 + データ最低1行が必要）'); return; }
+  // ヘッダー検証
+  const header = rows[0].map(function(s){ return (s||'').trim().toLowerCase(); });
+  const colMap = {};
+  for (const c of SU_CSV_COLS) colMap[c] = header.indexOf(c);
+  if (colMap.name < 0 || colMap.furigana < 0) {
+    showToast('ヘッダー行に必須列 name / furigana が見つかりません'); return;
+  }
+  // データ行解析
+  const seenInCsv = new Set();
+  const existingKeys = new Set(_suList.map(function(u){ return (u.name||'')+'|'+(u.furigana||''); }));
+  const parsed = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const get = function(c){ const idx = colMap[c]; return (idx >= 0 && idx < r.length) ? (r[idx]||'').trim() : ''; };
+    const name = get('name');
+    const furigana = get('furigana');
+    let status = 'valid', reason = '';
+    const key = name + '|' + furigana;
+    if (!name) { status = 'invalid'; reason = '氏名必須'; }
+    else if (!furigana) { status = 'invalid'; reason = 'ふりがな必須'; }
+    else if (existingKeys.has(key)) { status = 'duplicate'; reason = '既存データと重複'; }
+    else if (seenInCsv.has(key)) { status = 'duplicate'; reason = 'CSV内重複'; }
+    if (status === 'valid') seenInCsv.add(key);
+    const payload = (status === 'valid') ? {
+      name: name, furigana: furigana, is_active: true,
+      is_short_stay: _suParseBool(get('is_short_stay')),
+      is_gh:         _suParseBool(get('is_gh')),
+      contact_name:     get('contact_name'),
+      contact_relation: get('contact_relation'),
+      contact_phone:    get('contact_phone'),
+      notes:            get('notes')
+    } : null;
+    parsed.push({ rowNum: i + 1, status: status, reason: reason, name: name, furigana: furigana, payload: payload });
+  }
+  const summary = {
+    total: parsed.length,
+    valid: parsed.filter(function(p){ return p.status==='valid'; }).length,
+    invalid: parsed.filter(function(p){ return p.status==='invalid'; }).length,
+    duplicate: parsed.filter(function(p){ return p.status==='duplicate'; }).length
+  };
+  _suImportCtx.step = 2;
+  _suImportCtx.parsed = parsed;
+  _suImportCtx.summary = summary;
+  _suRenderImportModal();
+};
+
+window._suExecuteImport = async function() {
+  if (!_suImportCtx) return;
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const valids = _suImportCtx.parsed.filter(function(p){ return p.status==='valid'; });
+  if (!valids.length) { showToast('有効な行がありません'); return; }
+  if (!confirm(valids.length + ' 件をインポートします。よろしいですか？')) return;
+  showToast('インポート中... (' + valids.length + ' 件)');
+  let ok = 0, ng = 0;
+  const tasks = valids.map(function(p){
+    const payload = Object.assign({}, p.payload, {
+      createdAt: serverTimestamp(), createdBy: currentStaff || '',
+      updatedAt: serverTimestamp(), updatedBy: currentStaff || ''
+    });
+    return addDoc(collection(db, 'start_users'), payload).then(function(){ ok++; }).catch(function(e){
+      ng++; console.error('import row failed:', p.rowNum, e);
+    });
+  });
+  await Promise.all(tasks);
+  showToast('✓ ' + ok + ' 件登録完了' + (ng ? ' / ' + ng + ' 件失敗' : ''));
+  _suCloseImport();
+  renderStartUsers();
+};
+
+function _suRenderImportModal() {
+  const ex = document.getElementById('su-import-bg');
+  if (ex) ex.remove();
+  if (!_suImportCtx) return;
+  const ctx = _suImportCtx;
+  const bg = document.createElement('div');
+  bg.id = 'su-import-bg';
+  bg.className = 'su-modal-bg';
+  bg.onclick = function(e){ if (e.target === bg) _suCloseImport(); };
+  let body = '';
+  if (ctx.step === 1) {
+    body = '<h3>CSV 一括インポート</h3>'
+      + '<div style="padding:14px 18px">'
+      + '<div style="font-size:12px;color:var(--text-sub);line-height:1.7;margin-bottom:14px">'
+      + '<b>使い方:</b><br>'
+      + '1. 下のボタンでテンプレート CSV をダウンロード<br>'
+      + '2. Excel で開いて各列を入力（必須: name, furigana）<br>'
+      + '3. <b>「CSV UTF-8 (コンマ区切り)」</b>形式で保存（文字化け防止）<br>'
+      + '4. 下の選択ボタンで保存した CSV をアップロード<br>'
+      + '<span style="color:var(--text-sub);font-size:11px">※ is_short_stay / is_gh は 1/0、true/false、○/×、空欄=0 のいずれも可</span>'
+      + '</div>'
+      + '<button class="sbtn" style="width:100%;background:#fff;color:var(--purple);border:1px solid var(--purple);margin-bottom:10px" onclick="_suDownloadTemplate()"><i data-lucide="download"></i> テンプレート CSV をダウンロード</button>'
+      + '<label for="su-import-file" style="display:block;cursor:pointer;padding:14px;background:var(--fill-chip);color:var(--purple);border-radius:10px;font-size:13px;font-weight:600;text-align:center"><i data-lucide="upload"></i> CSV ファイルを選択</label>'
+      + '<input type="file" id="su-import-file" accept=".csv,text/csv" style="display:none" onchange="_suOnImportFile(this)"/>'
+      + '</div>'
+      + '<div class="su-modal-foot"><button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="_suCloseImport()">閉じる</button></div>';
+  } else {
+    const s = ctx.summary;
+    let preview = '<div style="overflow-x:auto;margin:0 14px;border:0.5px solid var(--border);border-radius:8px;background:#fff;max-height:50vh;overflow-y:auto">';
+    preview += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    preview += '<thead style="position:sticky;top:0;background:#F8F6FF"><tr>'
+      + '<th style="padding:6px 8px;text-align:left;border-bottom:0.5px solid #ddd">行</th>'
+      + '<th style="padding:6px 8px;text-align:left;border-bottom:0.5px solid #ddd">氏名</th>'
+      + '<th style="padding:6px 8px;text-align:left;border-bottom:0.5px solid #ddd">ふりがな</th>'
+      + '<th style="padding:6px 8px;text-align:left;border-bottom:0.5px solid #ddd">状態</th>'
+      + '</tr></thead><tbody>';
+    for (const p of ctx.parsed) {
+      const color = p.status==='valid' ? 'var(--green-dark)' : p.status==='duplicate' ? '#FF9500' : '#FF3B30';
+      const label = p.status==='valid' ? '✓ 有効' : p.status==='duplicate' ? ('⚠ ' + p.reason) : ('✗ ' + p.reason);
+      preview += '<tr style="border-bottom:0.5px solid #eee">'
+        + '<td style="padding:5px 8px;color:var(--text-sub)">' + p.rowNum + '</td>'
+        + '<td style="padding:5px 8px">' + _suEsc(p.name||'(空)') + '</td>'
+        + '<td style="padding:5px 8px;color:var(--text-sub)">' + _suEsc(p.furigana||'(空)') + '</td>'
+        + '<td style="padding:5px 8px;color:' + color + ';font-weight:700;white-space:nowrap">' + label + '</td>'
+        + '</tr>';
+    }
+    preview += '</tbody></table></div>';
+    const importBtn = s.valid > 0
+      ? '<button class="sbtn" style="flex:2" onclick="_suExecuteImport()">✓ ' + s.valid + ' 件をインポート</button>'
+      : '<button class="sbtn" style="flex:2;opacity:0.5" disabled>有効な行がありません</button>';
+    body = '<h3>インポート プレビュー</h3>'
+      + '<div style="padding:14px 18px 8px;display:flex;gap:8px;flex-wrap:wrap;font-size:12px">'
+      + '<span style="background:var(--fill-chip);padding:4px 10px;border-radius:10px">合計 <b>' + s.total + '</b> 行</span>'
+      + '<span style="background:#E4F8E8;color:#1B7C2E;padding:4px 10px;border-radius:10px">✓ 有効 <b>' + s.valid + '</b></span>'
+      + (s.duplicate ? '<span style="background:#FFF4E5;color:#9A5200;padding:4px 10px;border-radius:10px">⚠ 重複 <b>' + s.duplicate + '</b></span>' : '')
+      + (s.invalid ? '<span style="background:#FFE5E4;color:#FF3B30;padding:4px 10px;border-radius:10px">✗ 不備 <b>' + s.invalid + '</b></span>' : '')
+      + '</div>'
+      + preview
+      + '<div class="su-modal-foot">'
+      + '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="_suCloseImport()">キャンセル</button>'
+      + importBtn
+      + '</div>';
+  }
+  bg.innerHTML = '<div class="su-modal" style="max-width:640px">' + body + '</div>';
+  document.body.appendChild(bg);
+  if (window.refreshIcons) window.refreshIcons();
+}
 
 // 職員追加（管理者のみ）— 実装漏れ修正
 window.adminAddUser = async function() {
