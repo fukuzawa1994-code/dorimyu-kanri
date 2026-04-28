@@ -1314,7 +1314,7 @@ import { getFirestore, collection, addDoc, getDoc, getDocs, setDoc, updateDoc, o
 // ── 自動キャッシュバスト ──
 // APP_VERSION は push 時に GitHub Actions が自動書換 (.github/workflows/bump-version.yml)。
 // version.txt と比較して差分があれば ?v=<remote> 付きで location.replace() → 常に最新 HTML を取得。
-const APP_VERSION = 'ab1a3a8'; // @auto-bump
+const APP_VERSION = '0a082ca'; // @auto-bump
 const _CB_THROTTLE_MS = 30000;
 async function _cacheBustCheck() {
   try {
