@@ -8795,6 +8795,10 @@ const ACCOUNTS = {
 // #39-v2: ACCOUNTS のうちハードコード定義に含まれる名前を固定スナップショット
 // （起動時 staff_accounts マージで ACCOUNTS が拡張された後も、どれがハードコード由来か判別できるようにする）
 const _ACCOUNTS_HARDCODED_NAMES = new Set(Object.keys(ACCOUNTS));
+// admin画面の merge:true 操作で passwordHash 抜き doc が作られ、ログイン不能になった
+// 限定の救済対象。初回ログイン時のみ '0000' を受理して passwordHash をセットする。
+// 一度セットされれば doLogin の通常分岐に戻り、パスワード変更ダイアログも使える。
+const _PW_INIT_RECOVERY = new Set(['田中友香里', '林竜希']);
 let currentUser = null;
 
 window.doLogin = async function() {
@@ -8815,7 +8819,12 @@ window.doLogin = async function() {
       const data = accountDoc.data();
       // SHA-256ハッシュで比較
       const passHash = await hashPassword(pass);
-      if (data.passwordHash !== passHash) {
+      // 救済経路: admin編集で passwordHash 抜き doc が作られた限定2名 (_PW_INIT_RECOVERY) のみ、
+      // 初回ログイン時に '0000' を受理して passwordHash をセット。merge:true で他フィールドは保持。
+      if (!data.passwordHash && _PW_INIT_RECOVERY.has(name)) {
+        if (pass !== '0000') { err.textContent = 'パスワードが違います'; return; }
+        await setDoc(doc(db, 'staff_accounts', name), { passwordHash: passHash }, { merge: true });
+      } else if (data.passwordHash !== passHash) {
         // ローカル変更パスワードも確認
         const pwStore = JSON.parse(localStorage.getItem('ecole_passwords') || '{}');
         const localPw = pwStore[name];
