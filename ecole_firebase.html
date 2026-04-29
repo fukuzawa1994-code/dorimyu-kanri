@@ -8952,7 +8952,12 @@ window.openStartPatternsModal = async function() {
   bg.onclick = function(e){ if (e.target === bg) closeStartPatternsModal(); };
   bg.innerHTML = ''
     + '<div class="sp-modal">'
-    +   '<h3>⚙️ すたぁと予定マスタ <button onclick="closeStartPatternsModal()" class="close-btn">×</button></h3>'
+    +   '<h3><span>⚙️ すたぁと予定マスタ</span>'
+    +     '<span style="display:flex;gap:8px;align-items:center">'
+    +       '<button onclick="openPatternImportModal()" style="padding:6px 12px;border:1px solid #15803D;border-radius:8px;background:#fff;color:#15803D;font-size:12px;font-weight:600;cursor:pointer">📥 CSVインポート</button>'
+    +       '<button onclick="closeStartPatternsModal()" class="close-btn">×</button>'
+    +     '</span>'
+    +   '</h3>'
     +   '<div class="sp-modal-body" id="sp-list-body"></div>'
     +   '<div class="sp-modal-foot">'
     +     '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="closeStartPatternsModal()">閉じる</button>'
@@ -9422,6 +9427,320 @@ window.runExpansion = async function() {
     showToast('展開失敗: ' + (e.message || e));
   } finally {
     if (goBtn) { goBtn.disabled = false; goBtn.textContent = '展開する'; }
+  }
+};
+
+// ─── CSV インポート (start_patterns 一括投入) ───
+// content → {category, service} マッピング
+const SP_CONTENT_MAP = {
+  '身体':   { category: '居宅介護', service: '身体介護' },
+  '家事':   { category: '居宅介護', service: '家事援助' },
+  '移動有': { category: '居宅介護', service: '移動支援(身)' },
+  '移動無': { category: '居宅介護', service: '移動支援(身)' },
+  '通院有': { category: '居宅介護', service: '通院支援' },
+  '通院無': { category: '居宅介護', service: '通院支援' },
+  '行動':   { category: '居宅介護', service: '行動援護' },
+  '世話人': { category: 'GH勤務',   service: 'GH世話人' }
+};
+// 不明な content の既定値
+const SP_CONTENT_UNKNOWN = { category: '居宅介護', service: 'その他' };
+// 曜日ラベル → 数値
+const SP_DOW_PARSE = { '月':1, '火':2, '水':3, '木':4, '金':5, '土':6, '日':0 };
+// CSV列定義
+const SP_CSV_COLS = ['user','content','start','end','days','weeks','helper','note'];
+// import デフォルト
+const SP_DEFAULT_VALID_FROM = '2026-04-01';
+
+let _spImportCtx = null;  // { step:1|2, parsed:[], summary, replaceAll }
+
+window.openPatternImportModal = function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  _spImportCtx = { step: 1, parsed: [], summary: null, replaceAll: false };
+  _spRenderImportModal();
+};
+
+window.closePatternImportModal = function() {
+  _spImportCtx = null;
+  const el = document.getElementById('sp-import-bg');
+  if (el) el.remove();
+};
+
+function _spRenderImportModal() {
+  if (!_spImportCtx) return;
+  document.getElementById('sp-import-bg')?.remove();
+  const bg = document.createElement('div');
+  bg.id = 'sp-import-bg';
+  bg.className = 'sp-modal-bg';
+  bg.style.zIndex = '250';  // patterns list (200) の上に重ねる
+  bg.onclick = function(e){ if (e.target === bg) closePatternImportModal(); };
+
+  let html = '<div class="sp-modal" style="max-width:640px">';
+  html += '<h3><span>📥 マスタ CSV インポート</span><button onclick="closePatternImportModal()" class="close-btn">×</button></h3>';
+  html += '<div class="sp-modal-body">';
+
+  if (_spImportCtx.step === 1) {
+    // Step 1: ファイル選択
+    html += '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px;line-height:1.6">'
+      + 'CSV ヘッダ: <code>' + SP_CSV_COLS.join(',') + '</code><br>'
+      + '・<b>user</b>: 利用者名 (users コレクションで照合)<br>'
+      + '・<b>content</b>: 身体/家事/移動有/移動無/通院有/行動/世話人 (不明はその他)<br>'
+      + '・<b>start/end</b>: HH:MM<br>'
+      + '・<b>days</b>: 月・水・金 (・区切り)<br>'
+      + '・<b>helper</b>: 職員名 (・区切り、複数で2人体制)<br>'
+      + '・<b>note</b>: 「2人体制」を含むと is_two_person=true 強制<br>'
+      + '・既定: valid_from=' + SP_DEFAULT_VALID_FROM + ', exclude_holidays=true, active=true'
+      + '</div>';
+    html += '<div style="padding:14px;border:1px dashed var(--border);border-radius:8px;text-align:center">'
+      + '<input type="file" accept=".csv,text/csv" id="sp-import-file" onchange="spOnImportFile(this)" style="font-size:14px"/>'
+      + '</div>';
+  } else {
+    // Step 2: プレビュー + 実行
+    const s = _spImportCtx.summary || {};
+    const preview = _spImportCtx.parsed.slice(0, 5);
+    html += '<div style="font-size:13px;margin-bottom:10px">'
+      + '解析結果: 全 <b>' + s.total + '</b> 件 / 有効 <b style="color:#15803D">' + s.valid + '</b> / スキップ <b style="color:#9A5200">' + s.skip + '</b>'
+      + '</div>';
+    if (preview.length > 0) {
+      html += '<div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px">プレビュー (先頭5行)</div>';
+      html += '<div style="overflow-x:auto;max-height:240px;overflow-y:auto;border:0.5px solid var(--border);border-radius:8px;margin-bottom:10px">';
+      html += '<table style="border-collapse:collapse;width:100%;font-size:11px">';
+      html += '<thead><tr style="background:#F8F6FF"><th style="padding:6px;border-bottom:0.5px solid #ddd">行</th><th style="padding:6px;border-bottom:0.5px solid #ddd;text-align:left">利用者</th><th style="padding:6px;border-bottom:0.5px solid #ddd;text-align:left">サービス</th><th style="padding:6px;border-bottom:0.5px solid #ddd;text-align:left">曜日</th><th style="padding:6px;border-bottom:0.5px solid #ddd;text-align:left">時刻</th><th style="padding:6px;border-bottom:0.5px solid #ddd;text-align:left">担当</th><th style="padding:6px;border-bottom:0.5px solid #ddd">状態</th></tr></thead><tbody>';
+      for (const p of preview) {
+        const dlabel = (p.payload && Array.isArray(p.payload.days_of_week))
+          ? p.payload.days_of_week.slice().sort(function(a,b){ return (a===0?7:a)-(b===0?7:b); }).map(function(x){ return SD_DOW_LABELS[x]; }).join('') : '-';
+        const staffLabel = (p.payload && p.payload.default_staff_names_cache) ? p.payload.default_staff_names_cache.join('・') : '-';
+        const timeLabel = (p.payload) ? (p.payload.start_time + '-' + p.payload.end_time) : '-';
+        const svcLabel = (p.payload) ? (p.payload.category + '/' + p.payload.service) : '-';
+        const userLabel = (p.payload) ? p.payload.user_name_cache : (p.userRaw || '-');
+        const stColor = p.status === 'valid' ? '#15803D' : '#9A5200';
+        const stLabel = p.status === 'valid' ? '✓ 有効' : ('⚠ ' + p.reason);
+        html += '<tr style="border-bottom:0.5px solid #eee">'
+          + '<td style="padding:5px;text-align:center;color:var(--text-sub)">' + p.rowNum + '</td>'
+          + '<td style="padding:5px">' + _sdEsc(userLabel) + '</td>'
+          + '<td style="padding:5px">' + _sdEsc(svcLabel) + '</td>'
+          + '<td style="padding:5px">' + _sdEsc(dlabel) + '</td>'
+          + '<td style="padding:5px">' + _sdEsc(timeLabel) + '</td>'
+          + '<td style="padding:5px">' + _sdEsc(staffLabel) + '</td>'
+          + '<td style="padding:5px;color:' + stColor + ';font-size:10px;white-space:nowrap">' + _sdEsc(stLabel) + '</td>'
+          + '</tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+    // スキップ詳細 (上位30件)
+    const skipped = _spImportCtx.parsed.filter(function(p){ return p.status !== 'valid'; });
+    if (skipped.length > 0) {
+      html += '<div style="font-size:11px;font-weight:700;color:#9A5200;margin:10px 0 4px">スキップ詳細 (' + skipped.length + '件)</div>';
+      html += '<div style="max-height:180px;overflow-y:auto;background:#FFF8E1;border:0.5px solid #FFD180;border-radius:6px;padding:8px;font-size:11px;color:var(--text-sub)">';
+      for (const p of skipped.slice(0, 30)) {
+        html += '行' + p.rowNum + ': ' + _sdEsc(p.userRaw || '(空)') + ' — ' + _sdEsc(p.reason) + '<br>';
+      }
+      if (skipped.length > 30) html += '... 他 ' + (skipped.length - 30) + ' 件';
+      html += '</div>';
+    }
+    html += '<div style="margin:14px 0 6px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:10px;background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px"><input type="checkbox" id="sp-imp-replace" style="width:18px;height:18px"/>既存マスタをすべて削除して入れ替える（active=false で論理削除）</label></div>';
+  }
+
+  html += '</div>';
+  html += '<div class="sp-modal-foot">';
+  html += '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="closePatternImportModal()">キャンセル</button>';
+  if (_spImportCtx.step === 2) {
+    const n = _spImportCtx.summary ? _spImportCtx.summary.valid : 0;
+    const disabled = (n === 0) ? ' disabled' : '';
+    html += '<button class="sbtn" id="sp-imp-go" style="flex:2"' + disabled + ' onclick="spExecuteImport()">' + n + '件 インポート</button>';
+  }
+  html += '</div></div>';
+  bg.innerHTML = html;
+  document.body.appendChild(bg);
+}
+
+window.spOnImportFile = async function(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  let text;
+  try {
+    const buf = await file.arrayBuffer();
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (_) { text = new TextDecoder('shift-jis').decode(buf); }
+  } catch (e) { showToast('ファイル読込失敗: ' + (e.message || e)); return; }
+
+  // 既存パーサ流用 (UTF-8 BOM 対応済み)
+  const rows = _suParseCSV(text);
+  if (rows.length < 2) { showToast('データ行がありません（ヘッダー1行 + データ最低1行が必要）'); return; }
+
+  // ヘッダ列マッピング
+  const header = rows[0].map(function(s){ return (s || '').trim().toLowerCase(); });
+  const colMap = {};
+  for (const c of SP_CSV_COLS) colMap[c] = header.indexOf(c);
+  if (colMap.user < 0) { showToast('ヘッダ行に必須列 user が見つかりません'); return; }
+
+  // 行解析
+  const parsed = [];
+  let validCount = 0, skipCount = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const get = function(c){ const idx = colMap[c]; return (idx >= 0 && idx < r.length) ? (r[idx] || '').trim() : ''; };
+    const result = _spParsePatternRow(get, i + 1);
+    parsed.push(result);
+    if (result.status === 'valid') validCount++; else skipCount++;
+  }
+
+  _spImportCtx.step = 2;
+  _spImportCtx.parsed = parsed;
+  _spImportCtx.summary = { total: parsed.length, valid: validCount, skip: skipCount };
+  _spRenderImportModal();
+};
+
+// 1行 → {status, reason, payload, rowNum, userRaw}
+function _spParsePatternRow(get, rowNum) {
+  const userRaw  = get('user');
+  const content  = get('content');
+  const start    = get('start');
+  const end      = get('end');
+  const daysRaw  = get('days');
+  const helperRaw = get('helper');
+  const note     = get('note');
+
+  if (!userRaw) return { rowNum: rowNum, status: 'skip', reason: '利用者名が空', userRaw: '' };
+
+  // 利用者照合 (氏名で _sdUsers から検索)
+  const u = _sdUsers.find(function(x){ return (x.name || '') === userRaw; });
+  if (!u) return { rowNum: rowNum, status: 'skip', reason: '利用者「' + userRaw + '」が users コレクションに見つかりません', userRaw: userRaw };
+
+  // content → category, service
+  const cm = SP_CONTENT_MAP[content] || SP_CONTENT_UNKNOWN;
+  const category = cm.category;
+  const service  = cm.service;
+
+  // days → 数値配列
+  const dows = [];
+  if (daysRaw) {
+    // 全角中黒「・」または半角カンマ・スラッシュで区切り
+    const tokens = daysRaw.split(/[・,，\/\s]+/).filter(function(t){ return t; });
+    for (const tok of tokens) {
+      // "月曜日"・"月" 両対応 (先頭1文字を見る)
+      const ch = tok.charAt(0);
+      if (SP_DOW_PARSE[ch] !== undefined) dows.push(SP_DOW_PARSE[ch]);
+    }
+  }
+  if (dows.length === 0) return { rowNum: rowNum, status: 'skip', reason: '曜日 (days) が解析できません', userRaw: userRaw };
+
+  // 時刻バリデーション
+  const tre = /^\d{1,2}:\d{2}$/;
+  if (!tre.test(start) || !tre.test(end)) {
+    return { rowNum: rowNum, status: 'skip', reason: '時刻形式が不正 (start=' + start + ', end=' + end + ')', userRaw: userRaw };
+  }
+  // 「09:00」のように頭ゼロを補完
+  const fixT = function(t){ const [h, m] = t.split(':'); return String(parseInt(h, 10)).padStart(2, '0') + ':' + (m || '00').padStart(2, '0'); };
+  const startN = fixT(start);
+  const endN   = fixT(end);
+
+  // helper → 職員名配列
+  const helperTokens = (helperRaw || '').split(/[・,，\/\s]+/).map(function(t){ return t.trim(); }).filter(function(t){ return t; });
+  const staffNames = [];
+  const staffMissing = [];
+  for (const h of helperTokens) {
+    if (ACCOUNTS && ACCOUNTS[h]) staffNames.push(h);
+    else staffMissing.push(h);
+  }
+
+  // is_two_person 判定: helper が2件以上 または note に「2人体制」
+  let isPair = (staffNames.length >= 2) || /2人体制/.test(note || '');
+
+  // dedup, 順序保持
+  const seen = new Set();
+  const uniq = [];
+  for (const s of staffNames) { if (!seen.has(s)) { seen.add(s); uniq.push(s); } }
+  // 2人体制と言っているのに名前が1名しか引けない → 警告 (スキップしない、編集で修正)
+  let warning = '';
+  if (isPair && uniq.length < 2) warning = '（2人体制だが職員名1名のみ照合）';
+  if (staffMissing.length > 0) warning += '（未照合: ' + staffMissing.join('・') + '）';
+
+  // 不明 content は警告付き
+  if (!SP_CONTENT_MAP[content]) warning += '（content「' + content + '」不明 → その他）';
+
+  const payload = {
+    user_id: u.id,
+    user_name_cache: u.name,
+    category: category,
+    service: service,
+    days_of_week: dows.slice().sort(function(a,b){ return a - b; }),
+    start_time: startN,
+    end_time: endN,
+    default_staff_ids: uniq.slice(),
+    default_staff_names_cache: uniq.slice(),
+    is_two_person: isPair,
+    exclude_holidays: true,
+    note: (note || '') + (warning ? ' ' + warning : ''),
+    valid_from: SP_DEFAULT_VALID_FROM,
+    valid_to: null,
+    active: true
+  };
+  return { rowNum: rowNum, status: 'valid', reason: warning || '', userRaw: userRaw, payload: payload };
+}
+
+window.spExecuteImport = async function() {
+  if (!_spImportCtx) return;
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const valids = _spImportCtx.parsed.filter(function(p){ return p.status === 'valid'; });
+  if (valids.length === 0) { showToast('有効な行がありません'); return; }
+  const replaceAll = !!(document.getElementById('sp-imp-replace') || {}).checked;
+
+  const confirmMsg = replaceAll
+    ? ('既存の全パターンを論理削除した上で、' + valids.length + ' 件を新規登録します。\nよろしいですか？')
+    : (valids.length + ' 件を新規登録します。\nよろしいですか？');
+  if (!confirm(confirmMsg)) return;
+
+  const goBtn = document.getElementById('sp-imp-go');
+  if (goBtn) { goBtn.disabled = true; goBtn.textContent = 'インポート中...'; }
+  try {
+    // オプション: 既存マスタを論理削除 (active=false)
+    let deleted = 0;
+    if (replaceAll) {
+      let batchD = writeBatch(db);
+      let inB = 0;
+      for (const p of _spList) {
+        if (p.active === false) continue;
+        batchD.update(doc(db, 'start_patterns', p._id), {
+          active: false,
+          updated_by: currentStaff || 'csv-import',
+          updated_at: serverTimestamp()
+        });
+        inB++;
+        deleted++;
+        if (inB >= 450) { await batchD.commit(); batchD = writeBatch(db); inB = 0; }
+      }
+      if (inB > 0) await batchD.commit();
+    }
+    // 新規追加 (writeBatch、450件/コミット)
+    let batch = writeBatch(db);
+    let inBatch = 0;
+    let added = 0;
+    for (const p of valids) {
+      const ref = doc(collection(db, 'start_patterns'));
+      const payload = Object.assign({}, p.payload, {
+        created_by: currentStaff || 'csv-import',
+        created_at: serverTimestamp(),
+        updated_by: currentStaff || 'csv-import',
+        updated_at: serverTimestamp()
+      });
+      batch.set(ref, payload);
+      inBatch++;
+      added++;
+      if (inBatch >= 450) { await batch.commit(); batch = writeBatch(db); inBatch = 0; }
+    }
+    if (inBatch > 0) await batch.commit();
+
+    let toast = '✓ ' + added + ' 件登録';
+    if (replaceAll) toast += ' / ' + deleted + ' 件論理削除';
+    showToast(toast);
+    closePatternImportModal();
+    await _spLoadPatterns();
+    _spRenderList();
+  } catch (e) {
+    console.error('spExecuteImport failed:', e);
+    showToast('インポート失敗: ' + (e.message || e));
+  } finally {
+    if (goBtn) { goBtn.disabled = false; goBtn.textContent = 'インポート'; }
   }
 };
 
