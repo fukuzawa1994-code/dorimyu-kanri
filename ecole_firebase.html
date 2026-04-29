@@ -6969,6 +6969,30 @@ function _cbPrevYm(ym) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 }
 
+// 画像圧縮: 最大幅 800px、JPEG 品質 70%、Base64 で返す（abCompressImage と同仕様）
+window.cbCompressImage = function(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onerror = function(){ reject(new Error('画像読込失敗')); };
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onerror = function(){ reject(new Error('画像解析失敗')); };
+      img.onload = function() {
+        const maxWidth = 800;
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 window.renderCashbook = async function() {
   const body = document.getElementById('cashbook-body');
   if (!body) return;
@@ -7046,10 +7070,13 @@ function _cbRenderHtml(entries, prevClosing) {
       const safeDesc = (e.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const safeSup = (e.supplier || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const catCell = e.isCarryOver ? '<span style="color:var(--purple);font-weight:600">繰越</span>' : (e.category || '');
+      const hasReceipt = !!e.receipt;
+      const receiptIcon = hasReceipt ? ' <span onclick="event.stopPropagation();cbShowReceipt(\'' + e._id + '\')" style="color:var(--purple);cursor:pointer" title="レシート表示">📎</span>' : '';
+      const descCell = e.isCarryOver ? safeDesc : safeDesc + receiptIcon;
       html += '<tr onclick="cbOpenEditor(\'' + e._id + '\')" style="cursor:pointer;border-bottom:0.5px solid #eee">'
         + '<td style="padding:6px 8px;white-space:nowrap">' + dlabel + '</td>'
         + '<td style="padding:6px 8px;white-space:nowrap">' + catCell + '</td>'
-        + '<td style="padding:6px 8px">' + safeDesc + '</td>'
+        + '<td style="padding:6px 8px">' + descCell + '</td>'
         + '<td style="padding:6px 8px;white-space:nowrap;color:#666">' + safeSup + '</td>'
         + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#0288D1">' + (income ? income.toLocaleString() : '') + '</td>'
         + '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:#C53030">' + (expense ? expense.toLocaleString() : '') + '</td>'
@@ -7101,6 +7128,7 @@ window.cbOpenEditor = function(id) {
       supplier: '',
       income: '',
       expense: '',
+      receipt: null,
       isCarryOver: false
     };
   }
@@ -7124,6 +7152,9 @@ function _cbRenderEditor() {
     : '';
   const safeDesc = (d.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const safeSup = (d.supplier || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const receiptPreview = d.receipt
+    ? '<div style="margin-top:8px"><img src="' + d.receipt + '" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)"/><button onclick="cbRemoveReceipt()" style="margin-top:4px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">レシート画像を削除</button></div>'
+    : '';
   const wrap = document.createElement('div');
   wrap.id = 'cb-editor-bg';
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
@@ -7144,6 +7175,10 @@ function _cbRenderEditor() {
     +   '<div class="frow" style="margin-top:8px"><span class="flbl">収入金額</span><input type="number" id="cb-f-income" value="' + (d.income||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
     +   '<div class="frow"><span class="flbl">支払金額</span><input type="number" id="cb-f-expense" value="' + (d.expense||'') + '" min="0" style="font-size:13px;border:none;background:transparent;outline:none;text-align:right;width:120px"/><span style="font-size:12px;color:var(--gray-dark);margin-left:4px">円</span></div>'
     +   '<div style="font-size:10px;color:var(--text-sub);margin-top:6px">※ 収入 or 支払 どちらか必須</div>'
+    +   '<div style="margin-top:12px"><label style="font-size:12px;color:var(--text-sub);display:block;margin-bottom:4px">レシート画像（任意、支払時）</label>'
+    +   '<input type="file" id="cb-f-receipt" accept="image/*" capture="environment" onchange="cbOnReceiptChange(this)" style="font-size:12px"/>'
+    +   '<div id="cb-receipt-preview">' + receiptPreview + '</div>'
+    +   '</div>'
     +   deleteBtnHtml
     + '</div>'
     + '<div style="display:flex;gap:8px;padding:10px 16px;border-top:0.5px solid var(--border)">'
@@ -7183,6 +7218,7 @@ window.cbSaveEditor = async function() {
     supplier: supplierV,
     income: inc,
     expense: exp,
+    receipt: d.receipt || null,
     isCarryOver: !!d.isCarryOver,
     recordedBy: currentStaff || '-',
     recordedAt: Date.now()
@@ -7239,6 +7275,7 @@ window.cbCarryOver = async function() {
       supplier: '',
       income: prevClosing,
       expense: 0,
+      receipt: null,
       isCarryOver: true,
       recordedBy: currentStaff || '-',
       recordedAt: Date.now()
@@ -7254,6 +7291,49 @@ window.cbCarryOver = async function() {
     console.error('cbCarryOver failed:', e);
     showToast('繰越失敗: ' + (e.message || e));
   }
+};
+
+// レシート全画面表示（一覧の📎クリックから呼ばれる）
+window.cbShowReceipt = function(id) {
+  const entry = _cbAllEntries.find(function(e){ return e._id === id; });
+  if (!entry || !entry.receipt) { showToast('レシート画像がありません'); return; }
+  const existing = document.getElementById('cb-receipt-bg');
+  if (existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'cb-receipt-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:20px';
+  wrap.onclick = function(){ wrap.remove(); };
+  wrap.innerHTML = '<img src="' + entry.receipt + '" style="max-width:100%;max-height:90vh;border-radius:8px"/>'
+    + '<button onclick="document.getElementById(\'cb-receipt-bg\').remove()" style="position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.9);border:none;font-size:20px;cursor:pointer">×</button>';
+  document.body.appendChild(wrap);
+};
+
+// 編集モーダル: ファイル選択→圧縮→プレビュー
+window.cbOnReceiptChange = async function(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  showToast('画像を圧縮中...');
+  try {
+    const b64 = await cbCompressImage(file);
+    if (!_cbEdit) return;
+    _cbEdit.data.receipt = b64;
+    const prev = document.getElementById('cb-receipt-preview');
+    if (prev) prev.innerHTML = '<div style="margin-top:8px"><img src="' + b64 + '" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)"/><button onclick="cbRemoveReceipt()" style="margin-top:4px;background:#fff;color:var(--coral);border:1px solid var(--coral);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">レシート画像を削除</button></div>';
+    const sizeKb = Math.round(b64.length * 3 / 4 / 1024);
+    showToast('✓ レシートを追加（約 ' + sizeKb + ' KB）');
+  } catch (e) {
+    console.error('cb receipt compress failed:', e);
+    showToast('画像処理失敗: ' + (e.message || e));
+  }
+};
+
+window.cbRemoveReceipt = function() {
+  if (!_cbEdit) return;
+  _cbEdit.data.receipt = null;
+  const prev = document.getElementById('cb-receipt-preview');
+  if (prev) prev.innerHTML = '';
+  const fileInput = document.getElementById('cb-f-receipt');
+  if (fileInput) fileInput.value = '';
 };
 
 // ═══ ぱぁとなぁ お小遣い帳 ═══
