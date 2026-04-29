@@ -40,6 +40,10 @@ service cloud.firestore {
     // 既存パターンに合わせて全許可。Auth 導入時は要再設計。
     match /start_schedules/{document=**} { allow read, write: if true; }
 
+    // ─── すたぁと予定マスタ (Phase A-2 曜日固定パターン) ───
+    // 月分一括展開で start_schedules を生成する元データ
+    match /start_patterns/{document=**}  { allow read, write: if true; }
+
     // ─── フォールバック (将来追加コレクション用) ───
     match /{document=**} {
       allow read, write: if true;

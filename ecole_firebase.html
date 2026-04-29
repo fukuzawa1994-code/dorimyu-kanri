@@ -842,6 +842,49 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .sd-pair-toggle input[type="checkbox"] { width: 18px; height: 18px; }
 .sd-svc-fixed { flex: 1; padding: 10px; background: var(--fill-input); border-radius: 8px; font-size: 14px; color: var(--text); font-weight: 600; }
 
+/* ─── すたぁと予定マスタ管理 (Phase A-2) ─── */
+.sd-toolbar .sd-adminbtn { padding: 6px 12px; border: 1px solid var(--purple); border-radius: 8px; background: #fff; color: var(--purple); font-size: 13px; font-weight: 600; cursor: pointer; }
+.sd-toolbar .sd-adminbtn.green { border-color: #15803D; color: #15803D; }
+.sp-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.sp-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 720px; max-height: 92vh; display: flex; flex-direction: column; }
+.sp-modal h3 { margin: 0; padding: 14px 16px; border-bottom: 0.5px solid var(--border); font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.sp-modal-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.sp-modal-foot { display: flex; gap: 8px; padding: 10px 16px; border-top: 0.5px solid var(--border); }
+
+.sp-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow-card); }
+.sp-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.sp-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.sp-card-cat { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #F2F2F7; color: var(--text-sub); }
+.sp-card-actions { margin-left: auto; display: flex; gap: 6px; }
+.sp-card-actions button { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: 0.5px solid var(--border); background: #fff; cursor: pointer; }
+.sp-card-actions .sp-del { color: #FF3B30; border-color: #FF3B30; }
+.sp-card-detail { font-size: 13px; color: var(--text); line-height: 1.6; }
+.sp-card-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+
+.sp-dow-grid { display: flex; gap: 4px; flex-wrap: wrap; }
+.sp-dow-btn { padding: 8px 0; min-width: 38px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 13px; background: #fff; user-select: none; }
+.sp-dow-btn.on { background: var(--purple); color: #fff; border-color: var(--purple); font-weight: 700; }
+.sp-dow-btn.sun { color: #C62828; }
+.sp-dow-btn.sat { color: #1565C0; }
+.sp-dow-btn.on.sun, .sp-dow-btn.on.sat { color: #fff; }
+
+.sp-section-title { font-size: 12px; font-weight: 700; color: var(--text-sub); margin: 12px 0 6px; }
+.sp-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.sp-row:last-child { border-bottom: none; }
+.sp-row label { font-size: 12px; color: var(--text-sub); flex: 0 0 96px; }
+.sp-row select, .sp-row input[type="text"], .sp-row input[type="time"], .sp-row input[type="date"], .sp-row input[type="number"] { flex: 1; min-width: 0; font-size: 16px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; min-height: 44px; -webkit-appearance: none; appearance: none; box-sizing: border-box; }
+.sp-row select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236E6E73' d='M6 8L0 0h12z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+.sp-row.checkbox-row label { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); cursor: pointer; }
+.sp-row.checkbox-row input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; }
+
+.sp-result-box { background: #F8F6FF; border: 1px solid var(--purple); border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 13px; }
+.sp-result-skipped { max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 8px; background: #fff; border-radius: 6px; font-size: 11px; color: var(--text-sub); }
+
+@media (max-width: 700px) {
+  .sp-modal { max-width: 100%; max-height: 100vh; border-radius: 0; }
+  .sp-row label { flex: 0 0 80px; font-size: 11px; }
+}
+
 @media (max-width: 700px) {
   .sd-toolbar { gap: 6px; }
   .sd-toolbar .sd-summary { width: 100%; margin-left: 0; }
@@ -1263,6 +1306,8 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
           <option value="短期入所">短期入所のみ</option>
           <option value="GH勤務">GH勤務のみ</option>
         </select>
+        <button class="sd-adminbtn green" id="sd-btn-expand" onclick="openExpansionModal()" style="display:none">📅 月分展開</button>
+        <button class="sd-adminbtn" id="sd-btn-patterns" onclick="openStartPatternsModal()" style="display:none">⚙️ マスタ管理</button>
         <span class="sd-summary" id="sd-summary"></span>
       </div>
       <div id="sd-body"><div class="loading" style="padding:20px;text-align:center;color:#999">読み込み中...</div></div>
@@ -8532,6 +8577,12 @@ window.initStartDaily = async function() {
     _sdStaffList = [];
   }
   await loadStartSchedules();
+  // 管理者ボタンの表示切替 (マスタ管理 / 月分展開)
+  const isAdmin = !!(currentUser && currentUser.role >= 3);
+  const btnPat = document.getElementById('sd-btn-patterns');
+  const btnExp = document.getElementById('sd-btn-expand');
+  if (btnPat) btnPat.style.display = isAdmin ? '' : 'none';
+  if (btnExp) btnExp.style.display = isAdmin ? '' : 'none';
   renderStartDaily();
 };
 
@@ -8841,6 +8892,536 @@ window.deleteStartSchedule = async function(id, fromModal) {
   } catch (e) {
     console.error('deleteStartSchedule failed:', e);
     showToast('削除失敗: ' + (e.message || e));
+  }
+};
+
+// ═══ すたぁと予定マスタ + 月分一括展開 (Phase A-2) ═══
+// 祝日マスタ (R7-R9 = 2025-2027 を内包。年次更新は手動で延長すること)
+const SD_HOLIDAYS = new Set([
+  // R7 (2025)
+  '2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24',
+  '2025-03-20','2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06',
+  '2025-07-21','2025-08-11','2025-09-15','2025-09-23','2025-10-13','2025-11-03','2025-11-23','2025-11-24',
+  // R8 (2026)
+  '2026-01-01','2026-01-12','2026-02-11','2026-02-23',
+  '2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06',
+  '2026-07-20','2026-08-11','2026-09-21','2026-09-23','2026-10-12','2026-11-03','2026-11-23',
+  // R9 (2027)
+  '2027-01-01','2027-01-11','2027-02-11','2027-02-23',
+  '2027-03-22','2027-04-29','2027-05-03','2027-05-04','2027-05-05',
+  '2027-07-19','2027-08-11','2027-09-20','2027-09-23','2027-10-11','2027-11-03','2027-11-23'
+]);
+const SD_DOW_LABELS = ['日','月','火','水','木','金','土'];
+
+let _spList = [];        // start_patterns 全件キャッシュ
+let _spEditCtx = null;   // {mode, id, data, selectedDows:Set}
+
+function _spIsHoliday(dateStr) { return SD_HOLIDAYS.has(dateStr); }
+
+// パターン全件読込 (active=true のみ表示。論理削除のため active=false も DB に残る)
+async function _spLoadPatterns() {
+  _spList = [];
+  try {
+    const snap = await getDocs(collection(db, 'start_patterns'));
+    snap.forEach(function(d){
+      const data = d.data() || {};
+      _spList.push(Object.assign({ _id: d.id }, data));
+    });
+    // active=true で並べる + ふりがな(無ければ氏名) 50音順
+    _spList.sort(function(a,b){
+      const ua = (_sdUsers.find(function(u){ return u.id === a.user_id; }) || {});
+      const ub = (_sdUsers.find(function(u){ return u.id === b.user_id; }) || {});
+      const ka = (ua.furigana || a.user_name_cache || '');
+      const kb = (ub.furigana || b.user_name_cache || '');
+      return ka.localeCompare(kb, 'ja');
+    });
+  } catch (e) {
+    console.error('start_patterns load failed:', e);
+    _spList = [];
+  }
+}
+
+// マスタ管理モーダル
+window.openStartPatternsModal = async function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  document.getElementById('sp-list-bg')?.remove();
+  await _spLoadPatterns();
+  const bg = document.createElement('div');
+  bg.id = 'sp-list-bg';
+  bg.className = 'sp-modal-bg';
+  bg.onclick = function(e){ if (e.target === bg) closeStartPatternsModal(); };
+  bg.innerHTML = ''
+    + '<div class="sp-modal">'
+    +   '<h3>⚙️ すたぁと予定マスタ <button onclick="closeStartPatternsModal()" class="close-btn">×</button></h3>'
+    +   '<div class="sp-modal-body" id="sp-list-body"></div>'
+    +   '<div class="sp-modal-foot">'
+    +     '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="closeStartPatternsModal()">閉じる</button>'
+    +     '<button class="sbtn" style="flex:2" onclick="openPatternEditor(null)">+ パターン追加</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(bg);
+  _spRenderList();
+};
+
+window.closeStartPatternsModal = function() {
+  const el = document.getElementById('sp-list-bg');
+  if (el) el.remove();
+};
+
+function _spRenderList() {
+  const body = document.getElementById('sp-list-body');
+  if (!body) return;
+  const active = _spList.filter(function(p){ return p.active !== false; });
+  if (active.length === 0) {
+    body.innerHTML = '<div style="padding:40px 12px;text-align:center;color:var(--text-sub);font-size:13px">パターンはまだ登録されていません<br>下の「+ パターン追加」から登録してください</div>';
+    return;
+  }
+  let html = '';
+  for (const p of active) {
+    const dows = (p.days_of_week || []).slice().sort(function(a,b){
+      // 月火水木金土日 順 (1,2,3,4,5,6,0)
+      const ord = function(x){ return x === 0 ? 7 : x; };
+      return ord(a) - ord(b);
+    });
+    const dowStr = dows.map(function(d){ return SD_DOW_LABELS[d]; }).join('') || '-';
+    const staffStr = (p.default_staff_names_cache || []).join('・') || '-';
+    const pairLabel = p.is_two_person ? '（2人体制）' : '';
+    const holidayLabel = p.exclude_holidays ? ' / 祝日除外' : '';
+    const validRange = p.valid_from
+      ? p.valid_from + (p.valid_to ? ' 〜 ' + p.valid_to : ' 〜 (無期限)')
+      : '(期間未設定)';
+    const safeId = (p._id || '').replace(/'/g, "\\'");
+    html += '<div class="sp-card">'
+      +   '<div class="sp-card-head">'
+      +     '<span class="sp-card-name">' + _sdEsc(p.user_name_cache || '-') + '</span>'
+      +     '<span class="sp-card-cat">' + _sdEsc(p.category || '-') + '</span>'
+      +     '<span class="sp-card-actions">'
+      +       '<button onclick="openPatternEditor(\'' + safeId + '\')">編集</button>'
+      +       '<button class="sp-del" onclick="deletePattern(\'' + safeId + '\')">削除</button>'
+      +     '</span>'
+      +   '</div>'
+      +   '<div class="sp-card-detail">'
+      +     dowStr + ' / ' + _sdEsc(p.service || '-') + ' / '
+      +     _sdEsc(p.start_time || '--:--') + '-' + _sdEsc(p.end_time || '--:--')
+      +     ' / ' + _sdEsc(staffStr) + pairLabel + holidayLabel
+      +   '</div>'
+      +   '<div class="sp-card-meta">有効期間: ' + _sdEsc(validRange) + (p.note ? ' / 備考: ' + _sdEsc(p.note) : '') + '</div>'
+      + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+// パターン追加・編集モーダル (z-index: 250 で list の上に重ねる)
+window.openPatternEditor = function(id) {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  document.getElementById('sp-edit-bg')?.remove();
+
+  const today_ = today();
+  let data;
+  let mode = 'new';
+  if (id) {
+    const found = _spList.find(function(p){ return p._id === id; });
+    if (!found) { showToast('パターンが見つかりません'); return; }
+    data = JSON.parse(JSON.stringify(found));
+    mode = 'edit';
+  } else {
+    data = {
+      user_id: '', user_name_cache: '',
+      category: '居宅介護',
+      service: SD_CATEGORY_DEFAULT_SVC['居宅介護'],
+      days_of_week: [],
+      start_time: '16:00', end_time: '16:30',
+      default_staff_ids: [], default_staff_names_cache: [],
+      is_two_person: false, exclude_holidays: true,
+      note: '', valid_from: today_, valid_to: null, active: true
+    };
+  }
+  _spEditCtx = { mode: mode, id: (mode === 'edit' ? id : null), data: data };
+  _spRenderEditor();
+};
+
+function _spRenderEditor() {
+  if (!_spEditCtx) return;
+  const d = _spEditCtx.data;
+  document.getElementById('sp-edit-bg')?.remove();
+
+  const userOpts = _sdUsers.map(function(u){
+    return '<option value="' + _sdEsc(u.id) + '" data-name="' + _sdEsc(u.name||'') + '"' + (u.id === d.user_id ? ' selected' : '') + '>' + _sdEsc(u.name||'') + '</option>';
+  }).join('');
+  const userEmpty = _sdUsers.length === 0
+    ? '<div style="font-size:11px;color:#FF3B30;padding:4px 0">該当するすたぁと利用者がいません</div>' : '';
+
+  const catOpts = SD_CATEGORIES.map(function(c){
+    return '<option value="' + _sdEsc(c) + '"' + (c === d.category ? ' selected' : '') + '>' + _sdEsc(c) + '</option>';
+  }).join('');
+
+  const allowedSvcs = SD_CATEGORY_SERVICES[d.category] || [];
+  const isShortstay = (d.category === '短期入所');
+  const svcOpts = allowedSvcs.map(function(v){
+    return '<option value="' + _sdEsc(v) + '"' + (v === d.service ? ' selected' : '') + '>' + _sdEsc(v) + '</option>';
+  }).join('');
+
+  const staffOptsFor = function(selected) {
+    const head = '<option value="">（選択）</option>';
+    return head + _sdStaffList.map(function(n){
+      return '<option value="' + _sdEsc(n) + '"' + (n === selected ? ' selected' : '') + '>' + _sdEsc(n) + '</option>';
+    }).join('');
+  };
+  const staff1Sel = (d.default_staff_names_cache && d.default_staff_names_cache[0]) || '';
+  const staff2Sel = (d.default_staff_names_cache && d.default_staff_names_cache[1]) || '';
+  const isPair = !!d.is_two_person && !!staff2Sel;
+  const staffEmpty = _sdStaffList.length === 0
+    ? '<div style="font-size:11px;color:#FF3B30;padding:4px 0">該当するすたぁと職員がいません</div>' : '';
+
+  // 曜日ボタン (月火水木金土日 順 = 1,2,3,4,5,6,0)
+  const dowOrder = [1,2,3,4,5,6,0];
+  const selectedDows = new Set(d.days_of_week || []);
+  const dowGrid = dowOrder.map(function(dn){
+    const cls = 'sp-dow-btn' + (selectedDows.has(dn) ? ' on' : '') + (dn === 0 ? ' sun' : (dn === 6 ? ' sat' : ''));
+    return '<div class="' + cls + '" data-dow="' + dn + '" onclick="_spToggleDow(' + dn + ')">' + SD_DOW_LABELS[dn] + '</div>';
+  }).join('');
+
+  const bg = document.createElement('div');
+  bg.id = 'sp-edit-bg';
+  bg.className = 'sp-modal-bg';
+  bg.style.zIndex = '250';
+  bg.onclick = function(e){ if (e.target === bg) closePatternEditor(); };
+
+  let html = '<div class="sp-modal" style="max-width:520px">';
+  html += '<h3>' + (_spEditCtx.mode === 'new' ? 'パターン追加' : 'パターン編集') + ' <button onclick="closePatternEditor()" class="close-btn">×</button></h3>';
+  html += '<div class="sp-modal-body">';
+  html += '<div class="sp-section-title">利用者</div>';
+  html += '<div class="sp-row"><label>利用者</label><select id="sp-f-user" onchange="_spSyncUserName()">' + '<option value="">（選択）</option>' + userOpts + '</select></div>';
+  if (userEmpty) html += userEmpty;
+  html += '<div class="sp-section-title">カテゴリ・サービス</div>';
+  html += '<div class="sp-row"><label>カテゴリ</label><select id="sp-f-cat" onchange="_spOnCatChange()">' + catOpts + '</select></div>';
+  if (isShortstay) {
+    html += '<div class="sp-row"><label>サービス</label><div class="sd-svc-fixed">短期宿泊</div><input type="hidden" id="sp-f-service" value="短期宿泊"/></div>';
+  } else {
+    html += '<div class="sp-row"><label>サービス</label><select id="sp-f-service">' + svcOpts + '</select></div>';
+  }
+  html += '<div class="sp-section-title">曜日 (タップで切替)</div>';
+  html += '<div class="sp-row" style="border-bottom:none"><div class="sp-dow-grid" style="flex:1">' + dowGrid + '</div></div>';
+  html += '<div class="sp-section-title">時刻</div>';
+  html += '<div class="sp-row"><label>開始</label><input type="time" id="sp-f-start" value="' + _sdEsc(d.start_time||'') + '"/></div>';
+  html += '<div class="sp-row"><label>終了</label><input type="text" id="sp-f-end" value="' + _sdEsc(d.end_time||'') + '" placeholder="例: 17:00 / 翌09:30"/></div>';
+  html += '<div class="sp-section-title">担当職員</div>';
+  html += '<div class="sp-row"><label>1人目</label><select id="sp-f-staff1">' + staffOptsFor(staff1Sel) + '</select></div>';
+  html += '<div class="sp-row checkbox-row"><label><input type="checkbox" id="sp-f-pair"' + (isPair ? ' checked' : '') + ' onchange="_spTogglePair(this.checked)"/>2人体制で対応する</label></div>';
+  html += '<div class="sp-row" id="sp-f-staff2-row" style="display:' + (isPair ? 'flex' : 'none') + '"><label>2人目</label><select id="sp-f-staff2">' + staffOptsFor(staff2Sel) + '</select></div>';
+  if (staffEmpty) html += staffEmpty;
+  html += '<div class="sp-section-title">オプション</div>';
+  html += '<div class="sp-row checkbox-row"><label><input type="checkbox" id="sp-f-holiday"' + (d.exclude_holidays ? ' checked' : '') + '/>祝日は除外する</label></div>';
+  html += '<div class="sp-section-title">有効期間</div>';
+  html += '<div class="sp-row"><label>開始日 <span style="color:#FF3B30">*</span></label><input type="date" id="sp-f-vfrom" value="' + _sdEsc(d.valid_from || today_) + '"/></div>';
+  html += '<div class="sp-row"><label>終了日</label><input type="date" id="sp-f-vto" value="' + _sdEsc(d.valid_to || '') + '" placeholder="無期限"/></div>';
+  html += '<div class="sp-section-title">備考</div>';
+  html += '<div class="sp-row"><label>備考</label><input type="text" id="sp-f-note" value="' + _sdEsc(d.note || '') + '"/></div>';
+  html += '</div>';
+  html += '<div class="sp-modal-foot">';
+  html += '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="closePatternEditor()">キャンセル</button>';
+  html += '<button class="sbtn" style="flex:2" onclick="savePattern()">保存</button>';
+  html += '</div></div>';
+  bg.innerHTML = html;
+  document.body.appendChild(bg);
+}
+
+window.closePatternEditor = function() {
+  _spEditCtx = null;
+  const el = document.getElementById('sp-edit-bg');
+  if (el) el.remove();
+};
+
+window._spOnCatChange = function() {
+  if (!_spEditCtx) return;
+  const newCat = document.getElementById('sp-f-cat').value;
+  _spEditCtx.data.category = newCat;
+  // サービスをカテゴリの既定値にリセット
+  _spEditCtx.data.service = SD_CATEGORY_DEFAULT_SVC[newCat] || _spEditCtx.data.service;
+  _spRenderEditor();
+};
+
+window._spToggleDow = function(dn) {
+  if (!_spEditCtx) return;
+  const set = new Set(_spEditCtx.data.days_of_week || []);
+  if (set.has(dn)) set.delete(dn); else set.add(dn);
+  _spEditCtx.data.days_of_week = Array.from(set);
+  // ボタンの on クラスを切替（再描画なし）
+  const btn = document.querySelector('.sp-dow-btn[data-dow="' + dn + '"]');
+  if (btn) btn.classList.toggle('on');
+};
+
+window._spTogglePair = function(checked) {
+  const row = document.getElementById('sp-f-staff2-row');
+  if (row) row.style.display = checked ? 'flex' : 'none';
+  if (!checked) {
+    const sel2 = document.getElementById('sp-f-staff2');
+    if (sel2) sel2.value = '';
+  }
+};
+
+window._spSyncUserName = function() {
+  // editor 状態にユーザーIDと名前を保持 (再描画なし)
+  if (!_spEditCtx) return;
+  const sel = document.getElementById('sp-f-user');
+  if (!sel) return;
+  _spEditCtx.data.user_id = sel.value;
+  const opt = sel.options[sel.selectedIndex];
+  _spEditCtx.data.user_name_cache = opt ? (opt.getAttribute('data-name') || opt.text) : '';
+};
+
+window.savePattern = async function() {
+  if (!_spEditCtx) return;
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const ctx = _spEditCtx;
+
+  const userSel = document.getElementById('sp-f-user');
+  const userId = userSel ? userSel.value : '';
+  const userName = userId && userSel.options[userSel.selectedIndex]
+    ? (userSel.options[userSel.selectedIndex].getAttribute('data-name') || userSel.options[userSel.selectedIndex].text) : '';
+  const cat = document.getElementById('sp-f-cat').value;
+  const svcEl = document.getElementById('sp-f-service');
+  const service = (cat === '短期入所') ? '短期宿泊' : (svcEl ? svcEl.value : '');
+  const dows = (ctx.data.days_of_week || []).slice().sort(function(a,b){ return a - b; });
+  const start = document.getElementById('sp-f-start').value || '';
+  const end   = document.getElementById('sp-f-end').value || '';
+  const staff1 = (document.getElementById('sp-f-staff1') || {}).value || '';
+  const isPair = !!(document.getElementById('sp-f-pair') || {}).checked;
+  const staff2 = isPair ? ((document.getElementById('sp-f-staff2') || {}).value || '') : '';
+  const staffNames = [];
+  if (staff1) staffNames.push(staff1);
+  if (isPair && staff2 && staff2 !== staff1) staffNames.push(staff2);
+  const excludeHoliday = !!(document.getElementById('sp-f-holiday') || {}).checked;
+  const vfrom = (document.getElementById('sp-f-vfrom') || {}).value || '';
+  const vto   = (document.getElementById('sp-f-vto') || {}).value || '';
+  const note  = (document.getElementById('sp-f-note') || {}).value || '';
+
+  if (!userId) { showToast('利用者を選択してください'); return; }
+  if (!cat || !service) { showToast('カテゴリ・サービスを選択してください'); return; }
+  if (dows.length === 0) { showToast('曜日を 1 つ以上選択してください'); return; }
+  if (!start || !end)   { showToast('開始時刻・終了時刻を入力してください'); return; }
+  if (staffNames.length === 0) { showToast('担当職員を選択してください'); return; }
+  if (isPair && !staff2) { showToast('2人体制では2人目も選択してください'); return; }
+  if (isPair && staff2 === staff1) { showToast('2人体制では別の職員を選択してください'); return; }
+  if (!vfrom) { showToast('有効期間 開始日を入力してください'); return; }
+  if (vto && vto < vfrom) { showToast('終了日は開始日以降にしてください'); return; }
+
+  const payload = {
+    user_id: userId,
+    user_name_cache: userName,
+    category: cat,
+    service: service,
+    days_of_week: dows,
+    start_time: start,
+    end_time: end,
+    default_staff_ids: staffNames.slice(),
+    default_staff_names_cache: staffNames.slice(),
+    is_two_person: isPair,
+    exclude_holidays: excludeHoliday,
+    note: note,
+    valid_from: vfrom,
+    valid_to: vto || null,
+    active: true,
+    updated_by: currentStaff || '',
+    updated_at: serverTimestamp()
+  };
+
+  try {
+    if (ctx.mode === 'new') {
+      payload.created_by = currentStaff || '';
+      payload.created_at = serverTimestamp();
+      await addDoc(collection(db, 'start_patterns'), payload);
+      showToast('✓ パターンを追加しました');
+    } else {
+      await updateDoc(doc(db, 'start_patterns', ctx.id), payload);
+      showToast('✓ パターンを更新しました');
+    }
+    closePatternEditor();
+    await _spLoadPatterns();
+    _spRenderList();
+  } catch (e) {
+    console.error('savePattern failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+  }
+};
+
+window.deletePattern = async function(id) {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!confirm('このパターンを削除しますか？\n（論理削除のため過去に展開した予定は残ります）')) return;
+  try {
+    // 論理削除: active=false に更新 (物理削除はしない)
+    await updateDoc(doc(db, 'start_patterns', id), {
+      active: false,
+      updated_by: currentStaff || '',
+      updated_at: serverTimestamp()
+    });
+    showToast('✓ パターンを削除しました');
+    await _spLoadPatterns();
+    _spRenderList();
+  } catch (e) {
+    console.error('deletePattern failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
+  }
+};
+
+// ─── 月分一括展開 ───
+window.openExpansionModal = async function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  document.getElementById('sd-exp-bg')?.remove();
+  await _spLoadPatterns();
+  // デフォルト: 来月
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const defaultYm = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0');
+  const activeCount = _spList.filter(function(p){ return p.active !== false; }).length;
+  const bg = document.createElement('div');
+  bg.id = 'sd-exp-bg';
+  bg.className = 'sp-modal-bg';
+  bg.onclick = function(e){ if (e.target === bg) closeExpansionModal(); };
+  bg.innerHTML = ''
+    + '<div class="sp-modal" style="max-width:480px">'
+    +   '<h3>📅 月分一括展開 <button onclick="closeExpansionModal()" class="close-btn">×</button></h3>'
+    +   '<div class="sp-modal-body">'
+    +     '<div style="font-size:13px;color:var(--text-sub);margin-bottom:10px">登録済みアクティブパターン: <b style="color:var(--purple)">' + activeCount + '</b> 件</div>'
+    +     '<div class="sp-row"><label>展開する月</label><input type="month" id="sd-exp-month" value="' + defaultYm + '"/></div>'
+    +     '<div style="font-size:11px;color:var(--text-sub);margin-top:8px;line-height:1.6">'
+    +       '・active=true のパターンを対象に、選択月の各日に予定を生成します<br>'
+    +       '・同じ利用者・サービス・開始時刻の予定がすでにあればスキップします<br>'
+    +       '・「祝日除外」ON のパターンは祝日マスタの日に展開しません<br>'
+    +       '・有効期間 (valid_from/to) 外の日は対象外'
+    +     '</div>'
+    +     '<div id="sd-exp-result"></div>'
+    +   '</div>'
+    +   '<div class="sp-modal-foot">'
+    +     '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="closeExpansionModal()">キャンセル</button>'
+    +     '<button class="sbtn" id="sd-exp-go" style="flex:2" onclick="runExpansion()">展開する</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(bg);
+};
+
+window.closeExpansionModal = function() {
+  const el = document.getElementById('sd-exp-bg');
+  if (el) el.remove();
+};
+
+window.runExpansion = async function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  const ym = (document.getElementById('sd-exp-month') || {}).value || '';
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { showToast('有効な月を入力してください'); return; }
+  const goBtn = document.getElementById('sd-exp-go');
+  if (goBtn) { goBtn.disabled = true; goBtn.textContent = '展開中...'; }
+  try {
+    const [y, m] = ym.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+
+    // 対象月の既存 start_schedules を取得 (重複判定用)
+    const exSnap = await getDocs(collection(db, 'start_schedules'));
+    const existing = [];
+    exSnap.forEach(function(d){
+      const data = d.data() || {};
+      if ((data.date || '').indexOf(ym) === 0) existing.push(data);
+    });
+
+    const active = _spList.filter(function(p){ return p.active !== false; });
+    let generated = 0, skipDup = 0, skipHoliday = 0, skipValid = 0;
+    const skippedRows = [];  // {date, user, reason}
+    const toCreate = [];
+
+    for (let day = 1; day <= lastDay; day++) {
+      const dateStr = ym + '-' + String(day).padStart(2, '0');
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const isHoliday = _spIsHoliday(dateStr);
+
+      for (const p of active) {
+        if (!Array.isArray(p.days_of_week) || p.days_of_week.indexOf(dow) < 0) continue;
+        if (p.valid_from && dateStr < p.valid_from) { skipValid++; continue; }
+        if (p.valid_to && dateStr > p.valid_to)     { skipValid++; continue; }
+        if (p.exclude_holidays && isHoliday) {
+          skipHoliday++;
+          skippedRows.push({date: dateStr, user: p.user_name_cache, reason: '祝日'});
+          continue;
+        }
+        // 重複判定: 同日 + 同 user_id + 同 service + 同 start_time
+        const dup = existing.find(function(e){
+          return e.date === dateStr
+            && e.user_id === p.user_id
+            && e.service === p.service
+            && e.start_time === p.start_time;
+        });
+        if (dup) {
+          skipDup++;
+          skippedRows.push({date: dateStr, user: p.user_name_cache, reason: '既存'});
+          continue;
+        }
+        toCreate.push({ p: p, dateStr: dateStr });
+      }
+    }
+
+    // writeBatch でまとめて投入 (500件/コミット 上限)
+    let batch = writeBatch(db);
+    let inBatch = 0;
+    for (const item of toCreate) {
+      const p = item.p;
+      const ref = doc(collection(db, 'start_schedules'));
+      batch.set(ref, {
+        date: item.dateStr,
+        category: p.category,
+        service: p.service,
+        user_id: p.user_id,
+        user_name_cache: p.user_name_cache,
+        staff_ids: (p.default_staff_ids || []).slice(),
+        staff_names_cache: (p.default_staff_names_cache || []).slice(),
+        start_time: p.start_time,
+        end_time: p.end_time,
+        break_minutes: 0,
+        status: '予定',
+        note: '',
+        room: '', pickup_staff: '', dropoff_staff: '', gh_house: '',
+        pattern_id: p._id,
+        created_by: currentStaff || 'expansion',
+        created_at: serverTimestamp(),
+        updated_by: currentStaff || 'expansion',
+        updated_at: serverTimestamp()
+      });
+      inBatch++;
+      if (inBatch >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        inBatch = 0;
+      }
+      generated++;
+    }
+    if (inBatch > 0) await batch.commit();
+
+    // 結果表示
+    const monthLabel = y + '年' + m + '月';
+    let resHtml = '<div class="sp-result-box">';
+    resHtml += '<div style="font-weight:700;margin-bottom:6px">' + monthLabel + ' 分: <span style="color:var(--purple)">' + generated + '</span> 件生成 / <span style="color:#9A5200">' + (skipDup + skipHoliday) + '</span> 件スキップ</div>';
+    resHtml += '<div style="font-size:11px;color:var(--text-sub)">内訳: 重複 ' + skipDup + ' / 祝日 ' + skipHoliday + ' / 期間外 ' + skipValid + '</div>';
+    if (skippedRows.length > 0) {
+      resHtml += '<div class="sp-result-skipped"><b>スキップ詳細:</b><br>';
+      for (const r of skippedRows.slice(0, 50)) {
+        resHtml += r.date + ' ' + _sdEsc(r.user) + ' (' + r.reason + ')<br>';
+      }
+      if (skippedRows.length > 50) resHtml += '... 他 ' + (skippedRows.length - 50) + ' 件';
+      resHtml += '</div>';
+    }
+    resHtml += '</div>';
+    const resEl = document.getElementById('sd-exp-result');
+    if (resEl) resEl.innerHTML = resHtml;
+
+    showToast('✓ ' + generated + '件 生成 / ' + (skipDup + skipHoliday) + '件 スキップ');
+    // 当月画面の再読込
+    if (currentScr === 'start-daily') {
+      await loadStartSchedules();
+      renderStartDaily();
+    }
+  } catch (e) {
+    console.error('runExpansion failed:', e);
+    showToast('展開失敗: ' + (e.message || e));
+  } finally {
+    if (goBtn) { goBtn.disabled = false; goBtn.textContent = '展開する'; }
   }
 };
 
