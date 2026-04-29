@@ -7044,6 +7044,7 @@ function _cbRenderHtml(entries, prevClosing) {
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
     + '<button onclick="cbOpenEditor(null)" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規入力</button>'
     + '<button onclick="cbCarryOver()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer"><i data-lucide="calendar"></i> 月繰越</button>'
+    + '<button onclick="cbOpenExportModal()" style="background:#fff;color:#15803D;border:1px solid #15803D;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">📊 エクスポート</button>'
     + '</div></div>';
   // 前月残高参考表示
   html += '<div style="padding:4px 14px;font-size:11px;color:var(--text-sub)">前月末残高（参考）: <b style="color:var(--text)">' + prevClosing.toLocaleString() + '</b> 円</div>';
@@ -7335,6 +7336,485 @@ window.cbRemoveReceipt = function() {
   const fileInput = document.getElementById('cb-f-receipt');
   if (fileInput) fileInput.value = '';
 };
+
+// ═══ 金銭出納帳 Excel エクスポート（ExcelJS lazy-load 経由） ═══
+const _CB_EXCELJS_CDN = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+const _CB_HOME_FULL = { '紬': 'グループホーム紬', 'ひまわり': 'ひまわりハウス', '事務費': 'ぱぁとなぁ事務費' };
+const _CB_PAGE1_DATA_ROWS = 29;  // R7-R35
+const _CB_PAGEN_DATA_ROWS = 18;  // R(start+5)-R(start+22), 中間/最終ページ
+const _CB_FONT = 'ＭＳ Ｐ明朝';
+let _cbExcelJSPromise = null;
+let _cbExportState = null;  // モーダル展開中の状態
+
+function _cbLoadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (_cbExcelJSPromise) return _cbExcelJSPromise;
+  _cbExcelJSPromise = new Promise(function(resolve, reject){
+    const s = document.createElement('script');
+    s.src = _CB_EXCELJS_CDN;
+    s.onload = function(){ resolve(window.ExcelJS); };
+    s.onerror = function(){ _cbExcelJSPromise = null; reject(new Error('ExcelJS のロードに失敗しました')); };
+    document.head.appendChild(s);
+  });
+  return _cbExcelJSPromise;
+}
+
+function _cbReiwaCode(year)    { return 'R' + String(year - 2018).padStart(2, '0'); }
+function _cbReiwaYearNum(year) { return year - 2018; }
+
+function _cbExpandMonthRange(scope, currentYm, rangeStart, rangeEnd) {
+  let start, end;
+  if (scope === 'current') { start = currentYm; end = currentYm; }
+  else if (scope === 'range') { start = rangeStart; end = rangeEnd; }
+  else if (scope === 'fy') {
+    const [y, m] = currentYm.split('-').map(Number);
+    const fyYear = m >= 4 ? y : y - 1;
+    start = fyYear + '-04';
+    end = (fyYear + 1) + '-03';
+  }
+  if (!start || !end) return [];
+  const months = [];
+  let [sy, sm] = start.split('-').map(Number);
+  const [ey, em] = end.split('-').map(Number);
+  if (sy > ey || (sy === ey && sm > em)) return [];
+  while (sy < ey || (sy === ey && sm <= em)) {
+    months.push(sy + '-' + String(sm).padStart(2, '0'));
+    sm++;
+    if (sm > 12) { sm = 1; sy++; }
+  }
+  return months;
+}
+
+function _cbBuildSheetName(home, ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return home + '（' + _cbReiwaCode(y) + '.' + String(m).padStart(2, '0') + ')';
+}
+
+function _cbBuildFileName(months) {
+  if (!months.length) return '金銭出納帳.xlsx';
+  const sorted = months.slice().sort();
+  const start = sorted[0].replace('-', '');
+  const end = sorted[sorted.length - 1].replace('-', '');
+  const startYear = parseInt(sorted[0].split('-')[0], 10);
+  return '金銭出納帳_' + _cbReiwaCode(startYear) + '_' + start + '-' + end + '.xlsx';
+}
+
+function _cbBorderThin() {
+  return {
+    top:    { style: 'thin' },
+    bottom: { style: 'thin' },
+    left:   { style: 'thin' },
+    right:  { style: 'thin' }
+  };
+}
+
+function _cbApplyCellStyle(cell, opts) {
+  cell.font = { name: _CB_FONT, size: opts.size || 11 };
+  if (opts.align) cell.alignment = { horizontal: opts.align, vertical: 'middle' };
+  else            cell.alignment = { vertical: 'middle' };
+  if (opts.border) cell.border = _cbBorderThin();
+  if (opts.numFmt) cell.numFmt = opts.numFmt;
+}
+
+window.cbOpenExportModal = function() {
+  const existing = document.getElementById('cb-export-bg');
+  if (existing) existing.remove();
+  const ym = _cbYm || _cbCurYm();
+  _cbExportState = {
+    scope: 'current',
+    rangeStart: ym,
+    rangeEnd:   ym,
+    currentYm:  ym,
+    homes: { '紬': true, 'ひまわり': true, '事務費': true },
+    embedReceipts: true
+  };
+  const [yy, mm] = ym.split('-').map(Number);
+  const fyY = mm >= 4 ? yy : yy - 1;
+  const wrap = document.createElement('div');
+  wrap.id = 'cb-export-bg';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px';
+  wrap.innerHTML = ''
+    + '<div style="background:var(--surface);border-radius:14px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:0.5px solid var(--border)">'
+    +   '<div style="font-size:15px;font-weight:700">📊 金銭出納帳 Excel エクスポート</div>'
+    +   '<button onclick="cbCloseExportModal()" class="close-btn">×</button>'
+    + '</div>'
+    + '<div style="padding:14px 16px">'
+    +   '<div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:6px">エクスポート単位</div>'
+    +   '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer"><input type="radio" name="cb-exp-scope" value="current" checked onchange="cbExportSetScope(this.value)"/>当月のみ（' + yy + '年' + mm + '月）</label>'
+    +   '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer"><input type="radio" name="cb-exp-scope" value="range" onchange="cbExportSetScope(this.value)"/>範囲選択</label>'
+    +   '<div id="cb-exp-range-row" style="display:none;padding:0 0 6px 24px;gap:6px;align-items:center">'
+    +     '<input type="month" id="cb-exp-start" value="' + ym + '" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"/>'
+    +     '<span style="font-size:12px;margin:0 4px">〜</span>'
+    +     '<input type="month" id="cb-exp-end" value="' + ym + '" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"/>'
+    +   '</div>'
+    +   '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer"><input type="radio" name="cb-exp-scope" value="fy" onchange="cbExportSetScope(this.value)"/>年度全体（' + fyY + '年4月〜' + (fyY+1) + '年3月）</label>'
+    +   '<div style="font-size:12px;font-weight:700;color:var(--text-sub);margin:14px 0 6px">ホーム（複数選択可）</div>'
+    +   '<div style="display:flex;gap:14px;flex-wrap:wrap">'
+    +     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="cb-exp-home-紬" checked onchange="cbExportToggleHome(\'紬\',this.checked)"/>紬</label>'
+    +     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="cb-exp-home-ひまわり" checked onchange="cbExportToggleHome(\'ひまわり\',this.checked)"/>ひまわり</label>'
+    +     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="cb-exp-home-事務費" checked onchange="cbExportToggleHome(\'事務費\',this.checked)"/>事務費</label>'
+    +   '</div>'
+    +   '<div style="margin:14px 0 4px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="cb-exp-receipts" checked onchange="(function(b){_cbExportState.embedReceipts=b;})(this.checked)"/>レシート画像を K列に埋め込む</label></div>'
+    +   '<div style="font-size:10px;color:var(--text-sub);margin-top:4px">※ 47件超の月は自動で3ページ目以降を追加します</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:10px 16px;border-top:0.5px solid var(--border)">'
+    +   '<button onclick="cbCloseExportModal()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text-sub);font-weight:600;cursor:pointer">キャンセル</button>'
+    +   '<button id="cb-exp-go" onclick="cbDoExport()" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-weight:700;cursor:pointer">📥 エクスポート</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+};
+
+window.cbCloseExportModal = function() {
+  _cbExportState = null;
+  const el = document.getElementById('cb-export-bg');
+  if (el) el.remove();
+};
+
+window.cbExportSetScope = function(s) {
+  if (!_cbExportState) return;
+  _cbExportState.scope = s;
+  const row = document.getElementById('cb-exp-range-row');
+  if (row) row.style.display = (s === 'range') ? 'flex' : 'none';
+};
+
+window.cbExportToggleHome = function(home, checked) {
+  if (!_cbExportState) return;
+  _cbExportState.homes[home] = !!checked;
+};
+
+window.cbDoExport = async function() {
+  if (!_cbExportState) return;
+  if (!checkSession()) return;
+  const goBtn = document.getElementById('cb-exp-go');
+  if (goBtn) { goBtn.disabled = true; goBtn.textContent = '生成中...'; }
+  try {
+    // 状態確定
+    const st = _cbExportState;
+    if (st.scope === 'range') {
+      st.rangeStart = (document.getElementById('cb-exp-start') || {}).value || st.currentYm;
+      st.rangeEnd   = (document.getElementById('cb-exp-end')   || {}).value || st.currentYm;
+    }
+    st.embedReceipts = !!(document.getElementById('cb-exp-receipts') || {}).checked;
+    const months = _cbExpandMonthRange(st.scope, st.currentYm, st.rangeStart, st.rangeEnd);
+    if (!months.length) { showToast('期間が不正です'); return; }
+    const homes = ['紬','ひまわり','事務費'].filter(function(h){ return st.homes[h]; });
+    if (!homes.length) { showToast('ホームを 1 つ以上選択してください'); return; }
+
+    // ExcelJS ロード
+    showToast('ExcelJS を読み込み中...');
+    const ExcelJS = await _cbLoadExcelJS();
+
+    // 全 cashbook 取得
+    const snap = await getDocs(query(collection(db, 'cashbook'), orderBy('date', 'asc')));
+    const all = [];
+    snap.forEach(function(d){ all.push(Object.assign({ _id: d.id }, d.data())); });
+
+    // ワークブック生成
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'エコール送迎管理';
+    wb.created = new Date();
+
+    let overflowCount = 0;
+    for (const home of homes) {
+      const homeEntries = all.filter(function(e){ return e.home === home; });
+      for (const ym of months) {
+        const monthEntries = homeEntries.filter(function(e){ return (e.date || '').indexOf(ym) === 0; });
+        const prevYm = _cbPrevYm(ym);
+        const prevClosing = _cbComputeMonthClosing(homeEntries, prevYm);
+        if (monthEntries.length > (_CB_PAGE1_DATA_ROWS + _CB_PAGEN_DATA_ROWS)) overflowCount++;
+        await _cbBuildSheet(wb, home, ym, monthEntries, prevClosing, st.embedReceipts);
+      }
+    }
+
+    if (overflowCount > 0) {
+      console.warn('cashbook export overflow months:', overflowCount);
+    }
+
+    // 書き出し → ダウンロード
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = _cbBuildFileName(months);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+
+    cbCloseExportModal();
+    const sheetCount = homes.length * months.length;
+    let msg = '✓ エクスポート完了 (' + sheetCount + 'シート)';
+    if (overflowCount > 0) msg += ' ※ ' + overflowCount + 'ヶ月で47件超のため自動でページ追加';
+    showToast(msg);
+  } catch (e) {
+    console.error('cbDoExport failed:', e);
+    showToast('エクスポート失敗: ' + (e.message || e));
+  } finally {
+    if (goBtn) { goBtn.disabled = false; goBtn.textContent = '📥 エクスポート'; }
+  }
+};
+
+async function _cbBuildSheet(wb, home, ym, monthEntries, prevClosing, includeReceipts) {
+  const sheetName = _cbBuildSheetName(home, ym);
+  const ws = wb.addWorksheet(sheetName);
+
+  // 列幅 (テンプレ実測)
+  ws.columns = [
+    { width: 3.75 },   // A
+    { width: 8.375 },  // B 月/日
+    { width: 12.25 },  // C 科目
+    { width: 27.375 }, // D 摘要
+    { width: 12.375 }, // E 仕入先名
+    { width: 9.375 },  // F 収入金額
+    { width: 8.625 },  // G 支払金額
+    { width: 10.25 }   // H 差引残高
+  ];
+  if (includeReceipts) {
+    ws.getColumn(9).width  = 2;   // I 余白
+    ws.getColumn(10).width = 2;   // J 余白
+    ws.getColumn(11).width = 12;  // K レシート
+  }
+
+  // ページ設定 A4縦・テンプレと同 margins
+  ws.pageSetup = {
+    paperSize: 9,
+    orientation: 'portrait',
+    margins: { left: 0.39, right: 0.20, top: 0.20, bottom: 0.20, header: 0.51, footer: 0.51 },
+    fitToPage: false
+  };
+  ws.properties.defaultRowHeight = 13.5;
+
+  const homeLabel = _CB_HOME_FULL[home] || home;
+  const [year, month] = ym.split('-').map(Number);
+  const reiwaHeader = '令和' + _cbReiwaYearNum(year) + '年　　　月/日';
+  const monthBunStr = month + '月分';
+  const prevMonthBunStr = (month === 1 ? 12 : month - 1) + '月分';
+
+  // ページ数算出
+  const N = monthEntries.length;
+  let pages;
+  if (N <= _CB_PAGE1_DATA_ROWS) pages = 1;
+  else pages = 1 + Math.ceil((N - _CB_PAGE1_DATA_ROWS) / _CB_PAGEN_DATA_ROWS);
+
+  let rowOffset = 0;
+  let entryIdx = 0;
+  let runningBalance = prevClosing;
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  for (let p = 1; p <= pages; p++) {
+    const isFirst = (p === 1);
+    const isLast  = (p === pages);
+    const ps = rowOffset;  // 0-base offset, ページの先頭直前
+
+    // R1: 「№　1」(G列のみ)
+    _cbApplyCellStyle(ws.getCell(ps + 1, 7), { size: 11 });
+    ws.getCell(ps + 1, 7).value = '№　　　' + p + '　　　　　';
+
+    // R2: タイトル + ホーム名 (A:E / F:H 結合)
+    ws.mergeCells(ps + 2, 1, ps + 2, 5);
+    ws.mergeCells(ps + 2, 6, ps + 2, 8);
+    _cbApplyCellStyle(ws.getCell(ps + 2, 1), { size: 18, align: 'center' });
+    ws.getCell(ps + 2, 1).value = '　' + monthBunStr + '金銭出納帳';
+    _cbApplyCellStyle(ws.getCell(ps + 2, 6), { size: 14, align: 'center' });
+    ws.getCell(ps + 2, 6).value = homeLabel;
+
+    // R3: 空行（罫線なし）
+
+    // R4: ヘッダー行
+    const headers = [null, reiwaHeader, '科　目', '摘　　　要', '仕入先名', '収入金額', '支払金額', '差引残高'];
+    for (let col = 2; col <= 8; col++) {
+      const cell = ws.getCell(ps + 4, col);
+      cell.value = headers[col - 1];
+      _cbApplyCellStyle(cell, { size: col === 2 ? 10 : 12, align: 'center', border: true });
+    }
+
+    // データセクション
+    let dataStartRow, pageDataMax;
+    if (isFirst) {
+      // R5: ○月分繰り越し (D, H)
+      const r5 = ps + 5;
+      for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(r5, col), { size: 14, border: true });
+      ws.getCell(r5, 4).value = '　' + prevMonthBunStr + '繰り越し';
+      ws.getCell(r5, 8).value = prevClosing;
+      ws.getCell(r5, 8).numFmt = '#,##0';
+      // R6: 空行（罫線あり、手書き用）
+      const r6 = ps + 6;
+      for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(r6, col), { size: 14, border: true });
+      dataStartRow = ps + 7;
+      pageDataMax = _CB_PAGE1_DATA_ROWS;
+    } else {
+      // R5: 前項より + 残高引継ぎ
+      const r5 = ps + 5;
+      for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(r5, col), { size: 14, border: true });
+      ws.getCell(r5, 4).value = '前項より';
+      ws.getCell(r5, 4).alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getCell(r5, 8).value = runningBalance;
+      ws.getCell(r5, 8).numFmt = '#,##0';
+      dataStartRow = ps + 6;
+      pageDataMax = _CB_PAGEN_DATA_ROWS;
+    }
+
+    // データ行配置
+    let pageIncomeSum = 0;
+    let pageExpenseSum = 0;
+    for (let i = 0; i < pageDataMax; i++) {
+      const rowNum = dataStartRow + i;
+      // 罫線
+      for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(rowNum, col), { size: 14, border: true });
+      if (entryIdx < monthEntries.length) {
+        const e = monthEntries[entryIdx++];
+        const inc = parseInt(e.income)  || 0;
+        const exp = parseInt(e.expense) || 0;
+        runningBalance += inc - exp;
+        totalIncome  += inc;
+        totalExpense += exp;
+        pageIncomeSum  += inc;
+        pageExpenseSum += exp;
+
+        const parts = (e.date || '').split('-');
+        const dateStr = (parseInt(parts[1], 10) || 0) + '/' + (parseInt(parts[2], 10) || 0);
+
+        ws.getCell(rowNum, 2).value = dateStr;
+        ws.getCell(rowNum, 2).alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getCell(rowNum, 3).value = e.category    || '';
+        ws.getCell(rowNum, 4).value = e.description || '';
+        ws.getCell(rowNum, 5).value = e.supplier    || '';
+        if (inc > 0) ws.getCell(rowNum, 6).value = inc;
+        if (exp > 0) ws.getCell(rowNum, 7).value = exp;
+        ws.getCell(rowNum, 8).value = runningBalance;
+        ws.getCell(rowNum, 6).numFmt = '#,##0';
+        ws.getCell(rowNum, 7).numFmt = '#,##0';
+        ws.getCell(rowNum, 8).numFmt = '#,##0';
+        ws.getCell(rowNum, 6).alignment = { horizontal: 'right', vertical: 'middle' };
+        ws.getCell(rowNum, 7).alignment = { horizontal: 'right', vertical: 'middle' };
+        ws.getCell(rowNum, 8).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        // レシート埋込み
+        if (includeReceipts && e.receipt) {
+          ws.getRow(rowNum).height = 50;
+          await _cbEmbedReceipt(wb, ws, e.receipt, rowNum);
+        }
+      }
+    }
+
+    // ページフッター: 次項へ or 小計+合計
+    const subtotalRow = dataStartRow + pageDataMax;
+    for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(subtotalRow, col), { size: 14, border: true });
+    ws.getCell(subtotalRow, 4).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell(subtotalRow, 6).value = pageIncomeSum;
+    ws.getCell(subtotalRow, 7).value = pageExpenseSum;
+    ws.getCell(subtotalRow, 8).value = runningBalance;
+    ws.getCell(subtotalRow, 6).numFmt = '#,##0';
+    ws.getCell(subtotalRow, 7).numFmt = '#,##0';
+    ws.getCell(subtotalRow, 8).numFmt = '#,##0';
+    ws.getCell(subtotalRow, 6).alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell(subtotalRow, 7).alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell(subtotalRow, 8).alignment = { horizontal: 'right', vertical: 'middle' };
+
+    if (isLast) {
+      ws.getCell(subtotalRow, 4).value = '小計';
+      // 合計行
+      const totalRow = subtotalRow + 1;
+      for (let col = 2; col <= 8; col++) _cbApplyCellStyle(ws.getCell(totalRow, col), { size: 14, border: true });
+      ws.getCell(totalRow, 4).value = '合計';
+      ws.getCell(totalRow, 4).alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getCell(totalRow, 6).value = totalIncome;
+      ws.getCell(totalRow, 7).value = totalExpense;
+      ws.getCell(totalRow, 8).value = runningBalance;
+      ws.getCell(totalRow, 6).numFmt = '#,##0';
+      ws.getCell(totalRow, 7).numFmt = '#,##0';
+      ws.getCell(totalRow, 8).numFmt = '#,##0';
+      ws.getCell(totalRow, 6).alignment = { horizontal: 'right', vertical: 'middle' };
+      ws.getCell(totalRow, 7).alignment = { horizontal: 'right', vertical: 'middle' };
+      ws.getCell(totalRow, 8).alignment = { horizontal: 'right', vertical: 'middle' };
+      rowOffset = totalRow;
+    } else {
+      ws.getCell(subtotalRow, 4).value = '次項へ';
+      // 次ページとの間に空行 1 行 + 改ページ
+      try { ws.getRow(subtotalRow + 1).addPageBreak && ws.getRow(subtotalRow + 1).addPageBreak(); } catch(_) {}
+      rowOffset = subtotalRow + 1;
+    }
+  }
+
+  // 内訳明細 (5 行ギャップ後)
+  const bdStart = rowOffset + 6;
+  // 1行目: ホーム名 (B:C結合) + 内訳明細 (D:E結合)
+  ws.mergeCells(bdStart, 2, bdStart, 3);
+  ws.mergeCells(bdStart, 4, bdStart, 5);
+  _cbApplyCellStyle(ws.getCell(bdStart, 2), { size: 14, align: 'center', border: true });
+  ws.getCell(bdStart, 2).value = homeLabel;
+  _cbApplyCellStyle(ws.getCell(bdStart, 4), { size: 14, align: 'center', border: true });
+  ws.getCell(bdStart, 4).value = '内訳明細';
+
+  // 内訳カテゴリ集計
+  const breakdown = {};
+  for (const cat of CB_CATEGORIES) breakdown[cat] = 0;
+  for (const e of monthEntries) {
+    if (CB_CATEGORIES.indexOf(e.category) >= 0) {
+      breakdown[e.category] += parseInt(e.expense) || 0;
+    }
+  }
+  let breakdownTotal = 0;
+  for (const cat of CB_CATEGORIES) breakdownTotal += breakdown[cat];
+
+  // 8カテゴリ + 合計 = 9行
+  for (let i = 0; i < CB_CATEGORIES.length; i++) {
+    const r = bdStart + 1 + i;
+    if (i === 0) {
+      // ○月分 (B:C結合)
+      ws.mergeCells(r, 2, r, 3);
+      _cbApplyCellStyle(ws.getCell(r, 2), { size: 14, align: 'center', border: true });
+      ws.getCell(r, 2).value = monthBunStr;
+    } else {
+      // 罫線のみ (B:C も罫線で囲む)
+      _cbApplyCellStyle(ws.getCell(r, 2), { size: 14, border: true });
+      _cbApplyCellStyle(ws.getCell(r, 3), { size: 14, border: true });
+    }
+    const cat = CB_CATEGORIES[i];
+    _cbApplyCellStyle(ws.getCell(r, 4), { size: 14, align: 'distributed', border: true });
+    ws.getCell(r, 4).value = cat;
+    _cbApplyCellStyle(ws.getCell(r, 5), { size: 14, border: true });
+    ws.getCell(r, 5).value = breakdown[cat] || null;
+    ws.getCell(r, 5).numFmt = '#,##0';
+    ws.getCell(r, 5).alignment = { horizontal: 'right', vertical: 'middle' };
+  }
+  // 合計行
+  const totalR = bdStart + 1 + CB_CATEGORIES.length;
+  _cbApplyCellStyle(ws.getCell(totalR, 2), { size: 14, border: true });
+  _cbApplyCellStyle(ws.getCell(totalR, 3), { size: 14, border: true });
+  _cbApplyCellStyle(ws.getCell(totalR, 4), { size: 14, align: 'distributed', border: true });
+  ws.getCell(totalR, 4).value = '合計';
+  _cbApplyCellStyle(ws.getCell(totalR, 5), { size: 14, border: true });
+  ws.getCell(totalR, 5).value = breakdownTotal || null;
+  ws.getCell(totalR, 5).numFmt = '#,##0';
+  ws.getCell(totalR, 5).alignment = { horizontal: 'right', vertical: 'middle' };
+}
+
+async function _cbEmbedReceipt(wb, ws, dataUrl, rowNum) {
+  if (!dataUrl) return;
+  // data URL ヘッダ剥がし
+  let extension = 'jpeg';
+  let base64 = dataUrl;
+  const m = String(dataUrl).match(/^data:image\/(\w+);base64,(.+)$/);
+  if (m) {
+    extension = (m[1] === 'jpg') ? 'jpeg' : m[1];
+    base64 = m[2];
+  }
+  try {
+    const imageId = wb.addImage({ base64: base64, extension: extension });
+    // K列 = col 11 (1-indexed) → ExcelJS は 0-indexed なので 10
+    ws.addImage(imageId, {
+      tl: { col: 10, row: rowNum - 1 },
+      ext: { width: 60, height: 60 }
+    });
+  } catch (e) {
+    console.warn('cb embed receipt failed (row=' + rowNum + '):', e);
+  }
+}
 
 // ═══ ぱぁとなぁ お小遣い帳 ═══
 let _abUserId = null;    // 選択中利用者（名前をキーとして使用）
