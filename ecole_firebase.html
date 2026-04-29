@@ -1337,7 +1337,7 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, addDoc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── 自動キャッシュバスト ──
 // APP_VERSION は push 時に GitHub Actions が自動書換 (.github/workflows/bump-version.yml)。
@@ -2861,6 +2861,10 @@ function _suRender() {
   html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_suList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
   html += '<button onclick="_suMigrateStartUsers()" style="background:#fff;color:#9A5200;border:1px solid #FF9500;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer" title="旧 start_users コレクションのデータを users に統合">📦 旧データ移行</button>';
   html += '<button onclick="_suOpenImport()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV インポート</button>';
+  // データ完全リセット (管理者のみ、一時的、別タスクで除去予定)
+  if (currentUser && currentUser.role >= 3 && _suList.length > 0) {
+    html += '<button onclick="_suResetAll()" style="background:#FF3B30;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer" title="users コレクションを完全リセット (管理者専用・一時的)">⚠ データ完全リセット</button>';
+  }
   html += '<button onclick="_suOpenNew()" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規登録</button>';
   html += '</div></div>';
 
@@ -3237,6 +3241,42 @@ window._suMigrateStartUsers = async function() {
     await Promise.all(delTasks);
   }
   showToast('✓ 移行完了: 追加 ' + added + ' / スキップ ' + skipped + (failed?' / 失敗 ' + failed:'') + ' 件');
+  renderStartUsers();
+};
+
+// ─── 一時的: users コレクション完全リセット (管理者専用、別タスクで除去予定) ───
+// インポート重複の完全クリーンアップ用。Firestore writeBatch で 500 件ずつ削除。
+window._suResetAll = async function() {
+  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ実行できます'); return; }
+  // _suList はフィルタ後の may だが、実 Firestore からフェッチした全件を再取得して削除
+  // (キャッシュとの乖離リスク回避)
+  let snap;
+  try { snap = await getDocs(collection(db, 'users')); }
+  catch (e) { showToast('読込失敗: ' + (e.message||e)); return; }
+  if (snap.empty) { showToast('users コレクションは既に空です'); return; }
+  const total = snap.size;
+  // 2 段階確認
+  if (!confirm('全データを削除します。元に戻せません。\n\n対象: ' + total + ' 件\n\nよろしいですか？')) return;
+  if (!confirm('本当によろしいですか？\n\n' + total + ' 件のドキュメントを Firestore から完全削除します。')) return;
+  showToast('リセット中... (' + total + ' 件)');
+  // 500 件ずつバッチ削除
+  const refs = [];
+  snap.forEach(function(d){ refs.push(d.ref); });
+  const BATCH_SIZE = 500;
+  let deleted = 0, failed = 0;
+  for (let i = 0; i < refs.length; i += BATCH_SIZE) {
+    const slice = refs.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    slice.forEach(function(r){ batch.delete(r); });
+    try {
+      await batch.commit();
+      deleted += slice.length;
+    } catch (e) {
+      console.error('_suResetAll batch failed (offset=' + i + '):', e);
+      failed += slice.length;
+    }
+  }
+  showToast('✓ ' + deleted + ' 件削除完了' + (failed?' / ' + failed + ' 件失敗':''));
   renderStartUsers();
 };
 
