@@ -1,0 +1,43 @@
+// ======================================================================
+// firestore.rules - エコール送迎管理アプリ用 Firestore セキュリティルール
+// ======================================================================
+//
+// このファイルは Firebase Console で適用する内容のドキュメントです。
+// 自動デプロイされません。Firebase Console → Firestore → ルール タブで
+// 該当箇所を更新してください。
+//
+// 認証・権限制御はアプリ側 (currentUser.role) で実装しているため、
+// Firestore ルールはコレクション単位で「読み書き全許可」のシンプルな構成。
+// ======================================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── 利用者マスタ (統合版、童里夢/奏楽/ぱぁとなぁ/すたぁと) ───
+    match /users/{document=**} {
+      allow read, write: if true;
+    }
+
+    // ─── 旧 start_users (移行済み、削除予定) ───
+    // 移行ボタンで users へ統合後、Firebase Console から削除可
+    match /start_users/{document=**} {
+      allow read, write: if true;
+    }
+
+    // ─── 既存コレクション (変更不要) ───
+    match /staff_accounts/{document=**} { allow read, write: if true; }
+    match /logs/{document=**}            { allow read, write: if true; }
+    match /purchases/{document=**}       { allow read, write: if true; }
+    match /master_current/{document=**}  { allow read, write: if true; }
+    match /backups/{document=**}         { allow read, write: if true; }
+    match /shortstay_records/{document=**} { allow read, write: if true; }
+    match /cashbook/{document=**}        { allow read, write: if true; }
+    match /allowance/{document=**}       { allow read, write: if true; }
+
+    // ─── フォールバック (将来追加コレクション用) ───
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

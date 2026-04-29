@@ -228,7 +228,7 @@ html, body {
 /* #D-2: 自動入力された数値フィールドは薄グレー、手入力で通常色に戻る */
 input[data-autofill="1"] { color: #8E8E93; }
 
-/* #StartUsers Phase 1-1: すたぁと利用者マスタ — バッジ + モーダル + テーブル/カード */
+/* #StartUsers Phase 1-1: 利用者マスタ (統合版) — バッジ + モーダル + テーブル/カード */
 .su-badge { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; margin-right: 4px; letter-spacing: 0.02em; }
 .su-status-active   { background: #E4F8E8; color: #1B7C2E; }
 .su-status-inactive { background: #E5E5EA; color: #636366; }
@@ -1479,7 +1479,7 @@ const scrTitles = {
     cashbook: 'ぱぁとなぁ金銭出納帳',
     allowance: 'ぱぁとなぁお小遣い帳',
     'staff-list': '職員一覧',
-    'start-users': 'すたぁと利用者マスタ'
+    'start-users': '利用者マスタ'
 };
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
@@ -2766,17 +2766,39 @@ window._sslSetRoleFilter = function(v) { _sslRoleFilter = v; _sslRender(); };
 window._sslSetDeptFilter = function(v) { _sslDeptFilter = v; _sslRender(); };
 
 // ═════════════════════════════════════════════════════════════
-// #StartUsers Phase 1-1: すたぁと利用者マスタ (start_users コレクション)
+// #StartUsers Phase 1-1: 利用者マスタ (users コレクション、童里夢/奏楽/ぱぁとなぁ/すたぁと統合)
 // 管理者・上司 (role >= 2) が閲覧・編集。論理削除 (is_active=false) のみ、物理削除無し。
 // ═════════════════════════════════════════════════════════════
 const SU_RELATIONS = ['父','母','兄','姉','弟','妹','夫','妻','子','祖父','祖母','後見人','その他'];
+const SU_TABS = [['all','全て'],['doumu','童里夢'],['sougaku','奏楽'],['gh','ぱぁとなぁGH'],['start','すたぁと']];
+const SU_GH_LABELS = { tsumugi_m:'紬男子', tsumugi_f:'紬女子', himawari:'ひまわり' };
+const SU_DAYCARE_LABELS = { doumu:'童里夢', sougaku:'奏楽' };
 let _suList = [];
 let _suStatusFilter = 'active';   // 'all' | 'active' | 'inactive'
-let _suServiceFilter = 'all';     // 'all' | 'short_stay' | 'gh'
+let _suTab = 'all';               // 'all' | 'doumu' | 'sougaku' | 'gh' | 'start'
 let _suSearch = '';
 let _suEditCtx = null;            // {mode:'new'|'edit', id?, data}
 
 function _suEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _suMatchTab(u) {
+  if (_suTab === 'all') return true;
+  if (_suTab === 'doumu')   return u.daycare === 'doumu';
+  if (_suTab === 'sougaku') return u.daycare === 'sougaku';
+  if (_suTab === 'gh')      return !!(u.gh && u.gh !== '');
+  if (_suTab === 'start')   return !!(u.start_short_stay || u.start_home_care);
+  return true;
+}
+function _suBadges(u) {
+  let h = '';
+  if (u.daycare === 'doumu')     h += '<span class="su-badge" style="background:#E0F2FE;color:#075985">童里夢</span>';
+  if (u.daycare === 'sougaku')   h += '<span class="su-badge" style="background:#FCE7F3;color:#9D174D">奏楽</span>';
+  if (u.gh === 'tsumugi_m')      h += '<span class="su-badge" style="background:#DBEAFE;color:#1E3A8A">紬男子</span>';
+  if (u.gh === 'tsumugi_f')      h += '<span class="su-badge" style="background:#F3E8FF;color:#6B21A8">紬女子</span>';
+  if (u.gh === 'himawari')       h += '<span class="su-badge" style="background:#FEF3C7;color:#92400E">ひまわり</span>';
+  if (u.start_short_stay)        h += '<span class="su-badge su-svc-shortstay">すたぁと短期</span>';
+  if (u.start_home_care)         h += '<span class="su-badge" style="background:#DCFCE7;color:#15803D">居宅介護</span>';
+  return h;
+}
 
 window.renderStartUsers = async function() {
   const body = document.getElementById('start-users-body');
@@ -2787,7 +2809,7 @@ window.renderStartUsers = async function() {
   }
   body.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    const snap = await getDocs(collection(db, 'start_users'));
+    const snap = await getDocs(collection(db, 'users'));
     const list = [];
     snap.forEach(function(d){ list.push(Object.assign({ id: d.id }, d.data())); });
     list.sort(function(a, b){
@@ -2812,8 +2834,7 @@ function _suRender() {
   const filtered = _suList.filter(function(u){
     if (_suStatusFilter === 'active'   && u.is_active === false) return false;
     if (_suStatusFilter === 'inactive' && u.is_active !== false) return false;
-    if (_suServiceFilter === 'short_stay' && !u.is_short_stay) return false;
-    if (_suServiceFilter === 'gh'         && !u.is_gh) return false;
+    if (!_suMatchTab(u)) return false;
     if (q) {
       const hay = ((u.name||'') + ' ' + (u.furigana||'')).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
@@ -2821,19 +2842,24 @@ function _suRender() {
     return true;
   });
   const sOpt = function(v,l){ return '<option value="'+v+'"'+(_suStatusFilter===v?' selected':'')+'>'+l+'</option>'; };
-  const vOpt = function(v,l){ return '<option value="'+v+'"'+(_suServiceFilter===v?' selected':'')+'>'+l+'</option>'; };
   let html = '';
+  // 事業所カテゴリタブ
+  html += '<div style="display:flex;gap:4px;padding:10px 12px 4px;flex-wrap:wrap">';
+  for (const t of SU_TABS) {
+    const v = t[0], label = t[1], on = _suTab === v;
+    html += '<div onclick="_suSetTab(\'' + v + '\')" style="flex:1;min-width:70px;text-align:center;padding:6px 8px;font-size:12px;font-weight:' + (on?'700':'500') + ';border-radius:8px;cursor:pointer;background:' + (on?'var(--purple)':'#fff') + ';color:' + (on?'#fff':'var(--text-sub)') + ';border:0.5px solid ' + (on?'var(--purple)':'var(--border)') + '">' + label + '</div>';
+  }
+  html += '</div>';
   // フィルタバー
-  html += '<div style="padding:14px 12px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  html += '<div style="padding:6px 12px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">ステータス <select onchange="_suSetStatus(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
     + sOpt('active','利用中') + sOpt('inactive','退所') + sOpt('all','全て') + '</select></label>';
-  html += '<label style="font-size:12px;color:var(--text-sub);display:flex;align-items:center;gap:4px">サービス <select onchange="_suSetService(this.value)" style="font-size:12px;padding:6px 8px;border:0.5px solid var(--border);border-radius:8px;background:#fff">'
-    + vOpt('all','全て') + vOpt('short_stay','短期入所') + vOpt('gh','GH') + '</select></label>';
   html += '<input type="search" placeholder="氏名/ふりがな" value="' + _suEsc(_suSearch) + '" oninput="_suSetSearch(this.value)" style="font-size:12px;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;background:#fff;width:160px"/>';
   html += '</div>';
   html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
   html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_suList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
+  html += '<button onclick="_suMigrateStartUsers()" style="background:#fff;color:#9A5200;border:1px solid #FF9500;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer" title="旧 start_users コレクションのデータを users に統合">📦 旧データ移行</button>';
   html += '<button onclick="_suOpenImport()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV インポート</button>';
   if (_suList.length > 0) html += '<button onclick="_suDeleteAll()" style="background:#FF3B30;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🗑 全件削除</button>';
   html += '<button onclick="_suOpenNew()" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ 新規登録</button>';
@@ -2856,11 +2882,10 @@ function _suRender() {
 
   // PC テーブル
   html += '<div class="su-table-wrap"><table class="su-table"><thead><tr>'
-    + '<th>氏名</th><th>ふりがな</th><th>サービス</th><th>連絡先</th><th>ステータス</th>'
+    + '<th>氏名</th><th>ふりがな</th><th>区分</th><th>連絡先</th><th>ステータス</th>'
     + '</tr></thead><tbody>';
   for (const u of filtered) {
-    const svc = (u.is_short_stay ? '<span class="su-badge su-svc-shortstay">短期入所</span>' : '')
-              + (u.is_gh         ? '<span class="su-badge su-svc-gh">GH</span>' : '');
+    const svc = _suBadges(u);
     const contact = (u.contact_name || u.contact_phone)
       ? _suEsc((u.contact_name||'') + (u.contact_relation?' ('+u.contact_relation+')':'') + (u.contact_phone?' / '+u.contact_phone:''))
       : '<span style="color:var(--text-sub)">-</span>';
@@ -2880,8 +2905,7 @@ function _suRender() {
   // モバイルカード
   html += '<div class="su-cards">';
   for (const u of filtered) {
-    const svc = (u.is_short_stay ? '<span class="su-badge su-svc-shortstay">短期入所</span>' : '')
-              + (u.is_gh         ? '<span class="su-badge su-svc-gh">GH</span>' : '');
+    const svc = _suBadges(u);
     const statusBadge = u.is_active === false
       ? '<span class="su-badge su-status-inactive">退所</span>'
       : '<span class="su-badge su-status-active">利用中</span>';
@@ -2899,13 +2923,13 @@ function _suRender() {
   if (window.refreshIcons) window.refreshIcons();
 }
 
-window._suSetStatus  = function(v) { _suStatusFilter = v; _suRender(); };
-window._suSetService = function(v) { _suServiceFilter = v; _suRender(); };
-window._suSetSearch  = function(v) { _suSearch = (v||'').trim(); _suRender(); };
+window._suSetStatus = function(v) { _suStatusFilter = v; _suRender(); };
+window._suSetTab    = function(v) { _suTab = v; _suRender(); };
+window._suSetSearch = function(v) { _suSearch = (v||'').trim(); _suRender(); };
 
 window._suOpenNew = function() {
   if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
-  _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, is_short_stay:false, is_gh:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
+  _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, daycare:null, gh:null, start_short_stay:false, start_home_care:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
   _suRenderModal();
 };
 window._suOpenEdit = function(id) {
@@ -2941,9 +2965,22 @@ function _suRenderModal() {
     + '<div class="frow"><span class="flbl">ステータス</span>'
     + '<div style="display:flex;gap:14px"><label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-yes" value="1"'+(d.is_active!==false?' checked':'')+'/>利用中</label>'
     + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-no" value="0"'+(d.is_active===false?' checked':'')+'/>退所</label></div></div>'
-    + '<span class="tog-label">サービス種別（複数可）</span>'
-    + '<div style="display:flex;gap:14px;padding:4px 0 8px"><label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-short" '+(d.is_short_stay?'checked':'')+'/>短期入所</label>'
-    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-gh" '+(d.is_gh?'checked':'')+'/>GH</label></div>'
+    + '<span class="tog-label">通所先（択一）</span>'
+    + '<div style="display:flex;gap:14px;padding:4px 0 8px;flex-wrap:wrap">'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="" '+(!d.daycare?'checked':'')+'/>なし</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="doumu" '+(d.daycare==='doumu'?'checked':'')+'/>童里夢</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="sougaku" '+(d.daycare==='sougaku'?'checked':'')+'/>奏楽</label>'
+    + '</div>'
+    + '<span class="tog-label">GH 居住（択一）</span>'
+    + '<div style="display:flex;gap:14px;padding:4px 0 8px;flex-wrap:wrap">'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-gh" value="" '+(!d.gh?'checked':'')+'/>なし</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-gh" value="tsumugi_m" '+(d.gh==='tsumugi_m'?'checked':'')+'/>紬男子</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-gh" value="tsumugi_f" '+(d.gh==='tsumugi_f'?'checked':'')+'/>紬女子</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-gh" value="himawari" '+(d.gh==='himawari'?'checked':'')+'/>ひまわり</label>'
+    + '</div>'
+    + '<span class="tog-label">すたぁと利用（複数可）</span>'
+    + '<div style="display:flex;gap:14px;padding:4px 0 8px"><label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-shortstay" '+(d.start_short_stay?'checked':'')+'/>短期入所</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="su-f-homecare" '+(d.start_home_care?'checked':'')+'/>居宅介護</label></div>'
     + '</div>'
     + '<div class="fsec">'
     + '<span class="tog-label">緊急連絡先（任意）</span>'
@@ -2969,12 +3006,16 @@ window._suSave = async function() {
   const name     = document.getElementById('su-f-name').value.trim();
   const furigana = document.getElementById('su-f-furigana').value.trim();
   if (!name)     { showToast('氏名を入力してください'); return; }
+  const dcEl = document.querySelector('input[name="su-daycare"]:checked');
+  const ghEl = document.querySelector('input[name="su-gh"]:checked');
   const payload = {
     name: name,
     furigana: furigana,
-    is_active:     document.getElementById('su-f-active-yes').checked,
-    is_short_stay: document.getElementById('su-f-short').checked,
-    is_gh:         document.getElementById('su-f-gh').checked,
+    is_active:        document.getElementById('su-f-active-yes').checked,
+    daycare:          (dcEl && dcEl.value) ? dcEl.value : null,
+    gh:               (ghEl && ghEl.value) ? ghEl.value : null,
+    start_short_stay: document.getElementById('su-f-shortstay').checked,
+    start_home_care:  document.getElementById('su-f-homecare').checked,
     contact_name:     document.getElementById('su-f-cname').value.trim(),
     contact_relation: document.getElementById('su-f-crel').value,
     contact_phone:    document.getElementById('su-f-cphone').value.trim(),
@@ -2986,10 +3027,10 @@ window._suSave = async function() {
     if (_suEditCtx.mode === 'new') {
       payload.createdAt = serverTimestamp();
       payload.createdBy = currentStaff || '';
-      await addDoc(collection(db, 'start_users'), payload);
+      await addDoc(collection(db, 'users'), payload);
       showToast('✓ 利用者を登録しました');
     } else {
-      await updateDoc(doc(db, 'start_users', _suEditCtx.id), payload);
+      await updateDoc(doc(db, 'users', _suEditCtx.id), payload);
       showToast('✓ 利用者情報を更新しました');
     }
     _suCloseModal();
@@ -3001,7 +3042,9 @@ window._suSave = async function() {
 };
 
 // ─── #StartUsers: CSV 一括インポート ───
-const SU_CSV_COLS = ['name','furigana','is_short_stay','is_gh','contact_name','contact_relation','contact_phone','notes'];
+const SU_CSV_COLS = ['name','furigana','daycare','gh','start_short_stay','start_home_care','is_active','contact_name','contact_relation','contact_phone','notes'];
+const SU_DAYCARE_VALUES = ['', 'doumu', 'sougaku'];
+const SU_GH_VALUES      = ['', 'tsumugi_m', 'tsumugi_f', 'himawari'];
 let _suImportCtx = null;  // {step:1|2, parsed: [...rows], summary: {...}}
 
 function _suParseBool(s) {
@@ -3042,14 +3085,16 @@ window._suCloseImport = function() {
   _suImportCtx = null;
 };
 window._suDownloadTemplate = function() {
+  // name,furigana,daycare,gh,start_short_stay,start_home_care,is_active,contact_name,contact_relation,contact_phone,notes
   const sample = SU_CSV_COLS.join(',') + '\n'
-    + '山田太郎,やまだたろう,1,0,山田花子,母,090-1234-5678,アレルギー：卵\n'
-    + '鈴木一郎,すずきいちろう,0,1,,,,\n';
+    + '山田太郎,やまだたろう,doumu,,1,0,1,山田花子,母,090-1234-5678,アレルギー：卵\n'
+    + '鈴木一郎,すずきいちろう,,tsumugi_m,0,0,1,,,,\n'
+    + '佐藤花子,さとうはなこ,sougaku,,0,1,1,,,,居宅介護のみ\n';
   // UTF-8 BOM 付与で Excel が文字化けせず開ける
   const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'start_users_template.csv';
+  a.href = url; a.download = 'users_template.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 };
@@ -3087,10 +3132,17 @@ window._suOnImportFile = async function(input) {
     else if (existingKeys.has(key)) { status = 'duplicate'; reason = '既存データと重複'; }
     else if (seenInCsv.has(key)) { status = 'duplicate'; reason = 'CSV内重複'; }
     if (status === 'valid') seenInCsv.add(key);
+    // is_active は空欄=true、それ以外は _suParseBool 評価
+    const isActiveRaw = get('is_active');
+    const isActive = (isActiveRaw === '') ? true : _suParseBool(isActiveRaw);
+    const dcRaw = get('daycare');
+    const ghRaw = get('gh');
     const payload = (status === 'valid') ? {
-      name: name, furigana: furigana, is_active: true,
-      is_short_stay: _suParseBool(get('is_short_stay')),
-      is_gh:         _suParseBool(get('is_gh')),
+      name: name, furigana: furigana, is_active: isActive,
+      daycare:          (SU_DAYCARE_VALUES.indexOf(dcRaw) >= 0 && dcRaw) ? dcRaw : null,
+      gh:               (SU_GH_VALUES.indexOf(ghRaw) >= 0 && ghRaw) ? ghRaw : null,
+      start_short_stay: _suParseBool(get('start_short_stay')),
+      start_home_care:  _suParseBool(get('start_home_care')),
       contact_name:     get('contact_name'),
       contact_relation: get('contact_relation'),
       contact_phone:    get('contact_phone'),
@@ -3123,7 +3175,7 @@ window._suExecuteImport = async function() {
       createdAt: serverTimestamp(), createdBy: currentStaff || '',
       updatedAt: serverTimestamp(), updatedBy: currentStaff || ''
     });
-    return addDoc(collection(db, 'start_users'), payload).then(function(){ ok++; }).catch(function(e){
+    return addDoc(collection(db, 'users'), payload).then(function(){ ok++; }).catch(function(e){
       ng++; console.error('import row failed:', p.rowNum, e);
     });
   });
@@ -3133,16 +3185,72 @@ window._suExecuteImport = async function() {
   renderStartUsers();
 };
 
-// 全件削除 (管理者・上司のみ、確認ダイアログ後に start_users コレクションを一括削除)
+// 旧 start_users → users コレクション移行 (一度のみ実行、既存52名を新フィールド付きで投入)
+window._suMigrateStartUsers = async function() {
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
+  let oldSnap;
+  try { oldSnap = await getDocs(collection(db, 'start_users')); }
+  catch (e) { showToast('start_users 読込失敗: ' + (e.message||e)); return; }
+  if (oldSnap.empty) { showToast('移行対象なし (start_users は空)'); return; }
+  const oldDocs = [];
+  oldSnap.forEach(function(d){ oldDocs.push({ id: d.id, data: d.data() }); });
+  // 既存 users と name+furigana で重複判定
+  const existKeys = new Set(_suList.map(function(u){ return (u.name||'')+'|'+(u.furigana||''); }));
+  if (!confirm('旧 start_users コレクションの ' + oldDocs.length + ' 件を users に移行します。\n\n• 既存 is_short_stay=true → start_short_stay=true\n• 既存 is_gh=true → gh=tsumugi_m (暫定、後で手動修正)\n• それ以外も start_short_stay=true で移行 (旧データ全員すたぁと利用者のため)\n\n移行成功後、旧 start_users から該当ドキュメントを削除します。よろしいですか？')) return;
+  showToast('移行中... (' + oldDocs.length + ' 件)');
+  let added = 0, skipped = 0, failed = 0;
+  const writeTasks = oldDocs.map(function(o){
+    const old = o.data || {};
+    const key = (old.name||'')+'|'+(old.furigana||'');
+    if (existKeys.has(key)) { skipped++; return Promise.resolve(); }
+    const migrated = {
+      name: old.name || '',
+      furigana: old.furigana || '',
+      is_active: old.is_active !== false,
+      daycare: null,
+      gh: old.is_gh ? 'tsumugi_m' : null,
+      start_short_stay: true,  // 既存52名全員すたぁと利用者として true
+      start_home_care: false,
+      contact_name:     old.contact_name || '',
+      contact_relation: old.contact_relation || '',
+      contact_phone:    old.contact_phone || '',
+      notes:            old.notes || '',
+      createdAt: old.createdAt || serverTimestamp(),
+      createdBy: old.createdBy || '',
+      updatedAt: serverTimestamp(),
+      updatedBy: currentStaff || '',
+      migratedAt: serverTimestamp(),
+      migratedFrom: 'start_users'
+    };
+    return addDoc(collection(db, 'users'), migrated).then(function(){ added++; }).catch(function(e){
+      failed++; console.error('migrate add failed:', o.id, e);
+    });
+  });
+  await Promise.all(writeTasks);
+  // 失敗 0 のときのみ旧データ削除
+  if (failed === 0 && added > 0) {
+    const delTasks = oldDocs.map(function(o){
+      const key = (o.data && (o.data.name||'')+'|'+(o.data.furigana||'')) || '';
+      // 既存 users と重複していたものは削除しない (skipped 扱い、ユーザー判断に委ねる)
+      if (existKeys.has(key)) return Promise.resolve();
+      return deleteDoc(doc(db, 'start_users', o.id)).catch(function(e){ console.error('migrate del failed:', o.id, e); });
+    });
+    await Promise.all(delTasks);
+  }
+  showToast('✓ 移行完了: 追加 ' + added + ' / スキップ ' + skipped + (failed?' / 失敗 ' + failed:'') + ' 件');
+  renderStartUsers();
+};
+
+// 全件削除 (管理者・上司のみ、確認ダイアログ後に users コレクションを一括削除)
 window._suDeleteAll = async function() {
   if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ実行できます'); return; }
   const cnt = _suList.length;
   if (!cnt) { showToast('削除対象がありません'); return; }
-  if (!confirm('すたぁと利用者マスタを全件削除します。本当によろしいですか？\n\n対象: ' + cnt + ' 名（取り消し不可）')) return;
+  if (!confirm('利用者マスタを全件削除します。本当によろしいですか？\n\n対象: ' + cnt + ' 名（取り消し不可）')) return;
   showToast('削除中... (' + cnt + ' 件)');
   let ok = 0, ng = 0;
   const tasks = _suList.map(function(u){
-    return deleteDoc(doc(db, 'start_users', u.id)).then(function(){ ok++; }).catch(function(e){
+    return deleteDoc(doc(db, 'users', u.id)).then(function(){ ok++; }).catch(function(e){
       ng++; console.error('_suDeleteAll row failed:', u.id, e);
     });
   });
@@ -3170,7 +3278,7 @@ function _suRenderImportModal() {
       + '2. Excel で開いて各列を入力（必須: name のみ、furigana 等は任意）<br>'
       + '3. <b>「CSV UTF-8 (コンマ区切り)」</b>形式で保存（文字化け防止）<br>'
       + '4. 下の選択ボタンで保存した CSV をアップロード<br>'
-      + '<span style="color:var(--text-sub);font-size:11px">※ is_short_stay / is_gh は 1/0、true/false、○/×、空欄=0 のいずれも可</span>'
+      + '<span style="color:var(--text-sub);font-size:11px">※ daycare: 空 / doumu / sougaku<br>※ gh: 空 / tsumugi_m / tsumugi_f / himawari<br>※ start_short_stay, start_home_care, is_active は 1/0、true/false、○/×、空欄=空欄(is_active のみ空欄=利用中) のいずれも可</span>'
       + '</div>'
       + '<button class="sbtn" style="width:100%;background:#fff;color:var(--purple);border:1px solid var(--purple);margin-bottom:10px" onclick="_suDownloadTemplate()"><i data-lucide="download"></i> テンプレート CSV をダウンロード</button>'
       + '<label for="su-import-file" style="display:block;cursor:pointer;padding:14px;background:var(--fill-chip);color:var(--purple);border-radius:10px;font-size:13px;font-weight:600;text-align:center"><i data-lucide="upload"></i> CSV ファイルを選択</label>'
@@ -4091,7 +4199,7 @@ window.showSubMenu = function(type) {
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
       { icon: 'wallet', label: 'ぱぁとなぁお小遣い帳', action: "goScr('allowance')" },
       { icon: 'id-card', label: '職員一覧', action: "goScr('staff-list')", adminOnly: true },
-      { icon: 'user-plus', label: 'すたぁと利用者マスタ', action: "goScr('start-users')", roleMin: 2 },
+      { icon: 'user-plus', label: '利用者マスタ', action: "goScr('start-users')", roleMin: 2 },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
