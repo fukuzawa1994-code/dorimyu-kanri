@@ -788,6 +788,63 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   body.ss-printing .ssp-footer { margin-top: 3mm; display: flex; justify-content: space-between; font-size: 10pt; padding: 2mm 2mm 0; border-top: 0.3mm solid #000; }
   body.ss-printing .ssp-matrix, body.ss-printing .ssp-support { page-break-inside: avoid; }
 }
+
+/* ─── すたぁと予定 (Phase A-1 日別予定ビュー) ─── */
+.sd-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; background: var(--surface); border-bottom: 0.5px solid var(--border); position: sticky; top: 0; z-index: 5; }
+.sd-toolbar .sd-date-label { font-size: 14px; font-weight: 700; color: var(--text); min-width: 130px; text-align: center; }
+.sd-toolbar .sd-navbtn { padding: 6px 12px; border: 0.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; }
+.sd-toolbar .sd-navbtn.today { background: var(--purple); color: #fff; border-color: var(--purple); }
+.sd-toolbar .sd-filter { padding: 6px 8px; border: 0.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 12px; }
+.sd-toolbar .sd-summary { font-size: 11px; color: var(--text-sub); margin-left: auto; }
+
+.sd-section { margin: 10px 12px; background: var(--surface); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow-card); border-left: 4px solid #999; }
+.sd-section.sd-shortstay { border-left-color: #EF9F27; }
+.sd-section.sd-homecare  { border-left-color: #378ADD; }
+.sd-section.sd-gh        { border-left-color: #1D9E75; }
+.sd-section-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sd-section-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.sd-section-add { padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--purple); background: #fff; border: 1px solid var(--purple); border-radius: 8px; cursor: pointer; }
+.sd-section-add:disabled { opacity: 0.4; cursor: not-allowed; }
+.sd-empty { padding: 14px 4px; font-size: 12px; color: var(--text-sub); text-align: center; }
+
+.sd-card { background: #fff; border: 0.5px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+.sd-card-row1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.sd-time { font-size: 14px; font-weight: 700; color: var(--text); min-width: 100px; }
+.sd-user { font-size: 14px; font-weight: 700; color: var(--text); }
+.sd-card-row2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--text-sub); }
+.sd-card-actions { display: flex; gap: 6px; margin-left: auto; }
+.sd-card-actions button { padding: 3px 8px; font-size: 11px; border-radius: 6px; border: 0.5px solid var(--border); background: #fff; cursor: pointer; }
+.sd-card-actions .sd-del { color: #FF3B30; border-color: #FF3B30; }
+.sd-note { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+
+.sd-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.svc-shintai    { background: #E6F1FB; color: #0C447C; }
+.svc-kaji       { background: #EEEDFE; color: #3C3489; }
+.svc-ido        { background: #FAEEDA; color: #633806; }
+.svc-koudou     { background: #FCEBEB; color: #791F1F; }
+.svc-shukuhaku  { background: #FAEEDA; color: #633806; }
+.svc-ghw        { background: #E1F5EE; color: #085041; }
+.svc-default    { background: #F2F2F7; color: #6E6E73; }
+.sd-room-badge  { background: #FFF4E5; color: #9A5200; font-weight: 700; }
+.sd-house-badge { background: #E1F5EE; color: #085041; font-weight: 700; }
+.sd-pair-badge  { background: #FCEBEB; color: #791F1F; }
+
+.sd-modal-form { padding: 4px 14px 12px; }
+.sd-modal-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.sd-modal-row:last-child { border-bottom: none; }
+.sd-modal-row label { font-size: 12px; color: var(--text-sub); flex: 0 0 84px; }
+.sd-modal-row select,
+.sd-modal-row input[type="text"],
+.sd-modal-row input[type="time"],
+.sd-modal-row input[type="number"] { flex: 1; font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--border); border-radius: 6px; background: #fff; }
+
+@media (max-width: 700px) {
+  .sd-toolbar { gap: 6px; }
+  .sd-toolbar .sd-summary { width: 100%; margin-left: 0; }
+  .sd-section { margin: 8px; padding: 10px 12px; }
+  .sd-card-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
+}
+
 </style>
 </head>
 <body>
@@ -1189,6 +1246,24 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
       </div>
     </div>
 
+    <!-- すたぁと予定 (Phase A-1 日別予定ビュー) -->
+    <div class="scr" id="scr-start-daily" style="padding-bottom:100px;overflow-y:auto">
+      <div class="sd-toolbar">
+        <button class="sd-navbtn" onclick="navigateStartDay(-1)">‹ 前日</button>
+        <span class="sd-date-label" id="sd-date-label">-</span>
+        <button class="sd-navbtn" onclick="navigateStartDay(1)">翌日 ›</button>
+        <button class="sd-navbtn today" onclick="navigateStartDay(0)">今日</button>
+        <select class="sd-filter" id="sd-filter-cat" onchange="renderStartDaily()">
+          <option value="all">全カテゴリ</option>
+          <option value="居宅介護">居宅介護のみ</option>
+          <option value="短期入所">短期入所のみ</option>
+          <option value="GH勤務">GH勤務のみ</option>
+        </select>
+        <span class="sd-summary" id="sd-summary"></span>
+      </div>
+      <div id="sd-body"><div class="loading" style="padding:20px;text-align:center;color:#999">読み込み中...</div></div>
+    </div>
+
     <div class="scr" id="scr-hist">
       <div class="search-wrap"><input type="text" placeholder="名前・便で検索..." oninput="filterHist(this.value)" id="hist-search"/></div>
       <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--gray-dark);margin-bottom:6px"><i data-lucide="file-text"></i> 送迎変更記録 月次PDF</div><div style="display:flex;gap:6px;align-items:center"><input type="month" id="tr-print-month" style="flex:1;padding:6px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:12px"/><button class="sbtn" onclick="printTransportMonthly()" style="flex:0 0 auto;padding:6px 14px;font-size:12px">PDF出力</button></div></div><div id="hist-body"></div>
@@ -1473,7 +1548,7 @@ let fState = { abs: '出席', kyushoku: 'あり', am: '利用する', pm: '利�
 const scrTitles = {
   list: '送迎一覧', form: '連絡入力', notif: '通知', hist: '履歴',
   kyushoku: '給食管理', absence: '欠席一覧', distance: '走行距離',
-  case: 'ケース記録', purchase: '購入申請', admin: 'アカウント管理', vacation: '休暇申請', startkyushoku: 'すたぁと給食連絡',
+  case: 'ケース記録', purchase: '購入申請', admin: 'アカウント管理', vacation: '休暇申請', startkyushoku: 'すたぁと給食連絡', 'start-daily': '📅 すたぁと予定',
     inspection: '車両点検', alcohol: 'アルコールチェック', master: 'マスター一覧',
     shortstay: 'すたぁと短期入所', 'shortstay-hist': '記録履歴', 'shortstay-edit': '短期入所記録',
     cashbook: 'ぱぁとなぁ金銭出納帳',
@@ -1484,7 +1559,7 @@ const scrTitles = {
 const scrSubs = {
   form: '連絡を入力', notif: '新着連絡', hist: '変更履歴',
   kyushoku: '給食数確認', absence: '欠席・遅刻・早退',
-  distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理', admin: '職員アカウント管理', vacation: '休暇・送迎自動除外', startkyushoku: 'レストラン連絡',
+  distance: '走行距離記録', case: 'ケース記録', purchase: '購入申請管理', admin: '職員アカウント管理', vacation: '休暇・送迎自動除外', startkyushoku: 'レストラン連絡', 'start-daily': '居宅介護 / 短期入所 / GH勤務',
     inspection: '月次点検記録', alcohol: '朝夕測定値', master: '登録データ確認',
     shortstay: '利用者選択', 'shortstay-hist': '過去の記録', 'shortstay-edit': '新規・編集',
     cashbook: '紬/ひまわり/事務費',
@@ -1685,7 +1760,7 @@ window.goScr = function(s) {
   }
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
-  ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list','start-users'].forEach(id => {
+  ['list','form','notif','hist','kyushoku','startkyushoku','start-daily','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list','start-users'].forEach(id => {
     document.getElementById('scr-'+id).classList.toggle('on', id===s);
     const n = document.getElementById('ni-'+id);
     if (n) n.classList.toggle('on', id===s);
@@ -1709,6 +1784,9 @@ window.goScr = function(s) {
     if (dateInput && !dateInput.value) dateInput.value = today();
     if (typeof renderStartHistory === 'function') renderStartHistory();
     if (typeof renderStartMonth === 'function') renderStartMonth();
+  }
+  if (s==='start-daily') {
+    if (typeof initStartDaily === 'function') initStartDaily();
   }
   if (s==='admin') { renderAdminPanel(); if (typeof initBackupSection === 'function') initBackupSection(); if (typeof initImportSection === 'function') initImportSection(); if (typeof initTestDataSection === 'function') initTestDataSection(); }
   if (s==='shortstay')      renderShortstayList();
@@ -4329,6 +4407,7 @@ window.showSubMenu = function(type) {
       { icon: 'user-x', label: '欠席一覧', action: "goScr('absence')" },
       { icon: 'utensils', label: '給食管理', action: "goScr('kyushoku')" },
       { icon: 'list', label: 'マスター一覧', action: "goScr('master')" },
+      { icon: 'calendar-days', label: '📅 すたぁと予定', action: "goScr('start-daily')" },
       { icon: 'file-text', label: 'すたぁと給食連絡', action: "goScr('startkyushoku')" },
       { icon: 'home', label: 'すたぁと短期入所記録', action: "goScr('shortstay')" },
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
@@ -7787,6 +7866,356 @@ window.doStartBulkSave = async function() {
   }
   showToast('✓ 保存' + saved + '日 / クリア' + cleared + '日' + (failed ? ' / 失敗' + failed : ''));
   setTimeout(function(){ renderStartMonth(); }, 500);
+};
+
+// ═══ すたぁと予定 (Phase A-1 日別予定ビュー) ═══
+// データ: Firestore コレクション start_schedules（オンデマンド getDocs、対象日でフィルタ）
+let _sdSelectedDate = null;
+let _sdSchedules = [];   // 当日の予定一覧
+let _sdUsers = [];       // すたぁと利用者キャッシュ（users コレクション）
+let _sdStaffList = [];   // すたぁと職員キャッシュ（ACCOUNTS から抽出）
+let _sdEditCtx = null;   // {mode:'new'|'edit', category, id|null, data}
+
+const SD_SERVICES = [
+  { v: '身体介護',     cls: 'svc-shintai' },
+  { v: '家事援助',     cls: 'svc-kaji' },
+  { v: '移動支援(身)', cls: 'svc-ido' },
+  { v: '移動支援(知)', cls: 'svc-ido' },
+  { v: '通院支援',     cls: 'svc-shintai' },
+  { v: '通院支援(身)', cls: 'svc-shintai' },
+  { v: '行動援護',     cls: 'svc-koudou' },
+  { v: '短期宿泊',     cls: 'svc-shukuhaku' },
+  { v: '短期日中',     cls: 'svc-shukuhaku' },
+  { v: 'すたぁと',     cls: 'svc-default' },
+  { v: 'GH世話人',     cls: 'svc-ghw' },
+  { v: '行事イベント', cls: 'svc-default' },
+  { v: '会議研修',     cls: 'svc-default' },
+  { v: 'その他',       cls: 'svc-default' }
+];
+const SD_CATEGORIES = ['居宅介護', '短期入所', 'GH勤務'];
+const SD_ROOMS = ['', '①', '②'];
+const SD_HOUSES = ['', '紬', 'ひまわり'];
+
+// 編集権限: パートのみ編集不可だが、現状 ACCOUNTS にパート判定フィールドが無い。
+// TODO: パート判定が確立したら以下を絞り込み。現時点は全員編集可（福澤さんが後確認）。
+function _sdCanEdit() {
+  if (!currentUser) return false;
+  // TODO: パート判定確立後にここで return currentUser.role >= 2 等に変更
+  return true;
+}
+
+function _sdSvcClass(svc) {
+  const m = SD_SERVICES.find(function(x){ return x.v === svc; });
+  return m ? m.cls : 'svc-default';
+}
+
+function _sdEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function _sdFmtDate(ds) {
+  if (!ds) return '';
+  const d = new Date(ds + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（' + dows[d.getDay()] + '）';
+}
+
+function _sdShiftDate(ds, days) {
+  const d = new Date(ds + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+window.initStartDaily = async function() {
+  if (!_sdSelectedDate) _sdSelectedDate = today();
+  // すたぁと利用者を読み込み（is_active!==false かつ start_short_stay または start_home_care）
+  // TODO: 読込判定が想定と異なる場合は条件調整（不明時は全員表示にフォールバック）
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    const all = [];
+    snap.forEach(function(d){ all.push(Object.assign({ id: d.id }, d.data())); });
+    _sdUsers = all.filter(function(u){
+      if (u.is_active === false) return false;
+      return !!(u.start_short_stay || u.start_home_care);
+    });
+    // フォールバック: 上記で 0 件なら全員表示
+    if (_sdUsers.length === 0) _sdUsers = all.filter(function(u){ return u.is_active !== false; });
+    _sdUsers.sort(function(a,b){ return (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'); });
+  } catch (e) {
+    console.error('start-daily users load failed:', e);
+    _sdUsers = [];
+  }
+  // すたぁと職員: jigyosho に 'すたぁと' を含むか han に 'すたぁと'
+  // TODO: 判定が不正確なら全員表示にフォールバック
+  _sdStaffList = [];
+  try {
+    Object.keys(ACCOUNTS || {}).forEach(function(name){
+      const info = ACCOUNTS[name] || {};
+      const jg = Array.isArray(info.jigyosho) ? info.jigyosho : (info.jigyosho ? [info.jigyosho] : []);
+      const isStart = jg.indexOf('すたぁと') >= 0 || (info.han && info.han.indexOf('すたぁと') >= 0);
+      if (isStart) _sdStaffList.push(name);
+    });
+    // フォールバック: 0 件なら全員
+    if (_sdStaffList.length === 0) _sdStaffList = Object.keys(ACCOUNTS || {});
+    _sdStaffList.sort(function(a,b){ return a.localeCompare(b, 'ja'); });
+  } catch (e) {
+    console.error('start-daily staff load failed:', e);
+    _sdStaffList = Object.keys(ACCOUNTS || {});
+  }
+  await loadStartSchedules();
+  renderStartDaily();
+};
+
+window.navigateStartDay = function(dir) {
+  if (!_sdSelectedDate) _sdSelectedDate = today();
+  if (dir === 0) _sdSelectedDate = today();
+  else _sdSelectedDate = _sdShiftDate(_sdSelectedDate, dir);
+  loadStartSchedules().then(renderStartDaily);
+};
+
+async function loadStartSchedules() {
+  _sdSchedules = [];
+  try {
+    const snap = await getDocs(collection(db, 'start_schedules'));
+    snap.forEach(function(d){
+      const data = d.data() || {};
+      if (data.date === _sdSelectedDate) {
+        _sdSchedules.push(Object.assign({ id: d.id }, data));
+      }
+    });
+  } catch (e) {
+    console.error('start_schedules load failed:', e);
+  }
+}
+
+window.renderStartDaily = function() {
+  const lbl = document.getElementById('sd-date-label');
+  if (lbl) lbl.textContent = _sdFmtDate(_sdSelectedDate);
+  const body = document.getElementById('sd-body');
+  if (!body) return;
+
+  const filterEl = document.getElementById('sd-filter-cat');
+  const filter = filterEl ? filterEl.value : 'all';
+
+  const canEdit = _sdCanEdit();
+  const sections = [
+    { key: '短期入所', cls: 'sd-shortstay', icon: 'home' },
+    { key: '居宅介護', cls: 'sd-homecare',  icon: 'briefcase' },
+    { key: 'GH勤務',   cls: 'sd-gh',        icon: 'house' }
+  ];
+
+  let html = '';
+  let totalStaff = new Set();
+  for (const sec of sections) {
+    if (filter !== 'all' && filter !== sec.key) continue;
+    const list = _sdSchedules.filter(function(s){ return s.category === sec.key; });
+    list.sort(function(a,b){ return String(a.start_time||'').localeCompare(String(b.start_time||'')); });
+
+    html += '<div class="sd-section ' + sec.cls + '">';
+    html += '<div class="sd-section-hd">';
+    html += '<span class="sd-section-title">' + sec.key + ' <span style="color:var(--text-sub);font-weight:500;font-size:12px">(' + list.length + '件)</span></span>';
+    if (canEdit) {
+      html += '<button class="sd-section-add" onclick="openStartScheduleModal(\'new\',\'' + sec.key + '\')">＋ 追加</button>';
+    }
+    html += '</div>';
+
+    if (list.length === 0) {
+      html += '<div class="sd-empty">予定がありません</div>';
+    } else {
+      for (const sch of list) {
+        (sch.staff_names_cache || []).forEach(function(n){ totalStaff.add(n); });
+        html += _sdRenderCard(sch, canEdit);
+      }
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+
+  const sumEl = document.getElementById('sd-summary');
+  if (sumEl) {
+    const staffArr = Array.from(totalStaff);
+    sumEl.textContent = '出勤職員 ' + staffArr.length + '名' + (staffArr.length ? '（' + staffArr.slice(0, 6).join('、') + (staffArr.length > 6 ? ' 他' : '') + '）' : '');
+  }
+  if (window.refreshIcons) window.refreshIcons();
+};
+
+function _sdRenderCard(s, canEdit) {
+  const svcCls = _sdSvcClass(s.service);
+  const staffNames = (s.staff_names_cache || []).join('・');
+  const isPair = (s.staff_ids || []).length >= 2;
+  let h = '<div class="sd-card">';
+  h += '<div class="sd-card-row1">';
+  h += '<span class="sd-time">' + _sdEsc(s.start_time||'--:--') + ' 〜 ' + _sdEsc(s.end_time||'--:--') + '</span>';
+  h += '<span class="sd-user">' + _sdEsc(s.user_name_cache || '-') + '</span>';
+  h += '<span class="sd-badge ' + svcCls + '">' + _sdEsc(s.service||'-') + '</span>';
+  if (isPair) h += '<span class="sd-badge sd-pair-badge">2人体制</span>';
+  if (s.category === '短期入所' && s.room) h += '<span class="sd-badge sd-room-badge">' + _sdEsc(s.room) + '号室</span>';
+  if (s.category === 'GH勤務' && s.gh_house) h += '<span class="sd-badge sd-house-badge">' + _sdEsc(s.gh_house) + '</span>';
+  if (canEdit) {
+    h += '<span class="sd-card-actions">';
+    h += '<button onclick="openStartScheduleModal(\'edit\',\'' + _sdEsc(s.category) + '\',\'' + _sdEsc(s.id) + '\')">編集</button>';
+    h += '<button class="sd-del" onclick="deleteStartSchedule(\'' + _sdEsc(s.id) + '\')">削除</button>';
+    h += '</span>';
+  }
+  h += '</div>';
+  h += '<div class="sd-card-row2">';
+  if (staffNames) h += '<span><i data-lucide="user"></i> ' + _sdEsc(staffNames) + '</span>';
+  if (s.category === '短期入所') {
+    if (s.pickup_staff)  h += '<span>迎: ' + _sdEsc(s.pickup_staff) + '</span>';
+    if (s.dropoff_staff) h += '<span>送: ' + _sdEsc(s.dropoff_staff) + '</span>';
+  }
+  if (s.break_minutes) h += '<span>休憩 ' + _sdEsc(s.break_minutes) + '分</span>';
+  if (s.status && s.status !== '予定') h += '<span>[' + _sdEsc(s.status) + ']</span>';
+  h += '</div>';
+  if (s.note) h += '<div class="sd-note">' + _sdEsc(s.note) + '</div>';
+  h += '</div>';
+  return h;
+}
+
+window.openStartScheduleModal = function(mode, category, id) {
+  if (!_sdCanEdit()) { showToast('編集権限がありません'); return; }
+  document.getElementById('sd-modal-bg')?.remove();
+
+  let data = { category: category, service: '身体介護', user_id: '', user_name_cache: '', staff_ids: [], staff_names_cache: [], start_time: '09:00', end_time: '10:00', break_minutes: 0, status: '予定', note: '', room: '', pickup_staff: '', dropoff_staff: '', gh_house: '' };
+  if (mode === 'edit' && id) {
+    const found = _sdSchedules.find(function(s){ return s.id === id; });
+    if (found) data = Object.assign({}, data, found);
+  }
+  _sdEditCtx = { mode: mode, category: category, id: (mode === 'edit' ? id : null), data: data };
+
+  const userOpts = _sdUsers.map(function(u){
+    return '<option value="' + _sdEsc(u.id) + '" data-name="' + _sdEsc(u.name||'') + '"' + (u.id === data.user_id ? ' selected' : '') + '>' + _sdEsc(u.name||'') + '</option>';
+  }).join('');
+
+  const staffOpts = _sdStaffList.map(function(n){
+    const isSel = (data.staff_names_cache||[]).indexOf(n) >= 0;
+    return '<option value="' + _sdEsc(n) + '"' + (isSel ? ' selected' : '') + '>' + _sdEsc(n) + '</option>';
+  }).join('');
+
+  const svcOpts = SD_SERVICES.map(function(s){
+    return '<option value="' + _sdEsc(s.v) + '"' + (s.v === data.service ? ' selected' : '') + '>' + _sdEsc(s.v) + '</option>';
+  }).join('');
+
+  const roomOpts = SD_ROOMS.map(function(r){
+    return '<option value="' + _sdEsc(r) + '"' + (r === (data.room||'') ? ' selected' : '') + '>' + (r || '（なし）') + '</option>';
+  }).join('');
+
+  const houseOpts = SD_HOUSES.map(function(h){
+    return '<option value="' + _sdEsc(h) + '"' + (h === (data.gh_house||'') ? ' selected' : '') + '>' + (h || '（なし）') + '</option>';
+  }).join('');
+
+  const showRoom  = (category === '短期入所');
+  const showHouse = (category === 'GH勤務');
+
+  const bg = document.createElement('div');
+  bg.id = 'sd-modal-bg';
+  bg.className = 'su-modal-bg';
+  bg.onclick = function(e){ if (e.target === bg) bg.remove(); };
+
+  let modalHtml = '<div class="su-modal">';
+  modalHtml += '<h3>' + (mode === 'new' ? '予定を追加' : '予定を編集') + ' — ' + _sdEsc(category) + '</h3>';
+  modalHtml += '<div class="sd-modal-form">';
+  modalHtml += '<div class="sd-modal-row"><label>サービス</label><select id="sd-f-service">' + svcOpts + '</select></div>';
+  modalHtml += '<div class="sd-modal-row"><label>利用者</label><select id="sd-f-user"><option value="">（選択）</option>' + userOpts + '</select></div>';
+  modalHtml += '<div class="sd-modal-row"><label>担当職員</label><select id="sd-f-staff" multiple size="4" style="min-height:96px">' + staffOpts + '</select></div>';
+  modalHtml += '<div style="font-size:11px;color:var(--text-sub);padding:0 14px 4px">※ Ctrl/Cmd+クリックで複数選択（2人体制対応）</div>';
+  modalHtml += '<div class="sd-modal-row"><label>開始時刻</label><input type="time" id="sd-f-start" value="' + _sdEsc(data.start_time||'') + '"/></div>';
+  modalHtml += '<div class="sd-modal-row"><label>終了時刻</label><input type="text" id="sd-f-end" value="' + _sdEsc(data.end_time||'') + '" placeholder="例: 10:00 / 翌09:30"/></div>';
+  modalHtml += '<div class="sd-modal-row"><label>休憩(分)</label><input type="number" id="sd-f-break" min="0" value="' + (data.break_minutes||0) + '"/></div>';
+  if (showRoom) {
+    modalHtml += '<div class="sd-modal-row"><label>号室</label><select id="sd-f-room">' + roomOpts + '</select></div>';
+    modalHtml += '<div class="sd-modal-row"><label>迎え職員</label><input type="text" id="sd-f-pickup" value="' + _sdEsc(data.pickup_staff||'') + '"/></div>';
+    modalHtml += '<div class="sd-modal-row"><label>送り職員</label><input type="text" id="sd-f-dropoff" value="' + _sdEsc(data.dropoff_staff||'') + '"/></div>';
+  }
+  if (showHouse) {
+    modalHtml += '<div class="sd-modal-row"><label>GH</label><select id="sd-f-house">' + houseOpts + '</select></div>';
+  }
+  modalHtml += '<div class="sd-modal-row"><label>備考</label><input type="text" id="sd-f-note" value="' + _sdEsc(data.note||'') + '"/></div>';
+  modalHtml += '</div>';
+  modalHtml += '<div class="su-modal-foot">';
+  modalHtml += '<button class="sbtn" style="flex:1;background:#fff;color:var(--text);border:1px solid var(--border)" onclick="document.getElementById(\'sd-modal-bg\').remove()">キャンセル</button>';
+  if (mode === 'edit') {
+    modalHtml += '<button class="sbtn" style="flex:1;background:#fff;color:#FF3B30;border:1px solid #FF3B30" onclick="deleteStartSchedule(\'' + _sdEsc(_sdEditCtx.id) + '\', true)">削除</button>';
+  }
+  modalHtml += '<button class="sbtn" style="flex:2" onclick="saveStartSchedule()">保存</button>';
+  modalHtml += '</div></div>';
+  bg.innerHTML = modalHtml;
+  document.body.appendChild(bg);
+  if (window.refreshIcons) window.refreshIcons();
+};
+
+window.saveStartSchedule = async function() {
+  if (!_sdEditCtx) return;
+  if (!_sdCanEdit()) { showToast('編集権限がありません'); return; }
+  const ctx = _sdEditCtx;
+
+  const userSel = document.getElementById('sd-f-user');
+  const staffSel = document.getElementById('sd-f-staff');
+  const userId = userSel ? userSel.value : '';
+  const userName = userId && userSel.options[userSel.selectedIndex] ? (userSel.options[userSel.selectedIndex].getAttribute('data-name') || userSel.options[userSel.selectedIndex].text) : '';
+  const staffNames = staffSel ? Array.from(staffSel.selectedOptions).map(function(o){ return o.value; }) : [];
+
+  if (!userId)              { showToast('利用者を選択してください'); return; }
+  if (staffNames.length === 0) { showToast('担当職員を 1 名以上選択してください'); return; }
+
+  const payload = {
+    date: _sdSelectedDate,
+    category: ctx.category,
+    service: document.getElementById('sd-f-service').value,
+    user_id: userId,
+    user_name_cache: userName,
+    staff_ids: staffNames.slice(),  // 現状は職員名を ID 兼用（staff_accounts のドキュメント ID は名前）
+    staff_names_cache: staffNames.slice(),
+    start_time: document.getElementById('sd-f-start').value || '',
+    end_time:   document.getElementById('sd-f-end').value || '',
+    break_minutes: parseInt(document.getElementById('sd-f-break').value, 10) || 0,
+    status: ctx.data.status || '予定',
+    note: document.getElementById('sd-f-note').value || '',
+    room:           ctx.category === '短期入所' ? (document.getElementById('sd-f-room')?.value || '')    : '',
+    pickup_staff:   ctx.category === '短期入所' ? (document.getElementById('sd-f-pickup')?.value || '') : '',
+    dropoff_staff:  ctx.category === '短期入所' ? (document.getElementById('sd-f-dropoff')?.value || ''): '',
+    gh_house:       ctx.category === 'GH勤務'   ? (document.getElementById('sd-f-house')?.value || '')  : '',
+    pattern_id: ctx.data.pattern_id || null,
+    updated_by: currentStaff || '',
+    updated_at: serverTimestamp()
+  };
+
+  try {
+    if (ctx.mode === 'new') {
+      payload.created_by = currentStaff || '';
+      payload.created_at = serverTimestamp();
+      await addDoc(collection(db, 'start_schedules'), payload);
+      showToast('✓ 予定を追加しました');
+    } else {
+      await updateDoc(doc(db, 'start_schedules', ctx.id), payload);
+      showToast('✓ 予定を更新しました');
+    }
+    document.getElementById('sd-modal-bg')?.remove();
+    _sdEditCtx = null;
+    await loadStartSchedules();
+    renderStartDaily();
+  } catch (e) {
+    console.error('saveStartSchedule failed:', e);
+    showToast('保存失敗: ' + (e.message || e));
+  }
+};
+
+window.deleteStartSchedule = async function(id, fromModal) {
+  if (!_sdCanEdit()) { showToast('編集権限がありません'); return; }
+  if (!id) return;
+  if (!confirm('この予定を削除しますか？')) return;
+  try {
+    await deleteDoc(doc(db, 'start_schedules', id));
+    showToast('✓ 予定を削除しました');
+    if (fromModal) document.getElementById('sd-modal-bg')?.remove();
+    _sdEditCtx = null;
+    await loadStartSchedules();
+    renderStartDaily();
+  } catch (e) {
+    console.error('deleteStartSchedule failed:', e);
+    showToast('削除失敗: ' + (e.message || e));
+  }
 };
 
 // ═══ 利用者選択時：所属表示＋基本送迎プリフィル ═══

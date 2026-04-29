@@ -35,6 +35,11 @@ service cloud.firestore {
     match /cashbook/{document=**}        { allow read, write: if true; }
     match /allowance/{document=**}       { allow read, write: if true; }
 
+    // ─── すたぁと予定 (Phase A-1 日別予定ビュー) ───
+    // 認証・権限制御はアプリ側 (currentUser.role) で実装。
+    // 既存パターンに合わせて全許可。Auth 導入時は要再設計。
+    match /start_schedules/{document=**} { allow read, write: if true; }
+
     // ─── フォールバック (将来追加コレクション用) ───
     match /{document=**} {
       allow read, write: if true;
