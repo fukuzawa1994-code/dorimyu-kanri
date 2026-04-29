@@ -4218,6 +4218,39 @@ window.setAlcoholTab = function(tab) {
   else renderAlcoholMonth();
 };
 
+// 事業所タブ state (管理者・上司の絞込用、'all' = 全員)
+let _alcSiteTab = 'all';
+const _ALC_SITE_TABS = [['all','全員'],['ぱぁとなぁ','ぱぁとなぁ'],['すたぁと','すたぁと'],['奏楽','奏楽'],['童里夢','童里夢']];
+
+function _alcGetStaffSites(name) {
+  if (typeof ACCOUNTS === 'undefined' || !ACCOUNTS[name]) return [];
+  const j = ACCOUNTS[name].jigyosho;
+  if (Array.isArray(j)) return j;
+  if (typeof j === 'string' && j) return [j];
+  return [];
+}
+function _alcFilterStaffBySite(staffList) {
+  if (_alcSiteTab === 'all') return staffList;
+  return staffList.filter(function(s){ return _alcGetStaffSites(s).indexOf(_alcSiteTab) >= 0; });
+}
+function _alcRenderSiteTabs() {
+  if (!currentUser || currentUser.role < 2) return '';
+  let h = '<div style="display:flex;gap:4px;padding:8px 0 8px;flex-wrap:wrap">';
+  for (const t of _ALC_SITE_TABS) {
+    const v = t[0], label = t[1], on = _alcSiteTab === v;
+    h += '<div onclick="_alcSetSiteTab(\'' + v + '\')" style="flex:1;min-width:60px;text-align:center;padding:6px 8px;font-size:12px;font-weight:' + (on?'700':'500') + ';border-radius:8px;cursor:pointer;background:' + (on?'var(--purple)':'#fff') + ';color:' + (on?'#fff':'var(--text-sub)') + ';border:0.5px solid ' + (on?'var(--purple)':'var(--border)') + '">' + label + '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+window._alcSetSiteTab = function(v) {
+  _alcSiteTab = v;
+  const inputArea = document.getElementById('alcohol-input-area');
+  const monthArea = document.getElementById('alcohol-month-area');
+  if (inputArea && inputArea.style.display !== 'none') renderAlcoholInput();
+  else if (monthArea && monthArea.style.display !== 'none') renderAlcoholMonth();
+};
+
 window.renderAlcoholInput = function() {
   const date = document.getElementById('alc-date').value || today();
   document.getElementById('alc-date').value = date;
@@ -4240,7 +4273,9 @@ window.renderAlcoholInput = function() {
 function _alcRenderAdminView(date) {
   const todayLogs = {};
   logs.filter(function(l){ return l.type==='alcohol' && l.date===date; }).forEach(function(l){ todayLogs[l.staff] = l; });
-  const list = ALCOHOL_STAFF.map(function(s){
+  // 事業所タブで絞込
+  const filteredStaff = _alcFilterStaffBySite(ALCOHOL_STAFF);
+  const list = filteredStaff.map(function(s){
     const rec = todayLogs[s];
     const done = !!(rec && (String(rec.am||'') !== '' || String(rec.pm||'') !== ''));
     return { name: s, rec: rec, done: done };
@@ -4253,7 +4288,7 @@ function _alcRenderAdminView(date) {
   const total = list.length;
   const doneCount = list.filter(function(x){ return x.done; }).length;
   const undoneCount = total - doneCount;
-  let html = '';
+  let html = _alcRenderSiteTabs();
   // サマリーカード
   html += '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:14px;margin:10px 0;display:flex;gap:12px;align-items:center;justify-content:space-around;text-align:center">'
     + '<div style="flex:1"><div style="font-size:11px;color:#666">全員</div><div style="font-size:24px;font-weight:700;color:var(--purple)">' + total + '</div></div>'
@@ -4446,31 +4481,41 @@ window.renderAlcoholMonth = function() {
   const ym = month.split('-');
   const year = parseInt(ym[0]), mm = parseInt(ym[1]);
   const lastDay = new Date(year, mm, 0).getDate();
-  
   const monthLogs = logs.filter(function(l){ return l.type==='alcohol' && l.date && l.date.startsWith(month); });
-  
   // マトリクス: [date][staff] = {am,pm}
   const mat = {};
   monthLogs.forEach(function(l) {
     if (!mat[l.date]) mat[l.date] = {};
     mat[l.date][l.staff] = l;
   });
-  
-  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">';
-  html += '<thead><tr style="background:#E8E3F5"><th style="border:1px solid #999;padding:3px;width:60px;position:sticky;left:0;background:#E8E3F5">日付</th>';
-  ALCOHOL_STAFF.forEach(function(s) {
-    html += '<th style="border:1px solid #999;padding:3px;min-width:70px">' + s + '</th>';
+  // ロール別の表示対象職員: role>=2 は事業所タブで絞込、role 1 は本人のみ
+  let visibleStaff;
+  if (currentUser && currentUser.role >= 2) {
+    visibleStaff = _alcFilterStaffBySite(ALCOHOL_STAFF);
+  } else {
+    visibleStaff = (currentStaff && ALCOHOL_STAFF.indexOf(currentStaff) >= 0) ? [currentStaff] : (currentStaff ? [currentStaff] : []);
+  }
+  let html = _alcRenderSiteTabs();
+  if (!visibleStaff.length) {
+    html += '<div style="padding:30px;text-align:center;color:#999;font-size:12px">表示できる職員がいません</div>';
+    body.innerHTML = html;
+    return;
+  }
+  // sticky thead 対応 (top:0 はメインスクロール領域に貼りつく、corner cell は左右両方 sticky)
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:separate;border-spacing:0;font-size:10px">';
+  html += '<thead><tr><th style="border:1px solid #999;padding:3px;width:60px;position:sticky;top:0;left:0;background:#E8E3F5;z-index:6">日付</th>';
+  visibleStaff.forEach(function(s) {
+    html += '<th style="border:1px solid #999;padding:3px;min-width:70px;position:sticky;top:0;background:#E8E3F5;z-index:5">' + s + '</th>';
   });
   html += '</tr></thead><tbody>';
-  
   for (let d = 1; d <= lastDay; d++) {
     const ds = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const dow = new Date(ds+'T00:00:00').getDay();
     if (dow === 0) continue;
     const dowStr = ['日','月','火','水','木','金','土'][dow];
     html += '<tr>';
-    html += '<td style="border:1px solid #999;padding:3px;font-weight:700;text-align:center">' + mm + '/' + d + '<br>(' + dowStr + ')</td>';
-    ALCOHOL_STAFF.forEach(function(s) {
+    html += '<td style="border:1px solid #999;padding:3px;font-weight:700;text-align:center;position:sticky;left:0;background:#fff;z-index:1">' + mm + '/' + d + '<br>(' + dowStr + ')</td>';
+    visibleStaff.forEach(function(s) {
       const rec = (mat[ds]||{})[s];
       const am = rec ? (rec.am||'') : '';
       const pm = rec ? (rec.pm||'') : '';
@@ -4489,28 +4534,36 @@ window.printAlcoholMonthly = function() {
   const year = parseInt(ym[0]), mm = parseInt(ym[1]);
   const lastDay = new Date(year, mm, 0).getDate();
   const monthLogs = logs.filter(function(l){ return l.type==='alcohol' && l.date && l.date.startsWith(month); });
-  
+
   if (!monthLogs.length) { showToast(month+'の記録なし'); return; }
-  
+
   const mat = {};
   monthLogs.forEach(function(l) {
     if (!mat[l.date]) mat[l.date] = {};
     mat[l.date][l.staff] = l;
   });
-  
+  // 画面と同じフィルタを適用 (role 1 → 本人のみ、role>=2 → 事業所タブで絞込)
+  let visibleStaff;
+  if (currentUser && currentUser.role >= 2) {
+    visibleStaff = _alcFilterStaffBySite(ALCOHOL_STAFF);
+  } else {
+    visibleStaff = currentStaff ? [currentStaff] : [];
+  }
+  if (!visibleStaff.length) { showToast('表示対象の職員がいません'); return; }
+
   let body = '<h1 style="text-align:center">アルコールチェック表</h1>';
   body += '<p style="text-align:center">' + month + '</p>';
   body += '<table style="font-size:9px"><thead><tr style="background:#E8E3F5"><th>日付</th>';
-  ALCOHOL_STAFF.forEach(function(s){ body += '<th>' + s + '</th>'; });
+  visibleStaff.forEach(function(s){ body += '<th>' + s + '</th>'; });
   body += '</tr></thead><tbody>';
-  
+
   for (let d = 1; d <= lastDay; d++) {
     const ds = year + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const dow = new Date(ds+'T00:00:00').getDay();
     if (dow === 0) continue;
     const dowStr = ['日','月','火','水','木','金','土'][dow];
     body += '<tr><td style="text-align:center;font-weight:700">' + mm + '/' + d + '(' + dowStr + ')</td>';
-    ALCOHOL_STAFF.forEach(function(s) {
+    visibleStaff.forEach(function(s) {
       const rec = (mat[ds]||{})[s];
       const am = rec ? (rec.am||'') : '';
       const pm = rec ? (rec.pm||'') : '';
