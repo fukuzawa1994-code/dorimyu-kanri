@@ -836,7 +836,11 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
 .sd-modal-row select,
 .sd-modal-row input[type="text"],
 .sd-modal-row input[type="time"],
-.sd-modal-row input[type="number"] { flex: 1; font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--border); border-radius: 6px; background: #fff; }
+.sd-modal-row input[type="number"] { flex: 1; min-width: 0; font-size: 16px; padding: 10px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; min-height: 44px; -webkit-appearance: none; appearance: none; box-sizing: border-box; }
+.sd-modal-row select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236E6E73' d='M6 8L0 0h12z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+.sd-pair-toggle { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin: 4px 0; background: #F8F6FF; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.sd-pair-toggle input[type="checkbox"] { width: 18px; height: 18px; }
+.sd-svc-fixed { flex: 1; padding: 10px; background: var(--fill-input); border-radius: 8px; font-size: 14px; color: var(--text); font-weight: 600; }
 
 @media (max-width: 700px) {
   .sd-toolbar { gap: 6px; }
@@ -8455,6 +8459,17 @@ const SD_SERVICES = [
 const SD_CATEGORIES = ['居宅介護', '短期入所', 'GH勤務'];
 const SD_ROOMS = ['', '①', '②'];
 const SD_HOUSES = ['', '紬', 'ひまわり'];
+// カテゴリごとの選択可サービス（カテゴリ選択でプルダウンを自動絞り込み）
+const SD_CATEGORY_SERVICES = {
+  '居宅介護': ['身体介護', '家事援助', '移動支援(身)', '移動支援(知)', '通院支援', '通院支援(身)', '行動援護'],
+  '短期入所': ['短期宿泊'],
+  'GH勤務':   ['GH世話人', '短期日中']
+};
+const SD_CATEGORY_DEFAULT_SVC = {
+  '居宅介護': '身体介護',
+  '短期入所': '短期宿泊',
+  'GH勤務':   'GH世話人'
+};
 
 // 編集権限: パートのみ編集不可だが、現状 ACCOUNTS にパート判定フィールドが無い。
 // TODO: パート判定が確立したら以下を絞り込み。現時点は全員編集可（福澤さんが後確認）。
@@ -8488,39 +8503,33 @@ function _sdShiftDate(ds, days) {
 
 window.initStartDaily = async function() {
   if (!_sdSelectedDate) _sdSelectedDate = today();
-  // すたぁと利用者を読み込み（is_active!==false かつ start_short_stay または start_home_care）
-  // TODO: 読込判定が想定と異なる場合は条件調整（不明時は全員表示にフォールバック）
+  // すたぁと利用者: is_active!==false かつ start_short_stay===true または start_home_care===true
+  // ふりがな(無ければ氏名) 50音順
   try {
     const snap = await getDocs(collection(db, 'users'));
     const all = [];
     snap.forEach(function(d){ all.push(Object.assign({ id: d.id }, d.data())); });
     _sdUsers = all.filter(function(u){
       if (u.is_active === false) return false;
-      return !!(u.start_short_stay || u.start_home_care);
+      return (u.start_short_stay === true) || (u.start_home_care === true);
     });
-    // フォールバック: 上記で 0 件なら全員表示
-    if (_sdUsers.length === 0) _sdUsers = all.filter(function(u){ return u.is_active !== false; });
     _sdUsers.sort(function(a,b){ return (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'); });
   } catch (e) {
     console.error('start-daily users load failed:', e);
     _sdUsers = [];
   }
-  // すたぁと職員: jigyosho に 'すたぁと' を含むか han に 'すたぁと'
-  // TODO: 判定が不正確なら全員表示にフォールバック
+  // すたぁと職員: ACCOUNTS[name].jigyosho 配列に 'すたぁと' を含む職員のみ。50音順
   _sdStaffList = [];
   try {
     Object.keys(ACCOUNTS || {}).forEach(function(name){
       const info = ACCOUNTS[name] || {};
       const jg = Array.isArray(info.jigyosho) ? info.jigyosho : (info.jigyosho ? [info.jigyosho] : []);
-      const isStart = jg.indexOf('すたぁと') >= 0 || (info.han && info.han.indexOf('すたぁと') >= 0);
-      if (isStart) _sdStaffList.push(name);
+      if (jg.indexOf('すたぁと') >= 0) _sdStaffList.push(name);
     });
-    // フォールバック: 0 件なら全員
-    if (_sdStaffList.length === 0) _sdStaffList = Object.keys(ACCOUNTS || {});
     _sdStaffList.sort(function(a,b){ return a.localeCompare(b, 'ja'); });
   } catch (e) {
     console.error('start-daily staff load failed:', e);
-    _sdStaffList = Object.keys(ACCOUNTS || {});
+    _sdStaffList = [];
   }
   await loadStartSchedules();
   renderStartDaily();
@@ -8637,24 +8646,42 @@ window.openStartScheduleModal = function(mode, category, id) {
   if (!_sdCanEdit()) { showToast('編集権限がありません'); return; }
   document.getElementById('sd-modal-bg')?.remove();
 
-  let data = { category: category, service: '身体介護', user_id: '', user_name_cache: '', staff_ids: [], staff_names_cache: [], start_time: '09:00', end_time: '10:00', break_minutes: 0, status: '予定', note: '', room: '', pickup_staff: '', dropoff_staff: '', gh_house: '' };
+  // カテゴリ既定サービス
+  const defaultSvc = SD_CATEGORY_DEFAULT_SVC[category] || '身体介護';
+  let data = { category: category, service: defaultSvc, user_id: '', user_name_cache: '', staff_ids: [], staff_names_cache: [], start_time: '09:00', end_time: '10:00', break_minutes: 0, status: '予定', note: '', room: '', pickup_staff: '', dropoff_staff: '', gh_house: '' };
   if (mode === 'edit' && id) {
     const found = _sdSchedules.find(function(s){ return s.id === id; });
     if (found) data = Object.assign({}, data, found);
   }
+  // 編集時にカテゴリのサービス候補に存在しない値ならフォールバック
+  const allowedSvcs = SD_CATEGORY_SERVICES[category] || SD_SERVICES.map(function(s){ return s.v; });
+  if (allowedSvcs.indexOf(data.service) < 0) data.service = defaultSvc;
   _sdEditCtx = { mode: mode, category: category, id: (mode === 'edit' ? id : null), data: data };
 
   const userOpts = _sdUsers.map(function(u){
     return '<option value="' + _sdEsc(u.id) + '" data-name="' + _sdEsc(u.name||'') + '"' + (u.id === data.user_id ? ' selected' : '') + '>' + _sdEsc(u.name||'') + '</option>';
   }).join('');
+  const userEmpty = _sdUsers.length === 0
+    ? '<div style="font-size:11px;color:#FF3B30;padding:4px 14px">該当するすたぁと利用者がいません（短期入所/居宅介護フラグの登録要）</div>'
+    : '';
 
-  const staffOpts = _sdStaffList.map(function(n){
-    const isSel = (data.staff_names_cache||[]).indexOf(n) >= 0;
-    return '<option value="' + _sdEsc(n) + '"' + (isSel ? ' selected' : '') + '>' + _sdEsc(n) + '</option>';
-  }).join('');
+  // 職員プルダウン (2回再利用するため関数化)
+  const staffOptsFor = function(selectedName) {
+    const head = '<option value="">（選択）</option>';
+    return head + _sdStaffList.map(function(n){
+      return '<option value="' + _sdEsc(n) + '"' + (n === selectedName ? ' selected' : '') + '>' + _sdEsc(n) + '</option>';
+    }).join('');
+  };
+  const staff1Sel = (data.staff_names_cache && data.staff_names_cache[0]) || '';
+  const staff2Sel = (data.staff_names_cache && data.staff_names_cache[1]) || '';
+  const isPair = !!staff2Sel;
+  const staffEmpty = _sdStaffList.length === 0
+    ? '<div style="font-size:11px;color:#FF3B30;padding:4px 14px">jigyosho に "すたぁと" を含む職員がいません</div>'
+    : '';
 
-  const svcOpts = SD_SERVICES.map(function(s){
-    return '<option value="' + _sdEsc(s.v) + '"' + (s.v === data.service ? ' selected' : '') + '>' + _sdEsc(s.v) + '</option>';
+  // サービスはカテゴリで絞り込み
+  const svcOpts = allowedSvcs.map(function(v){
+    return '<option value="' + _sdEsc(v) + '"' + (v === data.service ? ' selected' : '') + '>' + _sdEsc(v) + '</option>';
   }).join('');
 
   const roomOpts = SD_ROOMS.map(function(r){
@@ -8665,8 +8692,9 @@ window.openStartScheduleModal = function(mode, category, id) {
     return '<option value="' + _sdEsc(h) + '"' + (h === (data.gh_house||'') ? ' selected' : '') + '>' + (h || '（なし）') + '</option>';
   }).join('');
 
-  const showRoom  = (category === '短期入所');
-  const showHouse = (category === 'GH勤務');
+  const showRoom    = (category === '短期入所');
+  const showHouse   = (category === 'GH勤務');
+  const isShortstay = (category === '短期入所');
 
   const bg = document.createElement('div');
   bg.id = 'sd-modal-bg';
@@ -8676,10 +8704,26 @@ window.openStartScheduleModal = function(mode, category, id) {
   let modalHtml = '<div class="su-modal">';
   modalHtml += '<h3>' + (mode === 'new' ? '予定を追加' : '予定を編集') + ' — ' + _sdEsc(category) + '</h3>';
   modalHtml += '<div class="sd-modal-form">';
-  modalHtml += '<div class="sd-modal-row"><label>サービス</label><select id="sd-f-service">' + svcOpts + '</select></div>';
+
+  // サービス: 短期入所なら「短期宿泊」固定表示、それ以外はカテゴリ絞り込み済プルダウン
+  if (isShortstay) {
+    modalHtml += '<div class="sd-modal-row"><label>サービス</label><div class="sd-svc-fixed">短期宿泊</div><input type="hidden" id="sd-f-service" value="短期宿泊"/></div>';
+  } else {
+    modalHtml += '<div class="sd-modal-row"><label>サービス</label><select id="sd-f-service">' + svcOpts + '</select></div>';
+  }
+
+  // 利用者
   modalHtml += '<div class="sd-modal-row"><label>利用者</label><select id="sd-f-user"><option value="">（選択）</option>' + userOpts + '</select></div>';
-  modalHtml += '<div class="sd-modal-row"><label>担当職員</label><select id="sd-f-staff" multiple size="4" style="min-height:96px">' + staffOpts + '</select></div>';
-  modalHtml += '<div style="font-size:11px;color:var(--text-sub);padding:0 14px 4px">※ Ctrl/Cmd+クリックで複数選択（2人体制対応）</div>';
+  if (userEmpty) modalHtml += userEmpty;
+
+  // 担当職員 (1人目)
+  modalHtml += '<div class="sd-modal-row"><label>担当職員</label><select id="sd-f-staff1">' + staffOptsFor(staff1Sel) + '</select></div>';
+  // 2人体制チェックボックス
+  modalHtml += '<label class="sd-pair-toggle"><input type="checkbox" id="sd-f-pair"' + (isPair ? ' checked' : '') + ' onchange="_sdTogglePair(this.checked)"/>2人体制で対応する</label>';
+  // 2人目 (チェック時のみ表示)
+  modalHtml += '<div class="sd-modal-row" id="sd-f-staff2-row" style="display:' + (isPair ? 'flex' : 'none') + '"><label>2人目</label><select id="sd-f-staff2">' + staffOptsFor(staff2Sel) + '</select></div>';
+  if (staffEmpty) modalHtml += staffEmpty;
+
   modalHtml += '<div class="sd-modal-row"><label>開始時刻</label><input type="time" id="sd-f-start" value="' + _sdEsc(data.start_time||'') + '"/></div>';
   modalHtml += '<div class="sd-modal-row"><label>終了時刻</label><input type="text" id="sd-f-end" value="' + _sdEsc(data.end_time||'') + '" placeholder="例: 10:00 / 翌09:30"/></div>';
   modalHtml += '<div class="sd-modal-row"><label>休憩(分)</label><input type="number" id="sd-f-break" min="0" value="' + (data.break_minutes||0) + '"/></div>';
@@ -8705,24 +8749,46 @@ window.openStartScheduleModal = function(mode, category, id) {
   if (window.refreshIcons) window.refreshIcons();
 };
 
+// 2人体制トグル: 2人目セレクトの表示切替
+window._sdTogglePair = function(checked) {
+  const row = document.getElementById('sd-f-staff2-row');
+  if (row) row.style.display = checked ? 'flex' : 'none';
+  if (!checked) {
+    const sel2 = document.getElementById('sd-f-staff2');
+    if (sel2) sel2.value = '';
+  }
+};
+
 window.saveStartSchedule = async function() {
   if (!_sdEditCtx) return;
   if (!_sdCanEdit()) { showToast('編集権限がありません'); return; }
   const ctx = _sdEditCtx;
 
   const userSel = document.getElementById('sd-f-user');
-  const staffSel = document.getElementById('sd-f-staff');
   const userId = userSel ? userSel.value : '';
   const userName = userId && userSel.options[userSel.selectedIndex] ? (userSel.options[userSel.selectedIndex].getAttribute('data-name') || userSel.options[userSel.selectedIndex].text) : '';
-  const staffNames = staffSel ? Array.from(staffSel.selectedOptions).map(function(o){ return o.value; }) : [];
 
-  if (!userId)              { showToast('利用者を選択してください'); return; }
-  if (staffNames.length === 0) { showToast('担当職員を 1 名以上選択してください'); return; }
+  // 担当職員: 1人目 + 2人体制チェック時のみ2人目
+  const staff1 = (document.getElementById('sd-f-staff1') || {}).value || '';
+  const isPair = !!(document.getElementById('sd-f-pair') || {}).checked;
+  const staff2 = isPair ? ((document.getElementById('sd-f-staff2') || {}).value || '') : '';
+  const staffNames = [];
+  if (staff1) staffNames.push(staff1);
+  if (isPair && staff2 && staff2 !== staff1) staffNames.push(staff2);
+
+  if (!userId)             { showToast('利用者を選択してください'); return; }
+  if (staffNames.length === 0) { showToast('担当職員を選択してください'); return; }
+  if (isPair && !staff2)   { showToast('2人体制ON時は2人目の職員も選択してください'); return; }
+  if (isPair && staff2 === staff1) { showToast('2人体制では別の職員を選択してください'); return; }
+
+  // サービス: 短期入所は固定、その他はプルダウン値
+  const svcEl = document.getElementById('sd-f-service');
+  const serviceVal = (ctx.category === '短期入所') ? '短期宿泊' : (svcEl ? svcEl.value : ctx.data.service);
 
   const payload = {
     date: _sdSelectedDate,
     category: ctx.category,
-    service: document.getElementById('sd-f-service').value,
+    service: serviceVal,
     user_id: userId,
     user_name_cache: userName,
     staff_ids: staffNames.slice(),  // 現状は職員名を ID 兼用（staff_accounts のドキュメント ID は名前）
