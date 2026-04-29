@@ -1490,7 +1490,7 @@ const scrSubs = {
     cashbook: '紬/ひまわり/事務費',
     allowance: '紬/ひまわり 利用者別',
     'staff-list': '読み取り専用（管理者のみ）',
-    'start-users': '管理者のみ・登録/編集'
+    'start-users': '管理者・上司のみ・登録/編集'
 };
 
 // ── ユーティリティ ──
@@ -2767,7 +2767,7 @@ window._sslSetDeptFilter = function(v) { _sslDeptFilter = v; _sslRender(); };
 
 // ═════════════════════════════════════════════════════════════
 // #StartUsers Phase 1-1: すたぁと利用者マスタ (start_users コレクション)
-// 管理者のみ閲覧・編集。論理削除 (is_active=false) のみ、物理削除無し。
+// 管理者・上司 (role >= 2) が閲覧・編集。論理削除 (is_active=false) のみ、物理削除無し。
 // ═════════════════════════════════════════════════════════════
 const SU_RELATIONS = ['父','母','兄','姉','弟','妹','夫','妻','子','祖父','祖母','後見人','その他'];
 let _suList = [];
@@ -2781,8 +2781,8 @@ function _suEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/
 window.renderStartUsers = async function() {
   const body = document.getElementById('start-users-body');
   if (!body) return;
-  if (!currentUser || currentUser.role < 3) {
-    body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#FF3B30;font-size:13px">この画面は管理者のみアクセスできます</div>';
+  if (!currentUser || currentUser.role < 2) {
+    body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#FF3B30;font-size:13px">この画面は管理者・上司のみアクセスできます</div>';
     return;
   }
   body.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -2904,12 +2904,12 @@ window._suSetService = function(v) { _suServiceFilter = v; _suRender(); };
 window._suSetSearch  = function(v) { _suSearch = (v||'').trim(); _suRender(); };
 
 window._suOpenNew = function() {
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
   _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, is_short_stay:false, is_gh:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
   _suRenderModal();
 };
 window._suOpenEdit = function(id) {
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
   const u = _suList.find(function(x){ return x.id === id; });
   if (!u) { showToast('利用者が見つかりません'); return; }
   _suEditCtx = { mode:'edit', id: id, data: Object.assign({}, u) };
@@ -2965,7 +2965,7 @@ function _suRenderModal() {
 
 window._suSave = async function() {
   if (!_suEditCtx) return;
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
   const name     = document.getElementById('su-f-name').value.trim();
   const furigana = document.getElementById('su-f-furigana').value.trim();
   if (!name)     { showToast('氏名を入力してください'); return; }
@@ -3032,7 +3032,7 @@ function _suParseCSV(text) {
 }
 
 window._suOpenImport = function() {
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
   _suImportCtx = { step: 1, parsed: [], summary: null };
   _suRenderImportModal();
 };
@@ -3112,7 +3112,7 @@ window._suOnImportFile = async function(input) {
 
 window._suExecuteImport = async function() {
   if (!_suImportCtx) return;
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
   const valids = _suImportCtx.parsed.filter(function(p){ return p.status==='valid'; });
   if (!valids.length) { showToast('有効な行がありません'); return; }
   if (!confirm(valids.length + ' 件をインポートします。よろしいですか？')) return;
@@ -3133,9 +3133,9 @@ window._suExecuteImport = async function() {
   renderStartUsers();
 };
 
-// 全件削除 (管理者のみ、確認ダイアログ後に start_users コレクションを一括削除)
+// 全件削除 (管理者・上司のみ、確認ダイアログ後に start_users コレクションを一括削除)
 window._suDeleteAll = async function() {
-  if (!currentUser || currentUser.role < 3) { showToast('管理者のみ実行できます'); return; }
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ実行できます'); return; }
   const cnt = _suList.length;
   if (!cnt) { showToast('削除対象がありません'); return; }
   if (!confirm('すたぁと利用者マスタを全件削除します。本当によろしいですか？\n\n対象: ' + cnt + ' 名（取り消し不可）')) return;
@@ -4091,7 +4091,7 @@ window.showSubMenu = function(type) {
       { icon: 'book-open', label: 'ぱぁとなぁ金銭出納帳', action: "goScr('cashbook')" },
       { icon: 'wallet', label: 'ぱぁとなぁお小遣い帳', action: "goScr('allowance')" },
       { icon: 'id-card', label: '職員一覧', action: "goScr('staff-list')", adminOnly: true },
-      { icon: 'user-plus', label: 'すたぁと利用者マスタ', action: "goScr('start-users')", adminOnly: true },
+      { icon: 'user-plus', label: 'すたぁと利用者マスタ', action: "goScr('start-users')", roleMin: 2 },
       { icon: 'users', label: 'アカウント管理', action: "goScr('admin')", adminOnly: true }
     ]}
   };
@@ -4108,6 +4108,7 @@ window.showSubMenu = function(type) {
   html += '<div class="action-sheet-title">' + menu.title + '</div>';
   menu.items.forEach(function(item) {
     if (item.adminOnly && (!currentUser || currentUser.role < 3)) return;
+    if (item.roleMin && (!currentUser || currentUser.role < item.roleMin)) return;
     html += '<div class="action-sheet-item" onclick="document.getElementById(\'submenu-popup\').remove();' + item.action + '">';
     html += '<span class="action-sheet-icon"><i data-lucide="' + item.icon + '"></i></span>';
     html += '<span class="action-sheet-label">' + item.label + '</span>';
