@@ -2773,25 +2773,38 @@ const SU_RELATIONS = ['父','母','兄','姉','弟','妹','夫','妻','子','祖
 const SU_TABS = [['all','全て'],['doumu','童里夢'],['sougaku','奏楽'],['gh','ぱぁとなぁGH'],['start','すたぁと']];
 const SU_GH_LABELS = { tsumugi_m:'紬男子', tsumugi_f:'紬女子', himawari:'ひまわり' };
 const SU_DAYCARE_LABELS = { doumu:'童里夢', sougaku:'奏楽' };
+const SU_GROUPS_DOUMU   = ['雑貨','レストラン','パン','パン缶'];
+const SU_GROUPS_SOUGAKU = ['かなで','といろ','らくらく'];
+const SU_SUB_TABS_DOUMU   = [['all','全体'],['雑貨','雑貨'],['レストラン','レストラン'],['パン','パン'],['パン缶','パン缶']];
+const SU_SUB_TABS_SOUGAKU = [['all','全体'],['かなで','かなで'],['といろ','といろ'],['らくらく','らくらく']];
 let _suList = [];
 let _suStatusFilter = 'active';   // 'all' | 'active' | 'inactive'
 let _suTab = 'all';               // 'all' | 'doumu' | 'sougaku' | 'gh' | 'start'
+let _suSubTab = 'all';            // 'all' | <group name>: doumu/sougaku 配下のサブタブ
 let _suSearch = '';
 let _suEditCtx = null;            // {mode:'new'|'edit', id?, data}
 
 function _suEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// サブタブ判定: group フィールド一致 OR notes に「<班>班」を含む (旧データ救済)
+// パン缶 と パン の判定順は要注意 (パン缶班 は indexOf('パン班') にヒットしない、安心)
+function _suMatchSubGroup(u, sub) {
+  if (sub === 'all') return true;
+  if (u.group === sub) return true;
+  const notes = u.notes || '';
+  return notes.indexOf(sub + '班') >= 0;
+}
 function _suMatchTab(u) {
   if (_suTab === 'all') return true;
-  if (_suTab === 'doumu')   return u.daycare === 'doumu';
-  if (_suTab === 'sougaku') return u.daycare === 'sougaku';
+  if (_suTab === 'doumu')   return u.daycare === 'doumu'   && _suMatchSubGroup(u, _suSubTab);
+  if (_suTab === 'sougaku') return u.daycare === 'sougaku' && _suMatchSubGroup(u, _suSubTab);
   if (_suTab === 'gh')      return !!(u.gh && u.gh !== '');
   if (_suTab === 'start')   return !!(u.start_short_stay || u.start_home_care);
   return true;
 }
 function _suBadges(u) {
   let h = '';
-  if (u.daycare === 'doumu')     h += '<span class="su-badge" style="background:#E0F2FE;color:#075985">童里夢</span>';
-  if (u.daycare === 'sougaku')   h += '<span class="su-badge" style="background:#FCE7F3;color:#9D174D">奏楽</span>';
+  if (u.daycare === 'doumu')     h += '<span class="su-badge" style="background:#E0F2FE;color:#075985">童里夢' + (u.group ? ' / ' + _suEsc(u.group) : '') + '</span>';
+  if (u.daycare === 'sougaku')   h += '<span class="su-badge" style="background:#FCE7F3;color:#9D174D">奏楽' + (u.group ? ' / ' + _suEsc(u.group) : '') + '</span>';
   if (u.gh === 'tsumugi_m')      h += '<span class="su-badge" style="background:#DBEAFE;color:#1E3A8A">紬男子</span>';
   if (u.gh === 'tsumugi_f')      h += '<span class="su-badge" style="background:#F3E8FF;color:#6B21A8">紬女子</span>';
   if (u.gh === 'himawari')       h += '<span class="su-badge" style="background:#FEF3C7;color:#92400E">ひまわり</span>';
@@ -2850,6 +2863,18 @@ function _suRender() {
     html += '<div onclick="_suSetTab(\'' + v + '\')" style="flex:1;min-width:70px;text-align:center;padding:6px 8px;font-size:12px;font-weight:' + (on?'700':'500') + ';border-radius:8px;cursor:pointer;background:' + (on?'var(--purple)':'#fff') + ';color:' + (on?'#fff':'var(--text-sub)') + ';border:0.5px solid ' + (on?'var(--purple)':'var(--border)') + '">' + label + '</div>';
   }
   html += '</div>';
+  // 班サブタブ (童里夢 / 奏楽 のみ表示)
+  let subTabs = null;
+  if (_suTab === 'doumu')   subTabs = SU_SUB_TABS_DOUMU;
+  if (_suTab === 'sougaku') subTabs = SU_SUB_TABS_SOUGAKU;
+  if (subTabs) {
+    html += '<div style="display:flex;gap:4px;padding:0 12px 6px;flex-wrap:wrap">';
+    for (const t of subTabs) {
+      const v = t[0], label = t[1], on = _suSubTab === v;
+      html += '<div onclick="_suSetSubTab(\'' + v + '\')" style="flex:1;min-width:55px;text-align:center;padding:5px 6px;font-size:11px;font-weight:' + (on?'700':'500') + ';border-radius:6px;cursor:pointer;background:' + (on?'#EAE7FB':'transparent') + ';color:' + (on?'var(--purple)':'var(--text-sub)') + ';border:0.5px solid ' + (on?'var(--purple)':'var(--border)') + '">' + label + '</div>';
+    }
+    html += '</div>';
+  }
   // フィルタバー
   html += '<div style="padding:6px 12px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
@@ -2860,6 +2885,7 @@ function _suRender() {
   html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
   html += '<span style="font-size:12px;color:var(--text-sub);background:var(--fill-chip);padding:4px 10px;border-radius:12px">全 '+_suList.length+' 名中 <b style="color:var(--purple)">'+filtered.length+'</b> 名表示</span>';
   html += '<button onclick="_suMigrateStartUsers()" style="background:#fff;color:#9A5200;border:1px solid #FF9500;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer" title="旧 start_users コレクションのデータを users に統合">📦 旧データ移行</button>';
+  html += '<button onclick="_suExtractGroupsFromNotes()" style="background:#fff;color:#15803D;border:1px solid #15803D;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer" title="notes 内の「○○班」記述から group フィールドを自動抽出">📋 班抽出</button>';
   html += '<button onclick="_suOpenImport()" style="background:#fff;color:var(--purple);border:1px solid var(--purple);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV インポート</button>';
   // データ完全リセット (管理者のみ、一時的、別タスクで除去予定)
   if (currentUser && currentUser.role >= 3 && _suList.length > 0) {
@@ -2927,12 +2953,32 @@ function _suRender() {
 }
 
 window._suSetStatus = function(v) { _suStatusFilter = v; _suRender(); };
-window._suSetTab    = function(v) { _suTab = v; _suRender(); };
+window._suSetTab    = function(v) { if (_suTab !== v) _suSubTab = 'all'; _suTab = v; _suRender(); };
+window._suSetSubTab = function(v) { _suSubTab = v; _suRender(); };
+
+// 通所先ラジオ変更時: 班ドロップダウンの選択肢を切替 + 表示/非表示
+window._suOnDaycareChange = function() {
+  const dc = document.querySelector('input[name="su-daycare"]:checked');
+  const dcVal = dc ? dc.value : '';
+  const row = document.getElementById('su-f-group-row');
+  const sel = document.getElementById('su-f-group');
+  if (!row || !sel) return;
+  if (dcVal === 'doumu' || dcVal === 'sougaku') {
+    const groups = (dcVal === 'doumu') ? SU_GROUPS_DOUMU : SU_GROUPS_SOUGAKU;
+    let opts = '<option value="">なし</option>';
+    for (const g of groups) opts += '<option value="' + g + '">' + g + '</option>';
+    sel.innerHTML = opts;
+    row.style.display = '';
+  } else {
+    sel.value = '';
+    row.style.display = 'none';
+  }
+};
 window._suSetSearch = function(v) { _suSearch = (v||'').trim(); _suRender(); };
 
 window._suOpenNew = function() {
   if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
-  _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, daycare:null, gh:null, start_short_stay:false, start_home_care:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
+  _suEditCtx = { mode: 'new', data: { name:'', furigana:'', is_active:true, daycare:null, gh:null, group:null, start_short_stay:false, start_home_care:false, contact_name:'', contact_relation:'', contact_phone:'', notes:'' } };
   _suRenderModal();
 };
 window._suOpenEdit = function(id) {
@@ -2970,10 +3016,18 @@ function _suRenderModal() {
     + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-no" value="0"'+(d.is_active===false?' checked':'')+'/>退所</label></div></div>'
     + '<span class="tog-label">通所先（択一）</span>'
     + '<div style="display:flex;gap:14px;padding:4px 0 8px;flex-wrap:wrap">'
-    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="" '+(!d.daycare?'checked':'')+'/>なし</label>'
-    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="doumu" '+(d.daycare==='doumu'?'checked':'')+'/>童里夢</label>'
-    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="sougaku" '+(d.daycare==='sougaku'?'checked':'')+'/>奏楽</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="" '+(!d.daycare?'checked':'')+' onchange="_suOnDaycareChange()"/>なし</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="doumu" '+(d.daycare==='doumu'?'checked':'')+' onchange="_suOnDaycareChange()"/>童里夢</label>'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-daycare" value="sougaku" '+(d.daycare==='sougaku'?'checked':'')+' onchange="_suOnDaycareChange()"/>奏楽</label>'
     + '</div>'
+    + (function(){
+        // 班 (通所先 doumu/sougaku 時のみ表示、daycare に応じて選択肢切替)
+        const groups = (d.daycare === 'doumu') ? SU_GROUPS_DOUMU : (d.daycare === 'sougaku') ? SU_GROUPS_SOUGAKU : [];
+        const display = groups.length ? '' : 'none';
+        let opts = '<option value="">なし</option>';
+        for (const g of groups) opts += '<option value="' + g + '"' + (d.group === g ? ' selected' : '') + '>' + g + '</option>';
+        return '<div id="su-f-group-row" class="frow" style="display:' + display + '"><span class="flbl">班</span><select id="su-f-group" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right">' + opts + '</select></div>';
+      })()
     + '<span class="tog-label">GH 居住（択一）</span>'
     + '<div style="display:flex;gap:14px;padding:4px 0 8px;flex-wrap:wrap">'
     + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-gh" value="" '+(!d.gh?'checked':'')+'/>なし</label>'
@@ -3011,12 +3065,20 @@ window._suSave = async function() {
   if (!name)     { showToast('氏名を入力してください'); return; }
   const dcEl = document.querySelector('input[name="su-daycare"]:checked');
   const ghEl = document.querySelector('input[name="su-gh"]:checked');
+  const grpEl = document.getElementById('su-f-group');
+  const dcVal = (dcEl && dcEl.value) ? dcEl.value : null;
+  // 班は通所先 doumu/sougaku のみ有効。それ以外は null。
+  const grpRaw = grpEl ? grpEl.value : '';
+  let grpVal = null;
+  if (dcVal === 'doumu'   && SU_GROUPS_DOUMU.indexOf(grpRaw)   >= 0) grpVal = grpRaw;
+  if (dcVal === 'sougaku' && SU_GROUPS_SOUGAKU.indexOf(grpRaw) >= 0) grpVal = grpRaw;
   const payload = {
     name: name,
     furigana: furigana,
     is_active:        document.getElementById('su-f-active-yes').checked,
-    daycare:          (dcEl && dcEl.value) ? dcEl.value : null,
+    daycare:          dcVal,
     gh:               (ghEl && ghEl.value) ? ghEl.value : null,
+    group:            grpVal,
     start_short_stay: document.getElementById('su-f-shortstay').checked,
     start_home_care:  document.getElementById('su-f-homecare').checked,
     contact_name:     document.getElementById('su-f-cname').value.trim(),
@@ -3045,7 +3107,7 @@ window._suSave = async function() {
 };
 
 // ─── #StartUsers: CSV 一括インポート ───
-const SU_CSV_COLS = ['name','furigana','daycare','gh','start_short_stay','start_home_care','is_active','contact_name','contact_relation','contact_phone','notes'];
+const SU_CSV_COLS = ['name','furigana','daycare','gh','group','start_short_stay','start_home_care','is_active','contact_name','contact_relation','contact_phone','notes'];
 const SU_DAYCARE_VALUES = ['', 'doumu', 'sougaku'];
 const SU_GH_VALUES      = ['', 'tsumugi_m', 'tsumugi_f', 'himawari'];
 let _suImportCtx = null;  // {step:1|2, parsed: [...rows], summary: {...}}
@@ -3088,11 +3150,11 @@ window._suCloseImport = function() {
   _suImportCtx = null;
 };
 window._suDownloadTemplate = function() {
-  // name,furigana,daycare,gh,start_short_stay,start_home_care,is_active,contact_name,contact_relation,contact_phone,notes
+  // name,furigana,daycare,gh,group,start_short_stay,start_home_care,is_active,contact_name,contact_relation,contact_phone,notes
   const sample = SU_CSV_COLS.join(',') + '\n'
-    + '山田太郎,やまだたろう,doumu,,1,0,1,山田花子,母,090-1234-5678,アレルギー：卵\n'
-    + '鈴木一郎,すずきいちろう,,tsumugi_m,0,0,1,,,,\n'
-    + '佐藤花子,さとうはなこ,sougaku,,0,1,1,,,,居宅介護のみ\n';
+    + '山田太郎,やまだたろう,doumu,,雑貨,1,0,1,山田花子,母,090-1234-5678,アレルギー：卵\n'
+    + '鈴木一郎,すずきいちろう,,tsumugi_m,,0,0,1,,,,\n'
+    + '佐藤花子,さとうはなこ,sougaku,,かなで,0,1,1,,,,居宅介護のみ\n';
   // UTF-8 BOM 付与で Excel が文字化けせず開ける
   const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -3140,10 +3202,18 @@ window._suOnImportFile = async function(input) {
     const isActive = (isActiveRaw === '') ? true : _suParseBool(isActiveRaw);
     const dcRaw = get('daycare');
     const ghRaw = get('gh');
+    const grpRaw = get('group');
+    // 班は daycare に応じて検証 (不一致は null)
+    let grpVal = null;
+    if (grpRaw) {
+      if (dcRaw === 'doumu'   && SU_GROUPS_DOUMU.indexOf(grpRaw)   >= 0) grpVal = grpRaw;
+      if (dcRaw === 'sougaku' && SU_GROUPS_SOUGAKU.indexOf(grpRaw) >= 0) grpVal = grpRaw;
+    }
     const payload = (status === 'valid') ? {
       name: name, furigana: furigana, is_active: isActive,
       daycare:          (SU_DAYCARE_VALUES.indexOf(dcRaw) >= 0 && dcRaw) ? dcRaw : null,
       gh:               (SU_GH_VALUES.indexOf(ghRaw) >= 0 && ghRaw) ? ghRaw : null,
+      group:            grpVal,
       start_short_stay: _suParseBool(get('start_short_stay')),
       start_home_care:  _suParseBool(get('start_home_care')),
       contact_name:     get('contact_name'),
@@ -3244,6 +3314,50 @@ window._suMigrateStartUsers = async function() {
   renderStartUsers();
 };
 
+// notes フィールド内の「<班>班」記述から group フィールドを自動抽出 (一回限り運用)
+// 例: notes に「童里夢雑貨班」を含む → group="雑貨"
+// パン缶 と パン の優先順序に注意 (パン缶班 を先にマッチ判定)
+window._suExtractGroupsFromNotes = async function() {
+  if (!currentUser || currentUser.role < 2) { showToast('管理者・上司のみ'); return; }
+  let snap;
+  try { snap = await getDocs(collection(db, 'users')); }
+  catch (e) { showToast('読込失敗: ' + (e.message||e)); return; }
+  if (snap.empty) { showToast('users が空です'); return; }
+  const candidates = [];
+  snap.forEach(function(d){
+    const u = d.data();
+    if (u.group) return; // 既に group が設定済み → スキップ
+    const notes = u.notes || '';
+    let g = null;
+    // 童里夢系: パン缶 → 雑貨 → レストラン → パン (パン缶を先に判定)
+    if      (notes.indexOf('パン缶班') >= 0)       g = 'パン缶';
+    else if (notes.indexOf('雑貨班') >= 0)         g = '雑貨';
+    else if (notes.indexOf('レストラン班') >= 0)   g = 'レストラン';
+    else if (notes.indexOf('パン班') >= 0)         g = 'パン';
+    // 奏楽系
+    else if (notes.indexOf('かなで班') >= 0)       g = 'かなで';
+    else if (notes.indexOf('といろ班') >= 0)       g = 'といろ';
+    else if (notes.indexOf('らくらく班') >= 0)     g = 'らくらく';
+    if (g) candidates.push({ ref: d.ref, id: d.id, group: g });
+  });
+  if (!candidates.length) { showToast('notes に「○○班」記述を含む未設定レコードはありません'); return; }
+  if (!confirm(candidates.length + ' 件のレコードに group を抽出セットします。\n（既に group 設定済みのレコードはスキップ）\n\n続行しますか？')) return;
+  showToast('抽出中... (' + candidates.length + ' 件)');
+  let ok = 0, ng = 0;
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+    const slice = candidates.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    slice.forEach(function(c){
+      batch.update(c.ref, { group: c.group, updatedAt: serverTimestamp(), updatedBy: currentStaff || '' });
+    });
+    try { await batch.commit(); ok += slice.length; }
+    catch (e) { console.error('extract batch failed:', e); ng += slice.length; }
+  }
+  showToast('✓ ' + ok + ' 件更新完了' + (ng?' / ' + ng + ' 件失敗':''));
+  renderStartUsers();
+};
+
 // ─── 一時的: users コレクション完全リセット (管理者専用、別タスクで除去予定) ───
 // インポート重複の完全クリーンアップ用。Firestore writeBatch で 500 件ずつ削除。
 window._suResetAll = async function() {
@@ -3299,7 +3413,7 @@ function _suRenderImportModal() {
       + '2. Excel で開いて各列を入力（必須: name のみ、furigana 等は任意）<br>'
       + '3. <b>「CSV UTF-8 (コンマ区切り)」</b>形式で保存（文字化け防止）<br>'
       + '4. 下の選択ボタンで保存した CSV をアップロード<br>'
-      + '<span style="color:var(--text-sub);font-size:11px">※ daycare: 空 / doumu / sougaku<br>※ gh: 空 / tsumugi_m / tsumugi_f / himawari<br>※ start_short_stay, start_home_care, is_active は 1/0、true/false、○/×、空欄=空欄(is_active のみ空欄=利用中) のいずれも可</span>'
+      + '<span style="color:var(--text-sub);font-size:11px">※ daycare: 空 / doumu / sougaku<br>※ gh: 空 / tsumugi_m / tsumugi_f / himawari<br>※ group (班): daycare=doumu の時 雑貨/レストラン/パン/パン缶、daycare=sougaku の時 かなで/といろ/らくらく、それ以外は空<br>※ start_short_stay, start_home_care, is_active は 1/0、true/false、○/×、空欄=空欄(is_active のみ空欄=利用中) のいずれも可</span>'
       + '</div>'
       + '<button class="sbtn" style="width:100%;background:#fff;color:var(--purple);border:1px solid var(--purple);margin-bottom:10px" onclick="_suDownloadTemplate()"><i data-lucide="download"></i> テンプレート CSV をダウンロード</button>'
       + '<label for="su-import-file" style="display:block;cursor:pointer;padding:14px;background:var(--fill-chip);color:var(--purple);border-radius:10px;font-size:13px;font-weight:600;text-align:center"><i data-lucide="upload"></i> CSV ファイルを選択</label>'
