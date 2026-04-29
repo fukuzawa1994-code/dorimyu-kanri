@@ -828,7 +828,9 @@ textarea:focus { outline: 1px solid var(--purple); outline-offset: -1px; }
   <div class="header">
     <div class="header-inner">
       <div class="header-top">
+        <button id="hd-back" onclick="goBack()" style="display:none;background:transparent;border:none;color:var(--purple);font-size:13px;cursor:pointer;padding:6px 8px;font-weight:600;flex-shrink:0" title="前の画面へ戻る">← 戻る</button>
         <div class="hd-role" id="hd-role"></div>
+        <button id="hd-refresh" onclick="refreshCurrent()" style="background:transparent;border:none;font-size:18px;cursor:pointer;padding:4px 10px;flex-shrink:0;line-height:1" title="最新データに更新">🔄</button>
         <span class="current-user" id="hd-staff" onclick="showUserMenu()" title="メニュー"></span>
       </div>
       <h1 id="hd-title">送迎一覧 <span class="sync-dot" id="sync-dot" style="display:none"></span></h1>
@@ -1628,7 +1630,59 @@ window.getStaffAffiliation = getStaffAffiliation;
 
 
 
+// ナビ履歴 (戻るボタン用、goBack でポップ)
+let _navStack = [];
+let _navSuppressBack = false;
+window.goBack = function() {
+  if (!_navStack.length) { goScr('list'); return; }
+  const target = _navStack.pop();
+  _navSuppressBack = true;
+  goScr(target);
+  _navSuppressBack = false;
+};
+window.refreshCurrent = function() {
+  const s = currentScr || 'list';
+  // 各画面の re-render を直接呼ぶ (scrollTop 維持、画面遷移なし)
+  switch (s) {
+    case 'list':  renderList(); break;
+    case 'notif': renderNotif(); break;
+    case 'hist':  renderHist(document.getElementById('hist-search') ? document.getElementById('hist-search').value : ''); break;
+    case 'kyushoku': renderKyushokuCal(); renderKyushoku(); break;
+    case 'master':   renderMasterList(); break;
+    case 'absence':  renderAbsenceCal(); renderAbsence(); break;
+    case 'distance': renderDistanceLog(); break;
+    case 'case':     if (typeof initCaseForm==='function') initCaseForm(); break;
+    case 'purchase': renderPurchaseList(); break;
+    case 'admin':    if (typeof renderAdminPanel==='function') renderAdminPanel(); break;
+    case 'shortstay':      renderShortstayList(); break;
+    case 'shortstay-hist': renderShortstayHist(); break;
+    case 'shortstay-edit': renderShortstayEdit(); break;
+    case 'cashbook':   renderCashbook(); break;
+    case 'allowance':  renderAllowance(); break;
+    case 'staff-list': renderStaffList(); break;
+    case 'start-users':renderStartUsers(); break;
+    case 'vacation':   if (typeof renderVacationList==='function') renderVacationList(); break;
+    case 'inspection': if (typeof renderInspectionList==='function') renderInspectionList(); break;
+    case 'alcohol': {
+      const inputArea = document.getElementById('alcohol-input-area');
+      if (inputArea && inputArea.style.display !== 'none') renderAlcoholInput();
+      else renderAlcoholMonth();
+      break;
+    }
+    case 'startkyushoku':
+      if (typeof renderStartHistory === 'function') renderStartHistory();
+      if (typeof renderStartMonth === 'function') renderStartMonth();
+      break;
+  }
+  showToast('🔄 最新データに更新しました');
+};
+
 window.goScr = function(s) {
+  // ナビ履歴: 戻る抑制中以外は遷移前の画面を push (上限 30、同一画面の連続 push は抑制)
+  if (!_navSuppressBack && currentScr && currentScr !== s) {
+    _navStack.push(currentScr);
+    if (_navStack.length > 30) _navStack.shift();
+  }
   masterEditMode = false; // #33a: 画面遷移で編集モードを必ず解除
   currentScr = s;
   ['list','form','notif','hist','kyushoku','startkyushoku','absence','distance','case','purchase','admin','vacation','inspection','alcohol','master','shortstay','shortstay-hist','shortstay-edit','cashbook','allowance','staff-list','start-users'].forEach(id => {
@@ -1672,6 +1726,9 @@ window.goScr = function(s) {
     renderVacationList();
   }
   const _ab=document.getElementById('ni-admin'); if(_ab) _ab.style.display=(currentUser&&currentUser.role>=3)?'flex':'none';
+  // 戻るボタン表示制御: 'list' (ホーム) 以外で履歴があれば表示
+  const _bb = document.getElementById('hd-back');
+  if (_bb) _bb.style.display = (s !== 'list' && _navStack.length > 0) ? '' : 'none';
   if (window.refreshIcons) window.refreshIcons();
   updateDot();
 }
