@@ -2936,7 +2936,7 @@ function _suRenderModal() {
     + '<div class="fp" style="padding-bottom:0">'
     + '<div class="fsec">'
     + '<div class="frow"><span class="flbl">氏名 <span style="color:#FF3B30">*</span></span><input id="su-f-name" type="text" value="'+_suEsc(d.name||'')+'" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
-    + '<div class="frow"><span class="flbl">ふりがな <span style="color:#FF3B30">*</span></span><input id="su-f-furigana" type="text" value="'+_suEsc(d.furigana||'')+'" placeholder="ひらがな" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
+    + '<div class="frow"><span class="flbl">ふりがな</span><input id="su-f-furigana" type="text" value="'+_suEsc(d.furigana||'')+'" placeholder="ひらがな（任意）" style="font-size:13px;border:none;background:transparent;color:var(--text);outline:none;text-align:right;width:60%"/></div>'
     + '<div class="frow"><span class="flbl">ステータス</span>'
     + '<div style="display:flex;gap:14px"><label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-yes" value="1"'+(d.is_active!==false?' checked':'')+'/>利用中</label>'
     + '<label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="radio" name="su-active" id="su-f-active-no" value="0"'+(d.is_active===false?' checked':'')+'/>退所</label></div></div>'
@@ -2968,7 +2968,6 @@ window._suSave = async function() {
   const name     = document.getElementById('su-f-name').value.trim();
   const furigana = document.getElementById('su-f-furigana').value.trim();
   if (!name)     { showToast('氏名を入力してください'); return; }
-  if (!furigana) { showToast('ふりがなを入力してください'); return; }
   const payload = {
     name: name,
     furigana: furigana,
@@ -3069,8 +3068,8 @@ window._suOnImportFile = async function(input) {
   const header = rows[0].map(function(s){ return (s||'').trim().toLowerCase(); });
   const colMap = {};
   for (const c of SU_CSV_COLS) colMap[c] = header.indexOf(c);
-  if (colMap.name < 0 || colMap.furigana < 0) {
-    showToast('ヘッダー行に必須列 name / furigana が見つかりません'); return;
+  if (colMap.name < 0) {
+    showToast('ヘッダー行に必須列 name が見つかりません'); return;
   }
   // データ行解析
   const seenInCsv = new Set();
@@ -3080,11 +3079,10 @@ window._suOnImportFile = async function(input) {
     const r = rows[i];
     const get = function(c){ const idx = colMap[c]; return (idx >= 0 && idx < r.length) ? (r[idx]||'').trim() : ''; };
     const name = get('name');
-    const furigana = get('furigana');
+    const furigana = get('furigana');  // 任意 (空でも有効)
     let status = 'valid', reason = '';
     const key = name + '|' + furigana;
     if (!name) { status = 'invalid'; reason = '氏名必須'; }
-    else if (!furigana) { status = 'invalid'; reason = 'ふりがな必須'; }
     else if (existingKeys.has(key)) { status = 'duplicate'; reason = '既存データと重複'; }
     else if (seenInCsv.has(key)) { status = 'duplicate'; reason = 'CSV内重複'; }
     if (status === 'valid') seenInCsv.add(key);
@@ -3150,7 +3148,7 @@ function _suRenderImportModal() {
       + '<div style="font-size:12px;color:var(--text-sub);line-height:1.7;margin-bottom:14px">'
       + '<b>使い方:</b><br>'
       + '1. 下のボタンでテンプレート CSV をダウンロード<br>'
-      + '2. Excel で開いて各列を入力（必須: name, furigana）<br>'
+      + '2. Excel で開いて各列を入力（必須: name のみ、furigana 等は任意）<br>'
       + '3. <b>「CSV UTF-8 (コンマ区切り)」</b>形式で保存（文字化け防止）<br>'
       + '4. 下の選択ボタンで保存した CSV をアップロード<br>'
       + '<span style="color:var(--text-sub);font-size:11px">※ is_short_stay / is_gh は 1/0、true/false、○/×、空欄=0 のいずれも可</span>'
